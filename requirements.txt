@@ -1,0 +1,10 @@
+streamlit
+opencv-python-headless
+numpy
+pandas
+plotly
+pymupdf
+matplotlib
+requests
+google-generativeai
+pillow
