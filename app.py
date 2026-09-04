@@ -2412,6 +2412,64 @@ def auto_assegna_trattamento_righetti(cl_id, conn, sintomi_dict):
     conn.commit()
     return n_assegnati
 
+# ============================================================================
+# 🆕 QUI DEVI INSERIRE LA FUNZIONE MANCANTE PER GOOGLE DRIVE
+# ============================================================================
+def invia_file_a_google_drive(
+    file_bytes, nome_file, nome_cliente, mime_type="application/pdf"
+):
+    """Invia file a Google Drive tramite webhook"""
+    
+    # 1. Legge il webhook da session_state o dal file
+    webhook_url = st.session_state.get("gdrive_webhook_url", "") or os.getenv(
+        "GDRIVE_WEBHOOK_URL", ""
+    )
+
+    if not webhook_url and os.path.exists("gdrive_webhook.txt"):
+        try:
+            with open("gdrive_webhook.txt", "r") as f:
+                webhook_url = f.read().strip()
+        except Exception:
+            pass
+
+    if not webhook_url:
+        return False, "Webhook Google Drive non configurato. Inserisci l'URL nella sidebar."
+
+    try:
+        # 2. Codifica il file in base64
+        b64_file = base64.b64encode(file_bytes).decode("utf-8")
+        
+        # 3. Prepara il payload per lo script Google Apps
+        payload = {
+            "clientFolder": str(nome_cliente).strip(),
+            "fileName": str(nome_file).strip(),
+            "fileBase64": b64_file,
+            "mimeType": mime_type,
+        }
+        
+        # 4. Invia la richiesta al webhook
+        resp = requests.post(webhook_url.strip(), json=payload, timeout=30)
+        
+        # 5. Gestisce la risposta
+        if resp.status_code == 200:
+            try:
+                res_json = resp.json()
+                if res_json.get("status") == "success":
+                    return True, f"✅ File salvato su Google Drive: {res_json.get('finalFileName', nome_file)}"
+                else:
+                    return False, f"❌ Errore Google Drive: {res_json.get('message', 'Errore sconosciuto')}"
+            except:
+                return True, "✅ File inviato a Google Drive (risposta non JSON)"
+        else:
+            return False, f"❌ Errore HTTP {resp.status_code}: {resp.text[:200]}"
+            
+    except requests.exceptions.Timeout:
+        return False, "⏰ Timeout: Google Drive non risponde (30 secondi)"
+    except requests.exceptions.ConnectionError:
+        return False, "🔌 Errore di connessione a Google Drive"
+    except Exception as e:
+        return False, f"❌ Errore invio: {str(e)}"
+
 
 # ============================================================================
 # MAIN APPLICATION & INTERFACCIA STREAMLIT
