@@ -39,12 +39,14 @@ def init_db():
     except Exception:
         pass
 
-    c.execute("""CREATE TABLE IF NOT EXISTS clienti (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS clienti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         codice_cliente TEXT UNIQUE NOT NULL,
         sesso TEXT DEFAULT 'Uomo',
         data_registrazione TEXT DEFAULT CURRENT_TIMESTAMP
-    )""")
+    )"""
+    )
 
     # Migrazioni sicure: aggiunge le colonne se mancano nel database esistente
     for col_c in ["sesso", "cellulare", "email"]:
@@ -53,7 +55,8 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
-    c.execute("""CREATE TABLE IF NOT EXISTS analisi (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS analisi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cliente_id INTEGER,
         data TEXT NOT NULL,
@@ -76,12 +79,15 @@ def init_db():
         prurito TEXT,
         routine_consigliata TEXT,
         FOREIGN KEY (cliente_id) REFERENCES clienti(id)
-    )""")
+    )"""
+    )
 
-    c.execute("""CREATE TABLE IF NOT EXISTS categorie (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS categorie (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT UNIQUE NOT NULL
-    )""")
+    )"""
+    )
 
     c.execute("SELECT COUNT(*) FROM categorie")
     if c.fetchone()[0] == 0:
@@ -95,7 +101,8 @@ def init_db():
         ]
         c.executemany("INSERT INTO categorie (nome) VALUES (?)", default_cat)
 
-    c.execute("""CREATE TABLE IF NOT EXISTS prodotti (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS prodotti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT UNIQUE,
         categoria TEXT,
@@ -107,9 +114,11 @@ def init_db():
         dosi TEXT,
         tempi_posa TEXT,
         durata_utilizzo TEXT
-    )""")
+    )"""
+    )
 
-    c.execute("""CREATE TABLE IF NOT EXISTS prodotti_cliente (
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS prodotti_cliente (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cliente_id INTEGER,
         prodotto_id INTEGER,
@@ -123,7 +132,8 @@ def init_db():
         data_assegnazione TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (cliente_id) REFERENCES clienti(id),
         FOREIGN KEY (prodotto_id) REFERENCES prodotti(id)
-    )""")
+    )"""
+    )
 
     for col in ["modalita", "frequenza", "orario"]:
         try:
@@ -1505,52 +1515,42 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
 
 
 # ============================================================================
-# GESTIONE CARTELLA MASTER "PERCORSI CLIENTI" DELLO STUDIO
+# GESTIONE CARTELLA MASTER "PERCORSI CLIENTI" - VERSIONE PER STREAMLIT CLOUD
 # ============================================================================
 def trova_o_crea_cartella_cliente(nome_cliente):
-    """Individua la cartella del cliente dentro 'PERCORSI CLIENTI' con match intelligente."""
-    # 1. Percorso assoluto primario dello studio
-    percorsi_possibili = [
-        "/Users/righettisince1967/Desktop/PERCORSI CLIENTI",
-        os.path.expanduser("~/Desktop/PERCORSI CLIENTI"),
-        os.path.expanduser("~/Desktop/PERCORSO CLIENTI"),
-    ]
-
-    cartella_master = None
-    for p in percorsi_possibili:
-        if os.path.exists(p):
-            cartella_master = p
-            break
-
-    if not cartella_master:
-        cartella_master = "/Users/righettisince1967/Desktop/PERCORSI CLIENTI"
+    """Trova o crea la cartella del cliente - ADATTATA PER STREAMLIT CLOUD"""
+    
+    # USA LA CARTELLA DEL PROGETTO (dove hai i permessi di scrittura)
+    cartella_master = os.path.join(os.getcwd(), "PERCORSI CLIENTI")
+    
+    try:
         os.makedirs(cartella_master, exist_ok=True)
-
-    if not nome_cliente or str(nome_cliente).strip() in (
-        "",
-        "-- Seleziona --",
-    ):
+    except Exception:
+        # Fallback: usa una cartella temporanea
+        import tempfile
+        cartella_master = os.path.join(tempfile.gettempdir(), "PERCORSI_CLIENTI")
+        os.makedirs(cartella_master, exist_ok=True)
+    
+    if not nome_cliente or str(nome_cliente).strip() in ("", "-- Seleziona --"):
         return cartella_master
-
+    
     # Parole del nome cercato (in minuscolo)
     parole_cercate = set(re.findall(r"\w+", str(nome_cliente).lower(), re.UNICODE))
-
+    
     # Scansione intelligente delle cartelle già esistenti
     try:
         cartelle_esistenti = [
-            d
-            for d in os.listdir(cartella_master)
+            d for d in os.listdir(cartella_master)
             if os.path.isdir(os.path.join(cartella_master, d))
         ]
         for cartella in cartelle_esistenti:
             parole_cartella = set(re.findall(r"\w+", str(cartella).lower(), re.UNICODE))
-            # Riconosce sia "Mario Rossi" che "Rossi Mario"
             if parole_cercate and parole_cartella and parole_cercate == parole_cartella:
                 return os.path.join(cartella_master, cartella)
     except Exception:
         pass
-
-    # Se è un nuovo cliente, crea la sua cartella dentro PERCORSI CLIENTI
+    
+    # Se è un nuovo cliente, crea la sua cartella
     nuova_cartella = os.path.join(cartella_master, str(nome_cliente).strip())
     os.makedirs(nuova_cartella, exist_ok=True)
     return nuova_cartella
@@ -2442,13 +2442,31 @@ def main():
             with open(config_file_sheet, "r") as f:
                 link_salvato = f.read().strip()
 
+        webhook_saved = st.session_state.get("gdrive_webhook_url", "")
+        if not webhook_saved and os.path.exists("gdrive_webhook.txt"):
+            with open("gdrive_webhook.txt", "r") as f:
+                webhook_saved = f.read().strip()
+
+        # --- 1. EXPANDER COLLEGAMENTO GOOGLE ---
         with st.expander("🔄 Collegamento Google Sheets", expanded=False):
             link_foglio = st.text_input(
-                "Link del Foglio Google:",
+                "1. Link del Foglio Google:",
                 value=link_salvato,
                 placeholder="https://docs.google.com/spreadsheets/d/...",
                 key="input_google_sheet_url",
             )
+
+            link_webhook_input = st.text_input(
+                "2. Webhook Google Drive:",
+                value=webhook_saved,
+                placeholder="https://script.google.com/macros/s/.../exec",
+                key="input_gdrive_webhook",
+            )
+
+            if link_webhook_input.strip() and link_webhook_input != webhook_saved:
+                with open("gdrive_webhook.txt", "w") as f_w:
+                    f_w.write(link_webhook_input.strip())
+                st.session_state["gdrive_webhook_url"] = link_webhook_input.strip()
 
             col_s1, col_s2 = st.columns(2)
             with col_s1:
