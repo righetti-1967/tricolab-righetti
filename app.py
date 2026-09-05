@@ -17,6 +17,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import fitz  # PyMuPDF
 import warnings
+from supabase import create_client, Client
 
 warnings.filterwarnings("ignore")
 
