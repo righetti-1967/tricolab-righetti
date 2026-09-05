@@ -33,7 +33,7 @@ if "supabase" not in st.session_state:
 supabase = st.session_state.supabase  # <-- ALIAS PER COMODITÀ
 
 st.set_page_config(
-    page_title="🔬 Studio Tricologico Righetti Since 1967",
+    page_title="Studio Tricologico Righetti Since 1967",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
