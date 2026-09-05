@@ -20,6 +20,14 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+# --- CONNESSIONE SUPABASE ---
+try:
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception:
+    supabase = None
+
 st.set_page_config(
     page_title="🔬 Studio Tricologico Righetti Since 1967",
     page_icon="🔬",
