@@ -41,6 +41,7 @@ st.set_page_config(
 # DATABASE (MULTI-UTENTE WAL + TIMEOUT)
 # ============================================================================
 def init_db():
+    """Verifica la presenza dei 13 prodotti ufficiali su Supabase e li aggiorna se necessario."""
     conn = sqlite3.connect("trico_database.db", timeout=30)
     c = conn.cursor()
     try:
@@ -48,24 +49,22 @@ def init_db():
     except Exception:
         pass
 
-    c.execute(
-        """CREATE TABLE IF NOT EXISTS clienti (
+    c.execute("""CREATE TABLE IF NOT EXISTS clienti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         codice_cliente TEXT UNIQUE NOT NULL,
         sesso TEXT DEFAULT 'Uomo',
+        cellulare TEXT,
+        email TEXT,
         data_registrazione TEXT DEFAULT CURRENT_TIMESTAMP
-    )"""
-    )
+    )""")
 
-    # Migrazioni sicure: aggiunge le colonne se mancano nel database esistente
     for col_c in ["sesso", "cellulare", "email"]:
         try:
             c.execute(f"ALTER TABLE clienti ADD COLUMN {col_c} TEXT")
         except sqlite3.OperationalError:
             pass
 
-    c.execute(
-        """CREATE TABLE IF NOT EXISTS analisi (
+    c.execute("""CREATE TABLE IF NOT EXISTS analisi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cliente_id INTEGER,
         data TEXT NOT NULL,
@@ -88,30 +87,14 @@ def init_db():
         prurito TEXT,
         routine_consigliata TEXT,
         FOREIGN KEY (cliente_id) REFERENCES clienti(id)
-    )"""
-    )
+    )""")
 
-    c.execute(
-        """CREATE TABLE IF NOT EXISTS categorie (
+    c.execute("""CREATE TABLE IF NOT EXISTS categorie (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT UNIQUE NOT NULL
-    )"""
-    )
+    )""")
 
-    c.execute("SELECT COUNT(*) FROM categorie")
-    if c.fetchone()[0] == 0:
-        default_cat = [
-            ("Topico Cosmetico",),
-            ("Integratore",),
-            ("Probiotico",),
-            ("Detergente",),
-            ("Spray",),
-            ("Altro",),
-        ]
-        c.executemany("INSERT INTO categorie (nome) VALUES (?)", default_cat)
-
-    c.execute(
-        """CREATE TABLE IF NOT EXISTS prodotti (
+    c.execute("""CREATE TABLE IF NOT EXISTS prodotti (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT UNIQUE,
         categoria TEXT,
@@ -123,11 +106,9 @@ def init_db():
         dosi TEXT,
         tempi_posa TEXT,
         durata_utilizzo TEXT
-    )"""
-    )
+    )""")
 
-    c.execute(
-        """CREATE TABLE IF NOT EXISTS prodotti_cliente (
+    c.execute("""CREATE TABLE IF NOT EXISTS prodotti_cliente (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cliente_id INTEGER,
         prodotto_id INTEGER,
@@ -141,8 +122,7 @@ def init_db():
         data_assegnazione TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (cliente_id) REFERENCES clienti(id),
         FOREIGN KEY (prodotto_id) REFERENCES prodotti(id)
-    )"""
-    )
+    )""")
 
     for col in ["modalita", "frequenza", "orario"]:
         try:
@@ -150,80 +130,269 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
-    c.execute("SELECT COUNT(*) FROM prodotti")
-    if c.fetchone()[0] == 0:
-        prodotti_default = [
-            (
-                "Lozione Dermocosmetica Lenitiva (Fitosteroli & Niacinamide)",
-                "Topico Cosmetico",
-                "Applicare 2ml su cute asciutta",
-                "Tutti i giorni",
-                "Sera",
-                "prurito_eritema",
-                "Equilibrio microambiente cutaneo",
-                "2ml",
-                "10 minuti",
-                "3 mesi",
-            ),
-            (
-                "Lozione Nutritiva Stelo (Serenoa & Zaffiro)",
-                "Topico Cosmetico",
-                "Applicare 2ml con massaggio",
-                "Tutti i giorni",
-                "Sera",
-                "miniaturizzazione",
-                "Prevenzione capello Vellus",
-                "2ml",
-                "5 minuti",
-                "6 mesi",
-            ),
-            (
-                "Integratore Cheratinico (Cistina, Metionina, Zinco)",
-                "Integratore",
-                "1 compressa al giorno",
-                "Tutti i giorni",
-                "Mattino",
-                "calibro_basso",
-                "Supporto sintesi cheratinica",
-                "1 compressa",
-                "Con acqua",
-                "3 mesi",
-            ),
-            (
-                "Probiotico Cutaneo",
-                "Probiotico",
-                "1 capsula al giorno",
-                "Tutti i giorni",
-                "Mattino",
-                "prurito",
-                "Riequilibrio microbioma",
-                "1 capsula",
-                "A stomaco vuoto",
-                "2 mesi",
-            ),
-            (
-                "Shampoo Purificante Sebo-Regolatore",
-                "Detergente",
-                "Applicare e massaggiare",
-                "2-3 volte/settimana",
-                "Lavaggio",
-                "prurito_eritema",
-                "Libera osti follicolari",
-                "5ml",
-                "2 minuti",
-                "Uso continuativo",
-            ),
-        ]
-        c.executemany(
-            """INSERT INTO prodotti 
-            (nome, categoria, modalita, frequenza, orario, trigger_condizione, note, dosi, tempi_posa, durata_utilizzo) 
-            VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            prodotti_default,
-        )
-
     conn.commit()
-    return conn
 
+    # Catalogo 18 Prodotti Ufficiali Righetti
+    prodotti_completi_righetti = [
+        {
+            "nome": "R-GOCCCE",
+            "categoria": "Topico Cosmetico",
+            "modalita": "Dopo lo Shampoo applicare le gocce sul cuoio capelluto e massaggiare.",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "Forfora-prurito-dermatite",
+            "note": "Gocce ad azione lenitiva e protettiva con restituzione degli elementi mancanti al cuoio capelluto.",
+            "dosi": " 1 o 2 pescate - 1ml circa",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "R-1 | OLI ESSENZIALI",
+            "categoria": "Topico Cosmetico",
+            "modalita": "Prima dello Shampoo applicare tutto il prodotto sul cuoio capelluto e massaggiare.",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "Dermatiti-dolore-Prurito",
+            "note": "Fialoide agli oli essenziali al 98% puri, lenitivo e calmante.",
+            "dosi": "1 fiala-8ml",
+            "tempi_posa": "5-10 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "R-2 | OLI ESSENZIALI",
+            "categoria": "Topico Cosmetico",
+            "modalita": "Dopo dello Shampoo applicare tutto il prodotto sul cuoio capelluto e massaggiare, NO risciacquo",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "Dermatiti-dolore-Prurito",
+            "note": "Fialoide agli oli essenziali al 98% puri, lenitivo e calmante.",
+            "dosi": "1 fiala-8ml",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "R-DETERGENTE",
+            "categoria": "Topico Cosmetico",
+            "modalita": "Applicare sui capelli umidi, massaggiare delicatamente e risciacquare abbondantemente",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "Dermatiti-dolore-Prurito",
+            "note": "Shampoo agli Oli Essenziali.",
+            "dosi": "7-10 ml",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "LIQUET CUTIS 100ML",
+            "categoria": "Topico Cosmetico",
+            "modalita": "Applicare sul cuoio capelluto prima dello shampoo, massaggiare delicatamente, quindi risciacquare.",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "tappi_sebo",
+            "note": "Scrub all'aloe vera con microgranuli di cellulosa per pulizia delicata e profonda dei tappi sebacei e ipercheratosi.",
+            "dosi": "3 cucchiaini da caffè",
+            "tempi_posa": "3 minuti massaggiando",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "LUTUM CUTIS 250ML",
+            "categoria": "Topico Cosmetico",
+            "modalita": "Distribuire sul cuoio capelluto dopo lo shampoo, lasciare in posa e risciacquare abbondantemente.",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "eritema_tappi",
+            "note": "Complesso essenziale all'argilla bianca, lavanda e tea tree oil ad azione dermolenitiva, antisettica e detossinante.",
+            "dosi": "1 cucchiaio da minestra",
+            "tempi_posa": "10-15 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "SH. COMPENSATIO 300ML",
+            "categoria": "Detergente",
+            "modalita": "Applicare sui capelli umidi, massaggiare delicatamente e risciacquare abbondantemente.",
+            "frequenza": "Lavaggi frequenti / alternato",
+            "orario": "",
+            "trigger_condizione": "sebo_grasso",
+            "note": "Detergente sebo-riequilibrante con estratti di salvia, bardana, rosmarino, arancio amaro e menta piperita.",
+            "dosi": "5-7 ml | 1 Noce",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "Uso continuativo",
+        },
+        {
+            "nome": "SH. PURGATIO 300ML",
+            "categoria": "Detergente",
+            "modalita": "Applicare sui capelli umidi, massaggiare delicatamente e risciacquare abbondantemente.",
+            "frequenza": "Lavaggi frequenti / alternato",
+            "orario": "",
+            "trigger_condizione": "forfora_prurito",
+            "note": "Detergente purificante antiforfora e desquamazioni con ortica, mentolo, lavanda e limone.",
+            "dosi": "5-7 ml | 1 Noce",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "Uso continuativo",
+        },
+        {
+            "nome": "SH. FORTIS 300ML",
+            "categoria": "Detergente",
+            "modalita": "Applicare sui capelli umidi, massaggiare delicatamente e risciacquare abbondantemente.",
+            "frequenza": "Lavaggi frequenti / alternato",
+            "orario": "",
+            "trigger_condizione": "caduta_deboli",
+            "note": "Detergente fortificante e densificante anticaduta con Kopexil, zenzero, timo, coriandolo e bacche di goji.",
+            "dosi": "5-7 ml | 1 Noce",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "Uso continuativo",
+        },
+        {
+            "nome": "SH. POTENTIA 300ML",
+            "categoria": "Detergente",
+            "modalita": "Applicare sui capelli umidi, massaggiare delicatamente e risciacquare abbondantemente.",
+            "frequenza": "Lavaggi frequenti / alternato",
+            "orario": "",
+            "trigger_condizione": "stimolante_radice",
+            "note": "Detergente energizzante e stimolante con estratto di ginseng, peperoncino, rosmarino e menta piperita.",
+            "dosi": "5-7 ml | 1 Noce",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "Uso continuativo",
+        },
+        {
+            "nome": "SH. REPARATOR CELLULARIS 300ML",
+            "categoria": "Detergente",
+            "modalita": "Distribuire sui capelli bagnati, emulsionare e risciacquare con abbondante acqua tiepida.",
+            "frequenza": "Lavaggi frequenti / alternato",
+            "orario": "",
+            "trigger_condizione": "idratante_fusto",
+            "note": "Detergente idratante e ristrutturante immediato con acido ialuronico, ceramidi, luppolo e bacche di goji.",
+            "dosi": "5-7 ml | 1 Noce",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "Uso continuativo",
+        },
+        {
+            "nome": "SPRAY FORTIS 100ML",
+            "categoria": "Spray",
+            "modalita": "Vaporizzare uniformemente sul cuoio capelluto a capelli umidi o asciutti, NO risciacquo.",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "densificante_stelo",
+            "note": "Lozione spray densificante coadiuvante anticaduta con Kopexil, zenzero, timo e acqua di coriandolo bio.",
+            "dosi": "8-10 puff",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "SPRAY PURGATIO 100ML",
+            "categoria": "Spray",
+            "modalita": "Vaporizzare uniformemente sul cuoio capelluto a capelli umidi o asciutti, NO risciacquo.",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "sebo_forfora",
+            "note": "Lozione spray purificante sebo-regolatrice con salvia, rosmarino, limone e vitamine del gruppo B.",
+            "dosi": "6-8 puff",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "GOCCE POTENTIA 100ML",
+            "categoria": "Gocce",
+            "modalita": "Distribuire goccia a goccia sulle aree diradate massaggiando con cura fino a completo assorbimento.",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "urto_miniaturizzazione",
+            "note": "Trattamento d'urto energizzante con cellule staminali vegetali, ginseng, rosmarino.",
+            "dosi": "2 pescate - 1ml circa",
+            "tempi_posa": "5 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "UNGUENTUM CELLULARIS 300ML",
+            "categoria": "Unguentum",
+            "modalita": "Applicare su tutto il cuoio ccapelluto dopo la detersione, lasciare agire e risciacquare.",
+            "frequenza": "Descrizione nel Protocollo",
+            "orario": "",
+            "trigger_condizione": "fusto_sfibrato-cute arrossata-forfora",
+            "note": "Argilla fito-lipidica rigenerante delle cellule epiteliali con acido ialuronico e 3 ceramidi.",
+            "dosi": "1 Cucchiaio da minestra",
+            "tempi_posa": "10 minuti",
+            "durata_utilizzo": "",
+        },
+        {
+            "nome": "CEROTUM POTENTIA",
+            "categoria": "Cerotto/Garza",
+            "modalita": "Applicare 1 cerotto sul polso a 4 dita dalla mano o alla base del collo tra attaccatura capelli e lobo orecchio.",
+            "frequenza": "1 cerotto ogni 24 ore",
+            "orario": "Durante le ore notturne",
+            "trigger_condizione": "caduta_effluvio-forfora",
+            "note": "Cerotti transdermici a rilascio prolungato con rusco, semburi, luppolo, carnitina e ginseng.",
+            "dosi": "1 cerotto",
+            "tempi_posa": "8-10 ore di rilascio",
+            "durata_utilizzo": "28 giorni (1 confezione) | 56 giorni (2 confezioni)",
+        },
+        {
+            "nome": "INTEGRATORE ANTI-DHT - 60 CAPSULE",
+            "categoria": "Integratore",
+            "modalita": "Assumere con un bicchiere d'acqua durante la prima colazione.",
+            "frequenza": "Tutti i giorni",
+            "orario": "Mattino",
+            "trigger_condizione": "anti_dht_orale",
+            "note": "Supporto nutrizionale mirato ad azione anti-DHT ed eutrofica della matrice del capello.",
+            "dosi": "1 capsula",
+            "tempi_posa": "",
+            "durata_utilizzo": "6 mesi (180 giorni)",
+        },
+        {
+            "nome": "PROBIOTICO | MICROBIOTA",
+            "categoria": "Probiotico",
+            "modalita": "Assumere con un bicchiere d'acqua durante il giorno.",
+            "frequenza": "Tutti i giorni",
+            "orario": "Mattino o Sera",
+            "trigger_condizione": "anti_dht_orale",
+            "note": "Supporto per la stabilizzazione del Microbiota Intestinale.",
+            "dosi": "1 Bustina",
+            "tempi_posa": "",
+            "durata_utilizzo": "2-3 mesi (60-90 giorni)",
+        },
+    ]
+
+    # Popola SQLite locale
+    c.execute("SELECT COUNT(*) FROM prodotti")
+    if c.fetchone()[0] < 18:
+        for p in prodotti_completi_righetti:
+            c.execute(
+                """INSERT OR IGNORE INTO prodotti 
+                (nome, categoria, modalita, frequenza, orario, trigger_condizione, note, dosi, tempi_posa, durata_utilizzo) 
+                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    p["nome"],
+                    p["categoria"],
+                    p["modalita"],
+                    p["frequenza"],
+                    p["orario"],
+                    p["trigger_condizione"],
+                    p["note"],
+                    p["dosi"],
+                    p["tempi_posa"],
+                    p["durata_utilizzo"],
+                ),
+            )
+        conn.commit()
+
+    # Popola Supabase Cloud
+    if supabase:
+        try:
+            res = (
+                supabase.table("prodotti")
+                .select("id", count="exact")
+                .limit(1)
+                .execute()
+            )
+            if res.count < 18:
+                for p in prodotti_completi_righetti:
+                    supabase.table("prodotti").upsert(
+                        p, on_conflict="nome"
+                    ).execute()
+        except Exception:
+            pass
+
+    return conn
 
 # ============================================================================
 # PARSER ESTRATTORE PER VECCHI REPORT PDF
