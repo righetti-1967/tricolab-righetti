@@ -2503,6 +2503,7 @@ def invia_file_a_google_drive(
 # MAIN APPLICATION & INTERFACCIA STREAMLIT
 # ============================================================================
 def main():
+    global supabase
     st.markdown(
         """
     <div style="background: linear-gradient(90deg, #1e3a5f, #2d5f8a); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 30px;">
