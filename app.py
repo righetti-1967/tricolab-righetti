@@ -4646,8 +4646,10 @@ def main():
 # TAB 5: GESTIONE PRODOTTI & CATEGORIE
 # ============================================================
 with tab5:
-    global supabase
     st.header("⚙️ Gestione Prodotti & Categorie")
+    
+    # Prendi supabase da session_state
+    sb = st.session_state.get("supabase", None)
     
     # 🔄 PULSANTE RICARICA DA SUPABASE
     col_refresh1, col_refresh2 = st.columns([4, 1])
@@ -4658,16 +4660,16 @@ with tab5:
     
     # 📋 CARICA CATEGORIE - SOLO DA SUPABASE
     df_categorie = pd.DataFrame()
-    if supabase is not None:
+    if sb is not None:
         try:
-            res_cat = supabase.table("categorie").select("*").order("nome").execute()
+            res_cat = sb.table("categorie").select("*").order("nome").execute()
             if res_cat.data:
                 df_categorie = pd.DataFrame(res_cat.data)
                 st.success(f"✅ {len(df_categorie)} categorie caricate da Supabase")
             else:
                 st.warning("⚠️ Nessuna categoria trovata in Supabase")
         except Exception as e:
-            st.error(f"❌ Errore caricamento categorie da Supabase: {e}")
+            st.error(f"❌ Errore caricamento categorie: {e}")
     else:
         st.error("❌ Supabase non configurato!")
     
@@ -4686,8 +4688,7 @@ with tab5:
             if st.button("➕ Aggiungi Categoria", key="btn_add_cat", use_container_width=True):
                 if nuova_cat.strip():
                     try:
-                        # SOLO SUPABASE
-                        supabase.table("categorie").upsert(
+                        sb.table("categorie").upsert(
                             {"nome": nuova_cat.strip()},
                             on_conflict="nome"
                         ).execute()
@@ -4710,11 +4711,9 @@ with tab5:
                     col_c1.write(f"• **{c_nome}**")
                     if col_c2.button("🗑️", key=f"del_cat_{c_id}", help=f"Elimina {c_nome}"):
                         try:
-                            # SOLO SUPABASE
-                            supabase.table("categorie").delete().eq("id", c_id).execute()
-                            # Aggiorna anche i prodotti che usavano questa categoria
-                            supabase.table("prodotti").update({"categoria": "Altro"}).eq("categoria", c_nome).execute()
-                            st.success(f"✅ Categoria '{c_nome}' eliminata da Supabase!")
+                            sb.table("categorie").delete().eq("id", c_id).execute()
+                            sb.table("prodotti").update({"categoria": "Altro"}).eq("categoria", c_nome).execute()
+                            st.success(f"✅ Categoria '{c_nome}' eliminata!")
                             st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
@@ -4746,8 +4745,7 @@ with tab5:
         if st.form_submit_button("➕ Aggiungi Prodotto", use_container_width=True):
             if nome.strip():
                 try:
-                    # SOLO SUPABASE
-                    supabase.table("prodotti").upsert({
+                    sb.table("prodotti").upsert({
                         "nome": nome.strip(),
                         "categoria": categoria,
                         "modalita": modalita,
@@ -4774,16 +4772,16 @@ with tab5:
     
     # 📦 CARICA PRODOTTI - SOLO DA SUPABASE
     df_prodotti = pd.DataFrame()
-    if supabase is not None:
+    if sb is not None:
         try:
-            res_prod = supabase.table("prodotti").select("*").order("categoria").order("nome").execute()
+            res_prod = sb.table("prodotti").select("*").order("categoria").order("nome").execute()
             if res_prod.data:
                 df_prodotti = pd.DataFrame(res_prod.data)
                 st.success(f"✅ {len(df_prodotti)} prodotti caricati da Supabase")
             else:
                 st.warning("⚠️ Nessun prodotto trovato in Supabase")
         except Exception as e:
-            st.error(f"❌ Errore caricamento prodotti da Supabase: {e}")
+            st.error(f"❌ Errore caricamento prodotti: {e}")
     else:
         st.error("❌ Supabase non configurato!")
 
@@ -4821,8 +4819,7 @@ with tab5:
 
                     if st.form_submit_button("💾 Salva Modifiche", use_container_width=True):
                         try:
-                            # SOLO SUPABASE
-                            supabase.table("prodotti").update({
+                            sb.table("prodotti").update({
                                 "nome": mod_nome.strip(),
                                 "categoria": mod_categoria,
                                 "modalita": mod_modalita,
@@ -4842,11 +4839,8 @@ with tab5:
 
                 if st.button(f"🗑️ Elimina Definitivamente", key=f"del_prod_btn_{p_id}", use_container_width=True):
                     try:
-                        # SOLO SUPABASE
-                        # Prima elimina dalle assegnazioni
-                        supabase.table("prodotti_cliente").delete().eq("prodotto_id", p_id).execute()
-                        # Poi elimina il prodotto
-                        supabase.table("prodotti").delete().eq("id", p_id).execute()
+                        sb.table("prodotti_cliente").delete().eq("prodotto_id", p_id).execute()
+                        sb.table("prodotti").delete().eq("id", p_id).execute()
                         
                         st.success(f"✅ Prodotto eliminato da Supabase!")
                         st.cache_data.clear()
