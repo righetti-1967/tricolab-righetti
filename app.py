@@ -21,13 +21,15 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # --- CONNESSIONE SUPABASE ---
-supabase = None
-try:
-    SUPABASE_URL = st.secrets["SUPABASE_URL"]
-    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception:
-    supabase = None
+if "supabase" not in st.session_state:
+    try:
+        SUPABASE_URL = st.secrets["SUPABASE_URL"]
+        SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+        st.session_state.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception:
+        st.session_state.supabase = None
+
+supabase = st.session_state.supabase  # <-- ALIAS PER COMODITÀ
 
 st.set_page_config(
     page_title="🔬 Studio Tricologico Righetti Since 1967",
