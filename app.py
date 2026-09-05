@@ -2413,6 +2413,26 @@ def auto_assegna_trattamento_righetti(cl_id, conn, sintomi_dict):
     return n_assegnati
 
 # ============================================================================
+# RECUPERO CATALOGO PRODOTTI DA SUPABASE
+# ============================================================================
+@st.cache_data(ttl=60)
+def get_catalogo_prodotti():
+    """Recupera il catalogo prodotti da Supabase"""
+    if supabase:
+        try:
+            res = supabase.table("prodotti").select("*").order("categoria").order("nome").execute()
+            if res.data:
+                return pd.DataFrame(res.data)
+        except Exception as e:
+            st.error(f"Errore caricamento Supabase: {e}")
+    
+    # Fallback: SQLite
+    conn = sqlite3.connect("trico_database.db", timeout=30)
+    df = pd.read_sql_query("SELECT * FROM prodotti ORDER BY categoria, nome", conn)
+    conn.close()
+    return df
+
+# ============================================================================
 # 🆕 QUI DEVI INSERIRE LA FUNZIONE MANCANTE PER GOOGLE DRIVE
 # ============================================================================
 def invia_file_a_google_drive(
@@ -4444,8 +4464,24 @@ def main():
     # ============================================================
     with tab5:
         st.header("⚙️ Gestione Prodotti & Categorie")
+        
+        # 🔄 PULSANTE RICARICA DA SUPABASE
+        col_refresh1, col_refresh2 = st.columns([4, 1])
+        with col_refresh2:
+            if st.button("🔄 Ricarica da Supabase", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
 
-        df_categorie = pd.read_sql_query("SELECT * FROM categorie ORDER BY nome", conn)
+        # 📋 CARICA CATEGORIE (PRIMA DA SUPABASE, POI SQLITE)
+        if supabase:
+            try:
+                res_cat = supabase.table("categorie").select("*").order("nome").execute()
+                df_categorie = pd.DataFrame(res_cat.data) if res_cat.data else pd.DataFrame()
+            except:
+                df_categorie = pd.read_sql_query("SELECT * FROM categorie ORDER BY nome", conn)
+        else:
+            df_categorie = pd.read_sql_query("SELECT * FROM categorie ORDER BY nome", conn)
+        
         categorie_disponibili = (
             df_categorie["nome"].tolist() if not df_categorie.empty else ["Altro"]
         )
@@ -4465,12 +4501,24 @@ def main():
                 ):
                     if nuova_cat.strip():
                         try:
+                            # 1. Inserisci in SQLite
                             c = conn.cursor()
                             c.execute(
                                 "INSERT INTO categorie (nome) VALUES (?)",
                                 (nuova_cat.strip(),),
                             )
                             conn.commit()
+                            
+                            # 2. Inserisci in Supabase
+                            if supabase:
+                                try:
+                                    supabase.table("categorie").upsert(
+                                        {"nome": nuova_cat.strip()},
+                                        on_conflict="nome"
+                                    ).execute()
+                                except:
+                                    pass
+                            
                             st.success(f"✅ Categoria '{nuova_cat.strip()}' creata!")
                             st.rerun()
                         except sqlite3.IntegrityError:
@@ -4494,15 +4542,26 @@ def main():
                             key=f"del_cat_{c_id}",
                             help=f"Elimina {c_nome}",
                         ):
-                            c = conn.cursor()
-                            c.execute(
-                                "UPDATE prodotti SET categoria='Altro' WHERE categoria=?",
-                                (c_nome,),
-                            )
-                            c.execute("DELETE FROM categorie WHERE id=?", (c_id,))
-                            conn.commit()
-                            st.success(f"✅ Categoria '{c_nome}' eliminata!")
-                            st.rerun()
+                            try:
+                                c = conn.cursor()
+                                c.execute(
+                                    "UPDATE prodotti SET categoria='Altro' WHERE categoria=?",
+                                    (c_nome,),
+                                )
+                                c.execute("DELETE FROM categorie WHERE id=?", (c_id,))
+                                conn.commit()
+                                
+                                # Elimina da Supabase
+                                if supabase:
+                                    try:
+                                        supabase.table("categorie").delete().eq("id", c_id).execute()
+                                    except:
+                                        pass
+                                
+                                st.success(f"✅ Categoria '{c_nome}' eliminata!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Errore: {e}")
                 else:
                     st.info("Nessuna categoria presente.")
 
@@ -4549,9 +4608,26 @@ def main():
                             ),
                         )
                         conn.commit()
-                        st.success(
-                            f"✅ Prodotto '{nome.strip()}' aggiunto al catalogo!"
-                        )
+                        
+                        # Salva anche su Supabase
+                        if supabase:
+                            try:
+                                supabase.table("prodotti").upsert({
+                                    "nome": nome.strip(),
+                                    "categoria": categoria,
+                                    "modalita": modalita,
+                                    "frequenza": frequenza,
+                                    "orario": orario,
+                                    "trigger_condizione": "",
+                                    "note": note,
+                                    "dosi": dosi,
+                                    "tempi_posa": tempi,
+                                    "durata_utilizzo": durata,
+                                }, on_conflict="nome").execute()
+                            except:
+                                pass
+                        
+                        st.success(f"✅ Prodotto '{nome.strip()}' aggiunto al catalogo!")
                         st.rerun()
                     except sqlite3.IntegrityError:
                         st.error("❌ Esiste già un prodotto con questo nome!")
@@ -4563,13 +4639,26 @@ def main():
         st.markdown("---")
 
         st.subheader("📋 Catalogo Prodotti (Modifica ed Elimina)")
-        df_prodotti = pd.read_sql_query(
-            "SELECT * FROM prodotti ORDER BY categoria, nome", conn
-        )
+        
+        # 📦 CARICA PRODOTTI DA SUPABASE (CON FALLBACK SQLITE)
+        if supabase:
+            try:
+                res_prod = supabase.table("prodotti").select("*").order("categoria").order("nome").execute()
+                if res_prod.data:
+                    df_prodotti = pd.DataFrame(res_prod.data)
+                else:
+                    df_prodotti = pd.read_sql_query("SELECT * FROM prodotti ORDER BY categoria, nome", conn)
+            except:
+                df_prodotti = pd.read_sql_query("SELECT * FROM prodotti ORDER BY categoria, nome", conn)
+        else:
+            df_prodotti = pd.read_sql_query("SELECT * FROM prodotti ORDER BY categoria, nome", conn)
 
         if not df_prodotti.empty:
+            # Mostra contatore
+            st.success(f"✅ {len(df_prodotti)} prodotti nel catalogo")
+            
             for _, prod in df_prodotti.iterrows():
-                p_id = int(prod["id"])
+                p_id = str(prod["id"])  # Supporta sia int che UUID
 
                 with st.expander(
                     f"💊 {prod['nome']} — [{prod['categoria']}]",
@@ -4643,12 +4732,28 @@ def main():
                                     ),
                                 )
                                 conn.commit()
+                                
+                                # Aggiorna su Supabase
+                                if supabase:
+                                    try:
+                                        supabase.table("prodotti").update({
+                                            "nome": mod_nome.strip(),
+                                            "categoria": mod_categoria,
+                                            "modalita": mod_modalita,
+                                            "frequenza": mod_frequenza,
+                                            "orario": mod_orario,
+                                            "note": mod_note,
+                                            "dosi": mod_dosi,
+                                            "tempi_posa": mod_tempi,
+                                            "durata_utilizzo": mod_durata,
+                                        }).eq("id", p_id).execute()
+                                    except:
+                                        pass
+                                
                                 st.success("✅ Modifiche salvate con successo!")
                                 st.rerun()
                             except sqlite3.IntegrityError:
-                                st.error(
-                                    "❌ Esiste già un altro prodotto con questo nome!"
-                                )
+                                st.error("❌ Esiste già un altro prodotto con questo nome!")
                             except Exception as e:
                                 st.error(f"❌ Errore: {e}")
 
@@ -4665,6 +4770,14 @@ def main():
                             )
                             c.execute("DELETE FROM prodotti WHERE id=?", (p_id,))
                             conn.commit()
+                            
+                            # Elimina da Supabase
+                            if supabase:
+                                try:
+                                    supabase.table("prodotti").delete().eq("id", p_id).execute()
+                                except:
+                                    pass
+                            
                             st.success(f"✅ Prodotto eliminato dal catalogo!")
                             st.rerun()
                         except Exception as e:
