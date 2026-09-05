@@ -4641,334 +4641,220 @@ def main():
                         )
 
     # ============================================================
-    # TAB 5: GESTIONE PRODOTTI & CATEGORIE
-    # ============================================================
-    with tab5:
-        global supabase
-        st.header("⚙️ Gestione Prodotti & Categorie")
-        
-        # 🔄 PULSANTE RICARICA DA SUPABASE
-        col_refresh1, col_refresh2 = st.columns([4, 1])
-        with col_refresh2:
-            if st.button("🔄 Ricarica da Supabase", use_container_width=True):
-                st.cache_data.clear()
-                st.rerun()
+# TAB 5: GESTIONE PRODOTTI & CATEGORIE
+# ============================================================
+with tab5:
+    global supabase
+    st.header("⚙️ Gestione Prodotti & Categorie")
+    
+    # 🔄 PULSANTE RICARICA DA SUPABASE
+    col_refresh1, col_refresh2 = st.columns([4, 1])
+    with col_refresh2:
+        if st.button("🔄 Ricarica da Supabase", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+    
+    # 📋 CARICA CATEGORIE - SOLO DA SUPABASE
+    df_categorie = pd.DataFrame()
+    if supabase is not None:
+        try:
+            res_cat = supabase.table("categorie").select("*").order("nome").execute()
+            if res_cat.data:
+                df_categorie = pd.DataFrame(res_cat.data)
+                st.success(f"✅ {len(df_categorie)} categorie caricate da Supabase")
+            else:
+                st.warning("⚠️ Nessuna categoria trovata in Supabase")
+        except Exception as e:
+            st.error(f"❌ Errore caricamento categorie da Supabase: {e}")
+    else:
+        st.error("❌ Supabase non configurato!")
+    
+    categorie_disponibili = (
+        df_categorie["nome"].tolist() if not df_categorie.empty else []
+    )
 
-        # 📋 CARICA CATEGORIE (PRIMA DA SUPABASE, POI SQLITE)
-        if supabase:
-            try:
-                res_cat = supabase.table("categorie").select("*").order("nome").execute()
-                df_categorie = pd.DataFrame(res_cat.data) if res_cat.data else pd.DataFrame()
-            except:
-                df_categorie = pd.read_sql_query("SELECT * FROM categorie ORDER BY nome", conn)
-        else:
-            df_categorie = pd.read_sql_query("SELECT * FROM categorie ORDER BY nome", conn)
-        
-        categorie_disponibili = (
-            df_categorie["nome"].tolist() if not df_categorie.empty else ["Altro"]
-        )
+    with st.expander("🏷️ Gestione Categorie (Aggiungi ed Elimina)"):
+        col_cat1, col_cat2 = st.columns([1, 1])
 
-        with st.expander("🏷️ Gestione Categorie (Aggiungi ed Elimina)"):
-            col_cat1, col_cat2 = st.columns([1, 1])
-
-            with col_cat1:
-                st.subheader("➕ Nuova Categoria")
-                nuova_cat = st.text_input(
-                    "Nome Categoria", placeholder="Es. Fiale Anticaduta"
-                )
-                if st.button(
-                    "➕ Aggiungi Categoria",
-                    key="btn_add_cat",
-                    use_container_width=True,
-                ):
-                    if nuova_cat.strip():
-                        try:
-                            # 1. Inserisci in SQLite
-                            c = conn.cursor()
-                            c.execute(
-                                "INSERT INTO categorie (nome) VALUES (?)",
-                                (nuova_cat.strip(),),
-                            )
-                            conn.commit()
-                            
-                            # 2. Inserisci in Supabase
-                            if supabase:
-                                try:
-                                    supabase.table("categorie").upsert(
-                                        {"nome": nuova_cat.strip()},
-                                        on_conflict="nome"
-                                    ).execute()
-                                except:
-                                    pass
-                            
-                            st.success(f"✅ Categoria '{nuova_cat.strip()}' creata!")
-                            st.rerun()
-                        except sqlite3.IntegrityError:
-                            st.error("❌ Questa categoria esiste già!")
-                        except Exception as e:
-                            st.error(f"❌ Errore: {e}")
-                    else:
-                        st.warning("⚠️ Inserisci un nome valido.")
-
-            with col_cat2:
-                st.subheader("📋 Categorie Esistenti")
-                if not df_categorie.empty:
-                    for _, cat_row in df_categorie.iterrows():
-                        c_id = int(cat_row["id"])
-                        c_nome = cat_row["nome"]
-
-                        col_c1, col_c2 = st.columns([3, 1])
-                        col_c1.write(f"• **{c_nome}**")
-                        if col_c2.button(
-                            "🗑️",
-                            key=f"del_cat_{c_id}",
-                            help=f"Elimina {c_nome}",
-                        ):
-                            try:
-                                c = conn.cursor()
-                                c.execute(
-                                    "UPDATE prodotti SET categoria='Altro' WHERE categoria=?",
-                                    (c_nome,),
-                                )
-                                c.execute("DELETE FROM categorie WHERE id=?", (c_id,))
-                                conn.commit()
-                                
-                                # Elimina da Supabase
-                                if supabase:
-                                    try:
-                                        supabase.table("categorie").delete().eq("id", c_id).execute()
-                                    except:
-                                        pass
-                                
-                                st.success(f"✅ Categoria '{c_nome}' eliminata!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"❌ Errore: {e}")
-                else:
-                    st.info("Nessuna categoria presente.")
-
-        st.markdown("---")
-
-        st.subheader("➕ Aggiungi Nuovo Prodotto al Catalogo")
-        with st.form("nuovo_prodotto", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                nome = st.text_input("Nome Prodotto")
-                categoria = st.selectbox(
-                    "Categoria",
-                    categorie_disponibili,
-                    index=0 if categorie_disponibili else None,
-                )
-                modalita = st.text_input("Modalità")
-                frequenza = st.text_input("Frequenza")
-            with col2:
-                orario = st.text_input("Orario")
-                dosi = st.text_input("Dosi")
-                tempi = st.text_input("Tempo posa")
-                durata = st.text_input("Durata")
-            note = st.text_area("Note / Proprietà")
-
-            if st.form_submit_button("➕ Aggiungi Prodotto", use_container_width=True):
-                if nome.strip():
+        with col_cat1:
+            st.subheader("➕ Nuova Categoria")
+            nuova_cat = st.text_input(
+                "Nome Categoria", placeholder="Es. Fiale Anticaduta"
+            )
+            if st.button("➕ Aggiungi Categoria", key="btn_add_cat", use_container_width=True):
+                if nuova_cat.strip():
                     try:
-                        c = conn.cursor()
-                        c.execute(
-                            """INSERT INTO prodotti 
-                            (nome, categoria, modalita, frequenza, orario, trigger_condizione, note, dosi, tempi_posa, durata_utilizzo) 
-                            VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                            (
-                                nome.strip(),
-                                categoria,
-                                modalita,
-                                frequenza,
-                                orario,
-                                "",
-                                note,
-                                dosi,
-                                tempi,
-                                durata,
-                            ),
-                        )
-                        conn.commit()
-                        
-                        # Salva anche su Supabase
-                        if supabase:
-                            try:
-                                supabase.table("prodotti").upsert({
-                                    "nome": nome.strip(),
-                                    "categoria": categoria,
-                                    "modalita": modalita,
-                                    "frequenza": frequenza,
-                                    "orario": orario,
-                                    "trigger_condizione": "",
-                                    "note": note,
-                                    "dosi": dosi,
-                                    "tempi_posa": tempi,
-                                    "durata_utilizzo": durata,
-                                }, on_conflict="nome").execute()
-                            except:
-                                pass
-                        
-                        st.success(f"✅ Prodotto '{nome.strip()}' aggiunto al catalogo!")
+                        # SOLO SUPABASE
+                        supabase.table("categorie").upsert(
+                            {"nome": nuova_cat.strip()},
+                            on_conflict="nome"
+                        ).execute()
+                        st.success(f"✅ Categoria '{nuova_cat.strip()}' creata su Supabase!")
+                        st.cache_data.clear()
                         st.rerun()
-                    except sqlite3.IntegrityError:
-                        st.error("❌ Esiste già un prodotto con questo nome!")
                     except Exception as e:
                         st.error(f"❌ Errore: {e}")
                 else:
-                    st.warning("⚠️ Il nome del prodotto è obbligatorio.")
+                    st.warning("⚠️ Inserisci un nome valido.")
 
-        st.markdown("---")
+        with col_cat2:
+            st.subheader("📋 Categorie Esistenti")
+            if not df_categorie.empty:
+                for _, cat_row in df_categorie.iterrows():
+                    c_id = cat_row["id"]
+                    c_nome = cat_row["nome"]
 
-        st.subheader("📋 Catalogo Prodotti (Modifica ed Elimina)")
-        
-        # 📦 CARICA PRODOTTI DA SUPABASE (CON FALLBACK SQLITE)
-        if supabase:
-            try:
-                res_prod = supabase.table("prodotti").select("*").order("categoria").order("nome").execute()
-                if res_prod.data:
-                    df_prodotti = pd.DataFrame(res_prod.data)
-                else:
-                    df_prodotti = pd.read_sql_query("SELECT * FROM prodotti ORDER BY categoria, nome", conn)
-            except:
-                df_prodotti = pd.read_sql_query("SELECT * FROM prodotti ORDER BY categoria, nome", conn)
-        else:
-            df_prodotti = pd.read_sql_query("SELECT * FROM prodotti ORDER BY categoria, nome", conn)
-
-        if not df_prodotti.empty:
-            # Mostra contatore
-            st.success(f"✅ {len(df_prodotti)} prodotti nel catalogo")
-            
-            for _, prod in df_prodotti.iterrows():
-                p_id = str(prod["id"])  # Supporta sia int che UUID
-
-                with st.expander(
-                    f"💊 {prod['nome']} — [{prod['categoria']}]",
-                    expanded=False,
-                ):
-                    with st.form(f"form_edit_prod_{p_id}"):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            mod_nome = st.text_input(
-                                "Nome Prodotto", value=prod["nome"] or ""
-                            )
-
-                            cat_attuale = prod["categoria"]
-                            cat_idx = (
-                                categorie_disponibili.index(cat_attuale)
-                                if cat_attuale in categorie_disponibili
-                                else 0
-                            )
-                            mod_categoria = st.selectbox(
-                                "Categoria",
-                                categorie_disponibili,
-                                index=cat_idx,
-                            )
-
-                            mod_modalita = st.text_input(
-                                "Modalità", value=prod["modalita"] or ""
-                            )
-                            mod_frequenza = st.text_input(
-                                "Frequenza", value=prod["frequenza"] or ""
-                            )
-
-                        with col2:
-                            mod_orario = st.text_input(
-                                "Orario", value=prod["orario"] or ""
-                            )
-                            mod_dosi = st.text_input("Dosi", value=prod["dosi"] or "")
-                            mod_tempi = st.text_input(
-                                "Tempo di posa", value=prod["tempi_posa"] or ""
-                            )
-                            mod_durata = st.text_input(
-                                "Durata utilizzo",
-                                value=prod["durata_utilizzo"] or "",
-                            )
-
-                        mod_note = st.text_area(
-                            "Note / Proprietà", value=prod["note"] or ""
-                        )
-
-                        salva_btn = st.form_submit_button(
-                            "💾 Salva Modifiche", use_container_width=True
-                        )
-
-                        if salva_btn:
-                            try:
-                                c = conn.cursor()
-                                c.execute(
-                                    """UPDATE prodotti 
-                                    SET nome=?, categoria=?, modalita=?, frequenza=?, orario=?, note=?, dosi=?, tempi_posa=?, durata_utilizzo=? 
-                                    WHERE id=?""",
-                                    (
-                                        mod_nome.strip(),
-                                        mod_categoria,
-                                        mod_modalita,
-                                        mod_frequenza,
-                                        mod_orario,
-                                        mod_note,
-                                        mod_dosi,
-                                        mod_tempi,
-                                        mod_durata,
-                                        p_id,
-                                    ),
-                                )
-                                conn.commit()
-                                
-                                # Aggiorna su Supabase
-                                if supabase:
-                                    try:
-                                        supabase.table("prodotti").update({
-                                            "nome": mod_nome.strip(),
-                                            "categoria": mod_categoria,
-                                            "modalita": mod_modalita,
-                                            "frequenza": mod_frequenza,
-                                            "orario": mod_orario,
-                                            "note": mod_note,
-                                            "dosi": mod_dosi,
-                                            "tempi_posa": mod_tempi,
-                                            "durata_utilizzo": mod_durata,
-                                        }).eq("id", p_id).execute()
-                                    except:
-                                        pass
-                                
-                                st.success("✅ Modifiche salvate con successo!")
-                                st.rerun()
-                            except sqlite3.IntegrityError:
-                                st.error("❌ Esiste già un altro prodotto con questo nome!")
-                            except Exception as e:
-                                st.error(f"❌ Errore: {e}")
-
-                    if st.button(
-                        f"🗑️ Elimina Definitivamente",
-                        key=f"del_prod_btn_{p_id}",
-                        use_container_width=True,
-                    ):
+                    col_c1, col_c2 = st.columns([3, 1])
+                    col_c1.write(f"• **{c_nome}**")
+                    if col_c2.button("🗑️", key=f"del_cat_{c_id}", help=f"Elimina {c_nome}"):
                         try:
-                            c = conn.cursor()
-                            c.execute(
-                                "DELETE FROM prodotti_cliente WHERE prodotto_id=?",
-                                (p_id,),
-                            )
-                            c.execute("DELETE FROM prodotti WHERE id=?", (p_id,))
-                            conn.commit()
-                            
-                            # Elimina da Supabase
-                            if supabase:
-                                try:
-                                    supabase.table("prodotti").delete().eq("id", p_id).execute()
-                                except:
-                                    pass
-                            
-                            st.success(f"✅ Prodotto eliminato dal catalogo!")
+                            # SOLO SUPABASE
+                            supabase.table("categorie").delete().eq("id", c_id).execute()
+                            # Aggiorna anche i prodotti che usavano questa categoria
+                            supabase.table("prodotti").update({"categoria": "Altro"}).eq("categoria", c_nome).execute()
+                            st.success(f"✅ Categoria '{c_nome}' eliminata da Supabase!")
+                            st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Errore: {e}")
-        else:
-            st.info("📭 Nessun prodotto nel catalogo.")
+            else:
+                st.info("Nessuna categoria presente.")
+
+    st.markdown("---")
+
+    st.subheader("➕ Aggiungi Nuovo Prodotto al Catalogo")
+    with st.form("nuovo_prodotto", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            nome = st.text_input("Nome Prodotto")
+            categoria = st.selectbox(
+                "Categoria",
+                categorie_disponibili,
+                index=0 if categorie_disponibili else None,
+            )
+            modalita = st.text_input("Modalità")
+            frequenza = st.text_input("Frequenza")
+        with col2:
+            orario = st.text_input("Orario")
+            dosi = st.text_input("Dosi")
+            tempi = st.text_input("Tempo posa")
+            durata = st.text_input("Durata")
+        note = st.text_area("Note / Proprietà")
+
+        if st.form_submit_button("➕ Aggiungi Prodotto", use_container_width=True):
+            if nome.strip():
+                try:
+                    # SOLO SUPABASE
+                    supabase.table("prodotti").upsert({
+                        "nome": nome.strip(),
+                        "categoria": categoria,
+                        "modalita": modalita,
+                        "frequenza": frequenza,
+                        "orario": orario,
+                        "trigger_condizione": "",
+                        "note": note,
+                        "dosi": dosi,
+                        "tempi_posa": tempi,
+                        "durata_utilizzo": durata,
+                    }, on_conflict="nome").execute()
+                    
+                    st.success(f"✅ Prodotto '{nome.strip()}' aggiunto su Supabase!")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Errore: {e}")
+            else:
+                st.warning("⚠️ Il nome del prodotto è obbligatorio.")
+
+    st.markdown("---")
+
+    st.subheader("📋 Catalogo Prodotti (Modifica ed Elimina)")
+    
+    # 📦 CARICA PRODOTTI - SOLO DA SUPABASE
+    df_prodotti = pd.DataFrame()
+    if supabase is not None:
+        try:
+            res_prod = supabase.table("prodotti").select("*").order("categoria").order("nome").execute()
+            if res_prod.data:
+                df_prodotti = pd.DataFrame(res_prod.data)
+                st.success(f"✅ {len(df_prodotti)} prodotti caricati da Supabase")
+            else:
+                st.warning("⚠️ Nessun prodotto trovato in Supabase")
+        except Exception as e:
+            st.error(f"❌ Errore caricamento prodotti da Supabase: {e}")
+    else:
+        st.error("❌ Supabase non configurato!")
+
+    if not df_prodotti.empty:
+        for _, prod in df_prodotti.iterrows():
+            p_id = prod["id"]
+
+            with st.expander(f"💊 {prod['nome']} — [{prod['categoria']}]", expanded=False):
+                with st.form(f"form_edit_prod_{p_id}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        mod_nome = st.text_input("Nome Prodotto", value=prod["nome"] or "")
+                        
+                        cat_attuale = prod["categoria"]
+                        cat_idx = (
+                            categorie_disponibili.index(cat_attuale)
+                            if cat_attuale in categorie_disponibili
+                            else 0
+                        )
+                        mod_categoria = st.selectbox(
+                            "Categoria",
+                            categorie_disponibili,
+                            index=cat_idx,
+                        )
+                        mod_modalita = st.text_input("Modalità", value=prod["modalita"] or "")
+                        mod_frequenza = st.text_input("Frequenza", value=prod["frequenza"] or "")
+
+                    with col2:
+                        mod_orario = st.text_input("Orario", value=prod["orario"] or "")
+                        mod_dosi = st.text_input("Dosi", value=prod["dosi"] or "")
+                        mod_tempi = st.text_input("Tempo di posa", value=prod["tempi_posa"] or "")
+                        mod_durata = st.text_input("Durata utilizzo", value=prod["durata_utilizzo"] or "")
+
+                    mod_note = st.text_area("Note / Proprietà", value=prod["note"] or "")
+
+                    if st.form_submit_button("💾 Salva Modifiche", use_container_width=True):
+                        try:
+                            # SOLO SUPABASE
+                            supabase.table("prodotti").update({
+                                "nome": mod_nome.strip(),
+                                "categoria": mod_categoria,
+                                "modalita": mod_modalita,
+                                "frequenza": mod_frequenza,
+                                "orario": mod_orario,
+                                "note": mod_note,
+                                "dosi": mod_dosi,
+                                "tempi_posa": mod_tempi,
+                                "durata_utilizzo": mod_durata,
+                            }).eq("id", p_id).execute()
+                            
+                            st.success("✅ Modifiche salvate su Supabase!")
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Errore: {e}")
+
+                if st.button(f"🗑️ Elimina Definitivamente", key=f"del_prod_btn_{p_id}", use_container_width=True):
+                    try:
+                        # SOLO SUPABASE
+                        # Prima elimina dalle assegnazioni
+                        supabase.table("prodotti_cliente").delete().eq("prodotto_id", p_id).execute()
+                        # Poi elimina il prodotto
+                        supabase.table("prodotti").delete().eq("id", p_id).execute()
+                        
+                        st.success(f"✅ Prodotto eliminato da Supabase!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Errore: {e}")
+    else:
+        st.info("📭 Nessun prodotto nel catalogo.")
 
     conn.close()
-
 
 # ============================================================================
 # AVVIO
