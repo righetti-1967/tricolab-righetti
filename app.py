@@ -2427,6 +2427,8 @@ def auto_assegna_trattamento_righetti(cl_id, conn, sintomi_dict):
 @st.cache_data(ttl=60)
 def get_catalogo_prodotti():
     """Recupera il catalogo prodotti da Supabase"""
+    global supabase  # <--- AGGIUNGI QUESTA RIGA!
+    
     if supabase:
         try:
             res = supabase.table("prodotti").select("*").order("categoria").order("nome").execute()
@@ -4473,6 +4475,7 @@ def main():
     # TAB 5: GESTIONE PRODOTTI & CATEGORIE
     # ============================================================
     with tab5:
+        global supabase
         st.header("⚙️ Gestione Prodotti & Categorie")
         
         # 🔄 PULSANTE RICARICA DA SUPABASE
