@@ -4643,10 +4643,10 @@ def main():
                         )
 
     # ============================================================
-# TAB 5: GESTIONE PRODOTTI & CATEGORIE
-# ============================================================
-with tab5:
-    st.header("⚙️ Gestione Prodotti & Categorie")
+    # TAB 5: GESTIONE PRODOTTI & CATEGORIE
+    # ============================================================
+    with tab5:
+        st.header("⚙️ Gestione Prodotti & Categorie")
     
     # Prendi supabase da session_state
     sb = st.session_state.get("supabase", None)
