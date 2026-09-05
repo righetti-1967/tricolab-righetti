@@ -3673,7 +3673,7 @@ def main():
                     )
 
                 # -------------------------------------------------------------
-                # SALVA SESSIONE (DATABASE + CARTELLA CLIENTE SU DESKTOP)
+                # SALVA SESSIONE (DATABASE + SUPABASE + CARTELLA CLIENTE)
                 # -------------------------------------------------------------
                 st.markdown("---")
                 col_b1, col_b2 = st.columns(2)
@@ -3708,7 +3708,9 @@ def main():
                                 r["steli_nuovi"] for r in immagini_con_etichette
                             )
 
-                            # 1. SALVATAGGIO NEL DATABASE
+                            # ============================================================
+                            # 1. SALVATAGGIO IN SQLITE (BACKUP LOCALE)
+                            # ============================================================
                             c.execute(
                                 """INSERT INTO analisi 
                                 (cliente_id, data, zona, ingrandimento, luce, foto_caricate, steli_totale, steli_anagen, steli_vellus, steli_nuovi, calibro_medio, densita_f, anisotropia, perc_vellus, eritemi, dermatite_seborroica, forfora_secca, osti_intasati, prurito, routine_consigliata)
@@ -3741,8 +3743,41 @@ def main():
                                 ),
                             )
                             conn.commit()
+                            
+                            # ============================================================
+                            # 2. SALVATAGGIO IN SUPABASE (CLOUD) - PER SINCRONIZZAZIONE
+                            # ============================================================
+                            if supabase and cl_id:
+                                try:
+                                    supabase.table("analisi").insert({
+                                        "cliente_id": cl_id,
+                                        "data": data_oggi,
+                                        "zona": "Multi-zona",
+                                        "ingrandimento": "50x/200x",
+                                        "luce": "Mista",
+                                        "foto_caricate": len(immagini_con_etichette),
+                                        "steli_totale": tot_steli,
+                                        "steli_anagen": tot_anagen,
+                                        "steli_vellus": tot_vellus,
+                                        "steli_nuovi": tot_nuovi,
+                                        "calibro_medio": media_cal_oggi,
+                                        "densita_f": media_den_oggi,
+                                        "anisotropia": media_ani_oggi,
+                                        "perc_vellus": round((tot_vellus / tot_steli) * 100, 1) if tot_steli > 0 else 0,
+                                        "eritemi": tot_eritemi_oggi,
+                                        "dermatite_seborroica": 0,
+                                        "forfora_secca": 0,
+                                        "osti_intasati": tot_tappi_oggi,
+                                        "prurito": "Sì" if chk_prurito else "No",
+                                        "routine_consigliata": f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
+                                    }).execute()
+                                    st.success("☁️ Dati salvati su Supabase (cloud)!")
+                                except Exception as e:
+                                    st.error(f"❌ Errore salvataggio Supabase: {e}")
 
-                            # 2. CARTELLA CLIENTE IN PERCORSO CLIENTI SUL DESKTOP
+                            # ============================================================
+                            # 3. SALVATAGGIO CARTELLA CLIENTE (LOCALE)
+                            # ============================================================
                             cartella_cliente_dest = trova_o_crea_cartella_cliente(
                                 cliente_selezionato
                             )
