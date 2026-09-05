@@ -3745,12 +3745,24 @@ def main():
                             conn.commit()
                             
                             # ============================================================
-                            # 2. SALVATAGGIO IN SUPABASE (CLOUD) - PER SINCRONIZZAZIONE
+                            # 5. SALVATAGGIO IN SUPABASE (CLOUD) - CON UUID
                             # ============================================================
-                            if supabase and cl_id:
+                            cliente_uuid = None
+                            if supabase and cliente_selezionato:
+                                try:
+                                    # Recupera l'UUID del cliente da Supabase
+                                    res = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
+                                    if res.data:
+                                        cliente_uuid = res.data[0]["id"]
+                                    else:
+                                        st.error("❌ Cliente non trovato in Supabase! Sincronizza prima.")
+                                except Exception as e:
+                                    st.error(f"❌ Errore recupero UUID: {e}")
+
+                            if supabase and cliente_uuid:
                                 try:
                                     supabase.table("analisi").insert({
-                                        "cliente_id": cl_id,
+                                        "cliente_id": cliente_uuid,
                                         "data": data_oggi,
                                         "zona": "Multi-zona",
                                         "ingrandimento": "50x/200x",
@@ -3771,9 +3783,14 @@ def main():
                                         "prurito": "Sì" if chk_prurito else "No",
                                         "routine_consigliata": f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
                                     }).execute()
-                                    st.success("☁️ Dati salvati su Supabase (cloud)!")
+                                    st.success("☁️ Dati salvati su Supabase (cloud) con UUID!")
                                 except Exception as e:
                                     st.error(f"❌ Errore salvataggio Supabase: {e}")
+                            else:
+                                if not supabase:
+                                    st.warning("⚠️ Supabase non disponibile!")
+                                elif not cliente_uuid:
+                                    st.warning("⚠️ UUID cliente non trovato! Sincronizza prima il cliente.")
 
                             # ============================================================
                             # 3. SALVATAGGIO CARTELLA CLIENTE (LOCALE)
