@@ -1965,7 +1965,7 @@ def sincronizza_google_sheets(sheet_url, conn):
             except sqlite3.OperationalError:
                 pass
 
-        # 🔧 RACCOGLI TUTTI I NOMI ESISTENTI PER NON CANCELLARLI
+        # 🔧 FIX: RACCOGLI TUTTI I NOMI ESISTENTI PER NON CANCELLARLI
         clienti_esistenti = set()
         res_esistenti = c.execute("SELECT codice_cliente FROM clienti").fetchall()
         for row in res_esistenti:
@@ -2028,7 +2028,7 @@ def sincronizza_google_sheets(sheet_url, conn):
                 except Exception:
                     pass
 
-        # 🔧 NON CANCELLARE I CLIENTI CHE NON SONO IN GOOGLE SHEETS
+        # 🔧 FIX: NON CANCELLARE I CLIENTI CHE NON SONO IN GOOGLE SHEETS
         # I clienti creati manualmente rimangono!
 
         conn.commit()
@@ -2848,7 +2848,7 @@ def main():
     # ============================================================
     # SIDEBAR: GESTIONE CLIENTE CON AUTO-SYNC E CANCELLAZIONE
     # ============================================================
-    with st.sidebar:
+        with st.sidebar:
         st.header("👤 Gestione Cliente")
 
         # --- RECUPERO CONFIGURAZIONI SALVATE ---
