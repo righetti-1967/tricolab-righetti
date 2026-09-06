@@ -2832,7 +2832,6 @@ def carica_foto_supabase(cliente_uuid):
 # MAIN APPLICATION & INTERFACCIA STREAMLIT
 # ============================================================================
 def main():
-    st.write(f"🔧 Versione codice: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     global supabase
     st.markdown(
         """
