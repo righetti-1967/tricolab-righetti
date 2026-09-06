@@ -2706,10 +2706,10 @@ def invia_file_a_google_drive(
         return False, f"❌ Errore invio: {str(e)}"
 
 # ============================================================================
-# SALVATAGGIO FOTO IN SUPABASE STORAGE
+# SALVATAGGIO FOTO IN SUPABASE STORAGE (CON TIMESTAMP)
 # ============================================================================
 def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto):
-    """Salva le foto in Supabase Storage per la sincronizzazione tra dispositivi"""
+    """Salva le foto in Supabase Storage con timestamp per evitare duplicati"""
     
     if not supabase:
         return False, "Supabase non disponibile"
@@ -2718,17 +2718,21 @@ def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto
         return False, "UUID cliente non disponibile"
     
     try:
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H%M%S")  # HHMMSS (es. 233025)
+        
         conteggio = 0
         for i_f, f_data in enumerate(immagini_con_etichette, 1):
-            # Converti immagine in bytes (JPEG per risparmiare spazio)
+            # Converti immagine in bytes (JPEG)
             img_bgr = cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR)
             _, img_encoded = cv2.imencode('.jpg', img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
             img_bytes = img_encoded.tobytes()
             
-            # Nome file: clienti/{UUID}/foto_checkup/{data}/acquisizione_{numero}.jpg
-            file_path = f"clienti/{cliente_uuid}/foto_checkup/{data_cartella_foto}/acquisizione_{i_f}.jpg"
+            # Nome file UNICO: clienti/{UUID}/foto_checkup/{data}/acquisizione_{numero}_{timestamp}.jpg
+            # Esempio: clienti/550e.../foto_checkup/06-09-2026/acquisizione_1_233025.jpg
+            file_path = f"clienti/{cliente_uuid}/foto_checkup/{data_cartella_foto}/acquisizione_{i_f}_{timestamp}.jpg"
             
-            # Carica su Supabase Storage (sovrascrive se esiste)
+            # Carica su Supabase Storage (sovrascrive se esiste - ma con timestamp è sempre unico)
             supabase.storage.from_("foto-tricologiche").upload(
                 file_path,
                 img_bytes,
@@ -2736,7 +2740,7 @@ def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto
             )
             conteggio += 1
         
-        return True, f"✅ {conteggio} foto caricate su Supabase Storage"
+        return True, f"✅ {conteggio} foto caricate su Supabase Storage (timestamp: {timestamp})"
     
     except Exception as e:
         return False, f"❌ Errore caricamento foto: {str(e)}"
