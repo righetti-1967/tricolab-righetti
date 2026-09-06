@@ -3469,8 +3469,8 @@ def main():
                         })
                 
                 # POI: Analizza le nuove foto caricate
-                if uploaded_files:
-                    for idx, uploaded_file in enumerate(uploaded_files):
+            if uploaded_files:
+                for idx, uploaded_file in enumerate(uploaded_files):
                     st.markdown(f"---")
                     st.subheader(f"📷 Acquisizione #{idx+1} — {uploaded_file.name}")
 
