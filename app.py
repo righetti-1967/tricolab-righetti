@@ -2829,13 +2829,14 @@ def carica_foto_supabase(cliente_uuid):
 # RECUPERO CLIENTI DA SUPABASE
 # ============================================================================
 def get_lista_clienti():
-    global supabase
     """Recupera i clienti da Supabase Cloud e forza la sincronizzazione in SQLite locale."""
+    global supabase
+    
     conn = sqlite3.connect("trico_database.db", timeout=30)
     c = conn.cursor()
 
-    if supabase:
-        try:
+    try:
+        if supabase:
             # 1. Prende tutti i clienti da Supabase
             res = supabase.table("clienti").select("*").order("codice_cliente").execute()
             if res.data:
@@ -2860,16 +2861,27 @@ def get_lista_clienti():
                     )
                 conn.commit()
                 conn.close()
-                return df
-        except Exception as e:
-            print(f"⚠️ Errore sincronizzazione Supabase: {e}")
-
-    # 3. Fallback: legge dal DB locale
-    df = pd.read_sql_query(
-        "SELECT * FROM clienti ORDER BY codice_cliente", conn
-    )
-    conn.close()
-    return df
+                return df  # <--- RESTITUISCE IL DATAFRAME CON I CLIENTI!
+        
+        # 3. Fallback: legge dal DB locale
+        df = pd.read_sql_query(
+            "SELECT * FROM clienti ORDER BY codice_cliente", conn
+        )
+        conn.close()
+        return df
+        
+    except Exception as e:
+        print(f"⚠️ Errore get_lista_clienti: {e}")
+        # Fallback: SQLite
+        try:
+            df = pd.read_sql_query(
+                "SELECT * FROM clienti ORDER BY codice_cliente", conn
+            )
+            conn.close()
+            return df
+        except:
+            conn.close()
+            return pd.DataFrame()
 
 # ============================================================================
 # MAIN APPLICATION & INTERFACCIA STREAMLIT
