@@ -2848,7 +2848,7 @@ def main():
     # ============================================================
     # SIDEBAR: GESTIONE CLIENTE CON AUTO-SYNC E CANCELLAZIONE
     # ============================================================
-        with st.sidebar:
+    with st.sidebar:
         st.header("👤 Gestione Cliente")
 
         # --- RECUPERO CONFIGURAZIONI SALVATE ---
