@@ -25,13 +25,15 @@ os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
 warnings.filterwarnings("ignore")
 
 # --- CONNESSIONE SUPABASE ---
-if "supabase" not in st.session_state:
-    try:
-        SUPABASE_URL = st.secrets["SUPABASE_URL"]
-        SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-        st.session_state.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    except Exception:
-        st.session_state.supabase = None
+# --- CONNESSIONE SUPABASE ---
+try:
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print("✅ Supabase connesso!")  # <-- AGGIUNGI QUESTO
+except Exception as e:
+    supabase = None
+    print(f"❌ Errore Supabase: {e}")  # <-- AGGIUNGI QUESTO
 
 supabase = st.session_state.supabase  # <-- ALIAS PER COMODITÀ
 
