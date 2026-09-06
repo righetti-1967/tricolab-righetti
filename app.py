@@ -2815,7 +2815,7 @@ def carica_foto_supabase(cliente_uuid):
         if immagini:
             st.success(f"✅ {len(immagini)} foto caricate dal cloud!")
         else:
-            st.info("📭 Nessuna foto trovata nel cloud per questo cliente.")
+            st.info("📭 Nessuna foto trovata nel cloud per il cliente.")
         
         return immagini
     
@@ -3514,7 +3514,7 @@ def main():
                                     use_container_width=True,
                                 )
                 else:
-                    st.info("📭 Nessuna foto trovata nel cloud per questo cliente.")
+                    st.info("📭 Nessuna foto trovata da sincronizzare per il cliente.")
 
             # -------------------------------------------------------------
             # CARICAMENTO IMMAGINI ODIERNE
