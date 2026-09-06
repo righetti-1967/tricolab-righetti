@@ -1910,7 +1910,6 @@ import urllib.request
 
 
 def sincronizza_google_sheets(sheet_url, conn):
-    """Legge il foglio Google Sheets superando il blocco SSL di macOS."""
     try:
         match = re.search(r"/d/([a-zA-Z0-9-_]+)", sheet_url)
         if not match:
@@ -1920,16 +1919,15 @@ def sincronizza_google_sheets(sheet_url, conn):
             )
 
         sheet_id = match.group(1)
-        export_url = (
-            f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv"
-        )
+        export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv"
 
-        # Supera il blocco certificati SSL su Mac
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
-        req = urllib.request.Request(export_url, headers={"User-Agent": "Mozilla/5.0"})
+        req = urllib.request.Request(
+            export_url, headers={"User-Agent": "Mozilla/5.0"}
+        )
         with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
             csv_bytes = resp.read()
 
@@ -1940,7 +1938,11 @@ def sincronizza_google_sheets(sheet_url, conn):
             (c for c in df_gs.columns if "NOME" in c or "CLIENTE" in c), None
         )
         col_cell = next(
-            (c for c in df_gs.columns if "CELL" in c or "TEL" in c or "TELEFONO" in c),
+            (
+                c
+                for c in df_gs.columns
+                if "CELL" in c or "TEL" in c or "TELEFONO" in c
+            ),
             None,
         )
         col_email = next(
@@ -1954,13 +1956,30 @@ def sincronizza_google_sheets(sheet_url, conn):
             )
 
         c = conn.cursor()
+        for col_name in ["cellulare", "email"]:
+            try:
+                c.execute(f"ALTER TABLE clienti ADD COLUMN {col_name} TEXT")
+            except sqlite3.OperationalError:
+                pass
+
+        # 🔧 RACCOGLI TUTTI I NOMI ESISTENTI PER NON CANCELLARLI
+        clienti_esistenti = set()
+        res_esistenti = c.execute("SELECT codice_cliente FROM clienti").fetchall()
+        for row in res_esistenti:
+            clienti_esistenti.add(row[0])
+
         nuovi = 0
         aggiornati = 0
+        clienti_da_google = set()
 
         for _, row in df_gs.iterrows():
-            nome_val = str(row[col_nome]).strip() if pd.notna(row[col_nome]) else ""
+            nome_val = (
+                str(row[col_nome]).strip() if pd.notna(row[col_nome]) else ""
+            )
             if not nome_val or nome_val.lower() == "nan":
                 continue
+
+            clienti_da_google.add(nome_val)
 
             cell_val = (
                 str(row[col_cell]).replace(".0", "").strip()
@@ -1973,7 +1992,6 @@ def sincronizza_google_sheets(sheet_url, conn):
                 else ""
             )
 
-            # Riconoscimento automatico del genere dal nome
             sesso_dedotto = deduci_sesso_da_nome(nome_val)
 
             res = c.execute(
@@ -1992,17 +2010,31 @@ def sincronizza_google_sheets(sheet_url, conn):
                 )
                 nuovi += 1
 
+            # Sincronizzazione in Cloud Supabase
+            if supabase:
+                try:
+                    supabase.table("clienti").upsert(
+                        {
+                            "codice_cliente": nome_val,
+                            "cellulare": cell_val,
+                            "email": email_val,
+                            "sesso": sesso_dedotto,
+                        },
+                        on_conflict="codice_cliente",
+                    ).execute()
+                except Exception:
+                    pass
+
+        # 🔧 NON CANCELLARE I CLIENTI CHE NON SONO IN GOOGLE SHEETS
+        # I clienti creati manualmente rimangono!
+
         conn.commit()
         return (
             True,
             f"✅ Sincronizzazione completata! {nuovi} nuovi clienti aggiunti, {aggiornati} anagrafiche aggiornate.",
         )
     except Exception as e:
-        return (
-            False,
-            f"Errore durante la lettura di Google Sheets: {e}. Assicurati che il foglio sia condiviso con 'Chiunque abbia il link può visualizzare'.",
-        )
-
+        return False, f"Errore durante la lettura di Google Sheets: {e}"
 
 # ============================================================================
 # CALCOLO PROGRESSIVO AUTOMATICO DEI FILE SU DISCO (REPORT, CURA, DASHBOARD)
@@ -2770,20 +2802,23 @@ def main():
     # ============================================================
     # SIDEBAR: GESTIONE CLIENTE CON AUTO-SYNC E CANCELLAZIONE
     # ============================================================
-    with st.sidebar:
+        with st.sidebar:
         st.header("👤 Gestione Cliente")
 
-        # 1. Sincronizzazione Automatica Google Sheets (Salvata in memoria)
+        # --- RECUPERO CONFIGURAZIONI SALVATE ---
         config_file_sheet = "google_sheet_url.txt"
         link_salvato = ""
         if os.path.exists(config_file_sheet):
             with open(config_file_sheet, "r") as f:
                 link_salvato = f.read().strip()
 
-        webhook_saved = st.session_state.get("gdrive_webhook_url", "")
-        if not webhook_saved and os.path.exists("gdrive_webhook.txt"):
-            with open("gdrive_webhook.txt", "r") as f:
-                webhook_saved = f.read().strip()
+        webhook_saved = ""
+        if os.path.exists("gdrive_webhook.txt"):
+            try:
+                with open("gdrive_webhook.txt", "r") as f:
+                    webhook_saved = f.read().strip()
+            except Exception:
+                pass
 
         # --- 1. EXPANDER COLLEGAMENTO GOOGLE ---
         with st.expander("🔄 Collegamento Google Sheets", expanded=False):
@@ -2801,20 +2836,29 @@ def main():
                 key="input_gdrive_webhook",
             )
 
-            if link_webhook_input.strip() and link_webhook_input != webhook_saved:
+            if (
+                link_webhook_input.strip()
+                and link_webhook_input != webhook_saved
+            ):
                 with open("gdrive_webhook.txt", "w") as f_w:
                     f_w.write(link_webhook_input.strip())
-                st.session_state["gdrive_webhook_url"] = link_webhook_input.strip()
+                st.session_state["gdrive_webhook_url"] = (
+                    link_webhook_input.strip()
+                )
 
             col_s1, col_s2 = st.columns(2)
             with col_s1:
                 if st.button(
-                    "💾 Salva Link", key="btn_save_url", use_container_width=True
+                    "💾 Salva Link",
+                    key="btn_save_url",
+                    use_container_width=True,
                 ):
                     with open(config_file_sheet, "w") as f:
                         f.write(link_foglio.strip())
-                    st.success("Link salvato per l'auto-sync!")
+                    st.cache_data.clear()
+                    st.success("Link salvato!")
                     st.rerun()
+
             with col_s2:
                 if st.button(
                     "🔄 Sincronizza Ora",
@@ -2822,18 +2866,22 @@ def main():
                     use_container_width=True,
                 ):
                     if link_foglio.strip():
-                        ok_s, msg_s = sincronizza_google_sheets(
-                            link_foglio.strip(), conn
-                        )
+                        with st.spinner("Sincronizzazione..."):
+                            ok_s, msg_s = sincronizza_google_sheets(
+                                link_foglio.strip(), conn
+                            )
                         if ok_s:
+                            st.cache_data.clear()
                             st.success(msg_s)
                             st.rerun()
                         else:
                             st.error(msg_s)
 
-        # Auto-Sync silenzioso all'avvio se il link è salvato
+        # --- AUTO-SYNC SILENZIOSO ALL'AVVIO ---
         if link_salvato and "auto_sync_eseguito" not in st.session_state:
-            sincronizza_google_sheets(link_salvato, conn)
+            ok_auto, _ = sincronizza_google_sheets(link_salvato, conn)
+            if ok_auto:
+                st.cache_data.clear()
             st.session_state["auto_sync_eseguito"] = True
 
         # 2. Nuovo Cliente Manuale
