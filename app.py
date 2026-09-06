@@ -2758,40 +2758,62 @@ def carica_foto_supabase(cliente_uuid):
         # Costruisci il percorso: clienti/{UUID}/foto_checkup/
         percorso_base = f"clienti/{cliente_uuid}/foto_checkup/"
         
-        # Lista tutti i file nella cartella del cliente
+        # 🔍 LOG PER DEBUG
+        st.write(f"🔍 Cerco foto in: {percorso_base}")
+        
+        # Lista tutte le sottocartelle (es. 06-09-2026)
         files = supabase.storage.from_("foto-tricologiche").list(percorso_base)
+        
+        st.write(f"📁 Trovate {len(files)} cartelle in {percorso_base}")
         
         immagini = []
         
-        # Scansiona tutte le sottocartelle (per data)
+        # Scansiona tutte le sottocartelle
         for item in files:
-            # Se è una cartella, entra
+            item_name = item.get("name", "")
+            st.write(f"📂 Cartella trovata: {item_name}")
+            
+            # Se è una cartella (es. 06-09-2026)
             if item.get("metadata", {}).get("content-type") is None:
-                # È una cartella (es. 06-09-2026)
-                sub_path = f"{percorso_base}{item['name']}/"
-                sub_files = supabase.storage.from_("foto-tricologiche").list(sub_path)
+                sub_path = f"{percorso_base}{item_name}/"
                 
-                for sub_file in sub_files:
-                    if sub_file["name"].endswith((".jpg", ".jpeg", ".png")):
-                        # Scarica l'immagine
-                        file_path = f"{sub_path}{sub_file['name']}"
-                        response = supabase.storage.from_("foto-tricologiche").download(file_path)
-                        
-                        # Converti in immagine OpenCV
-                        img_bytes = np.frombuffer(response, np.uint8)
-                        img = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
-                        if img is not None:
-                            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                            immagini.append({
-                                "immagine": img_rgb,
-                                "nome": sub_file["name"],
-                                "percorso": file_path,
-                                "data": item["name"]
-                            })
+                try:
+                    # Lista i file nella sottocartella
+                    sub_files = supabase.storage.from_("foto-tricologiche").list(sub_path)
+                    st.write(f"📸 Trovati {len(sub_files)} file in {sub_path}")
+                    
+                    for sub_file in sub_files:
+                        file_name = sub_file.get("name", "")
+                        if file_name.endswith((".jpg", ".jpeg", ".png")):
+                            st.write(f"🖼️ Carico foto: {file_name}")
+                            
+                            # Scarica l'immagine
+                            file_path = f"{sub_path}{file_name}"
+                            response = supabase.storage.from_("foto-tricologiche").download(file_path)
+                            
+                            # Converti in immagine OpenCV
+                            img_bytes = np.frombuffer(response, np.uint8)
+                            img = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
+                            if img is not None:
+                                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                                immagini.append({
+                                    "immagine": img_rgb,
+                                    "nome": file_name,
+                                    "percorso": file_path,
+                                    "data": item_name
+                                })
+                except Exception as e:
+                    st.warning(f"⚠️ Errore in {sub_path}: {e}")
+        
+        if immagini:
+            st.success(f"✅ {len(immagini)} foto caricate dal cloud!")
+        else:
+            st.info("📭 Nessuna foto trovata nel cloud per questo cliente.")
         
         return immagini
     
     except Exception as e:
+        st.error(f"❌ Errore generale: {e}")
         return []
 
 
