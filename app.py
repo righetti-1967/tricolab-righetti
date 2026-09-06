@@ -2874,6 +2874,35 @@ def get_lista_clienti():
 # MAIN APPLICATION & INTERFACCIA STREAMLIT
 # ============================================================================
 def main():
+    # 🔍 DEBUG: VERIFICA CLIENTI
+    st.write("🔍 DEBUG - Verifica clienti:")
+    
+    try:
+        # Test 1: Controlla se supabase è disponibile
+        st.write(f"1. Supabase disponibile: {supabase is not None}")
+        
+        if supabase:
+            # Test 2: Prova a leggere direttamente da Supabase
+            res = supabase.table("clienti").select("*").execute()
+            st.write(f"2. Clienti da Supabase: {len(res.data) if res.data else 0}")
+            if res.data:
+                for c in res.data[:5]:  # mostra i primi 5
+                    st.write(f"   - {c.get('codice_cliente')} (ID: {c.get('id')[:8]}...)")
+            
+            # Test 3: Cerca Luca Tester specificamente
+            res_luca = supabase.table("clienti").select("*").eq("codice_cliente", "Luca Tester").execute()
+            st.write(f"3. Luca Tester in Supabase: {len(res_luca.data) if res_luca.data else 0}")
+            if res_luca.data:
+                st.write(f"   ✅ Trovato! ID: {res_luca.data[0]['id']}")
+            else:
+                st.warning("   ❌ Luca Tester NON trovato in Supabase!")
+    
+    except Exception as e:
+        st.error(f"❌ ERRORE DEBUG: {e}")
+    
+    # ... continua con il resto del codice ...
+
+    
     global supabase
     st.markdown(
         """
