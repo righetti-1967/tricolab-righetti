@@ -1692,7 +1692,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
 
     # 9. Nota di Rinvio Tabella (staccata in blu grassetto)
     fasi.append(
-        '• PER LE DOSI, TEMPI DI POSA E APPLICAZIONI, fare riferimento alla tabella sotto riportata: "DETTAGLIO UTILIZZO PRODOTTI".'
+        '• PER LE DOSI, TEMPI DI POSA e altro, fare riferimento alla tabella sotto riportata: "DETTAGLIO UTILIZZO PRODOTTI".'
     )
 
     return "\n".join(fasi)
