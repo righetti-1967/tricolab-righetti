@@ -4981,8 +4981,8 @@ def main():
     with tab5:
         st.header("⚙️ Gestione Prodotti & Categorie")
         
-        # Prendi supabase da session_state
-        sb = st.session_state.get("supabase", None)
+        # Usa la variabile globale supabase
+        sb = supabase  # ✅ CORRETTO
         
         # 🔄 PULSANTE RICARICA DA SUPABASE
         col_refresh1, col_refresh2 = st.columns([4, 1])
