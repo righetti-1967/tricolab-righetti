@@ -3089,11 +3089,13 @@ def main():
                 else:
                     st.warning("⚠️ Inserisci il nome del cliente.")
                     
-        # 3. Elenco Clienti con Auto-Compilazione Completa
-        df_clienti = pd.read_sql_query(
-            "SELECT id, codice_cliente, sesso, cellulare, email FROM clienti ORDER BY codice_cliente",
-            conn,
-        )
+                # 3. Elenco Clienti con Auto-Compilazione Completa
+        # 🔧 CARICA DA SUPABASE, NON DA SQLITE!
+        df_clienti = get_lista_clienti()
+        
+        # 🔍 DEBUG: mostra quanti clienti sono stati caricati
+        st.write(f"🔍 Clienti caricati: {len(df_clienti) if not df_clienti.empty else 0}")
+        
         clienti_list = (
             df_clienti["codice_cliente"].tolist() if not df_clienti.empty else []
         )
@@ -3109,7 +3111,7 @@ def main():
             riga_cl = df_clienti[
                 df_clienti["codice_cliente"] == cliente_selezionato
             ].iloc[0]
-            cl_id_selezionato = int(riga_cl["id"])
+            cl_id_selezionato = riga_cl["id"]  # <-- NON convertire in int, è UUID!
             sesso_cliente_db = (
                 riga_cl["sesso"] if pd.notna(riga_cl["sesso"]) else "Uomo"
             )
@@ -3141,6 +3143,13 @@ def main():
                     (sesso_cliente, cliente_selezionato),
                 )
                 conn.commit()
+                if supabase:
+                    try:
+                        supabase.table("clienti").update({
+                            "sesso": sesso_cliente
+                        }).eq("codice_cliente", cliente_selezionato).execute()
+                    except Exception:
+                        pass
 
             # 4. Box Eliminazione Cliente Sicura
             with st.expander("🗑️ Elimina Cliente"):
@@ -3166,8 +3175,21 @@ def main():
                         "DELETE FROM prodotti_cliente WHERE cliente_id = ?",
                         (cl_id_selezionato,),
                     )
-                    c.execute("DELETE FROM clienti WHERE id = ?", (cl_id_selezionato,))
+                    c.execute(
+                        "DELETE FROM clienti WHERE id = ?",
+                        (cl_id_selezionato,),
+                    )
                     conn.commit()
+
+                    if supabase:
+                        try:
+                            supabase.table("clienti").delete().eq(
+                                "id", cl_id_selezionato
+                            ).execute()
+                        except Exception:
+                            pass
+
+                    st.cache_data.clear()
                     st.success(f"Cliente '{cliente_selezionato}' eliminato!")
                     st.rerun()
 
