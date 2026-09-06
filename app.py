@@ -3501,8 +3501,6 @@ def main():
                     foto_da_cloud = carica_foto_supabase(cliente_uuid_cloud)
                 
                 if foto_da_cloud:
-                    st.success(f"✅ {len(foto_da_cloud)} foto caricate dal cloud!")
-                    
                     # Mostra le foto caricate dal cloud in un expander
                     with st.expander("📸 Foto dal cloud (già caricate)", expanded=False):
                         cols = st.columns(3)
