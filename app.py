@@ -1,3 +1,4 @@
+st.write(f"🔧 Versione codice: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 # ============================================================================
 # STUDIO TRICOLOGICO RIGHETTI SINCE 1967 - VERSIONE DEFINITIVA IBRIDA
 # ============================================================================
