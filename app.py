@@ -2930,7 +2930,7 @@ def main():
                 st.cache_data.clear()
             st.session_state["auto_sync_eseguito"] = True
 
-        # 2. Nuovo Cliente Manuale
+                # 2. Nuovo Cliente Manuale
         with st.expander("➕ Nuovo Cliente Manuale", expanded=False):
             nuovo_cliente = st.text_input(
                 "Nome e Cognome", placeholder="Es. Mario Rossi"
@@ -2947,20 +2947,49 @@ def main():
                 use_container_width=True,
             ):
                 if nuovo_cliente.strip():
+                    nome_pulito = nuovo_cliente.strip()
                     try:
                         c = conn.cursor()
-                        c.execute(
-                            "INSERT INTO clienti (codice_cliente, sesso) VALUES (?, ?)",
-                            (nuovo_cliente.strip(), nuovo_sesso),
-                        )
-                        conn.commit()
-                        st.success(f"Cliente '{nuovo_cliente}' registrato!")
-                        st.rerun()
-                    except sqlite3.IntegrityError:
-                        st.error("Cliente già esistente!")
-                else:
-                    st.warning("Inserisci il nome del cliente.")
+                        
+                        # 1. Inserimento in SQLite (backup locale)
+                        try:
+                            c.execute(
+                                "INSERT INTO clienti (codice_cliente, sesso) VALUES (?, ?)",
+                                (nome_pulito, nuovo_sesso),
+                            )
+                            conn.commit()
+                            st.success(f"✅ Cliente '{nome_pulito}' registrato in SQLite")
+                        except sqlite3.IntegrityError:
+                            st.warning(f"⚠️ Cliente '{nome_pulito}' già esistente in SQLite")
 
+                        # 2. Inserimento in Supabase (cloud)
+                        if supabase:
+                            try:
+                                # Controlla se esiste già in Supabase
+                                check_cloud = supabase.table("clienti").select("id").eq("codice_cliente", nome_pulito).execute()
+                                if not check_cloud.data:
+                                    # Non esiste, lo creiamo
+                                    result = supabase.table("clienti").insert({
+                                        "codice_cliente": nome_pulito,
+                                        "sesso": nuovo_sesso,
+                                    }).execute()
+                                    if result.data:
+                                        st.success(f"✅ Cliente '{nome_pulito}' registrato su Supabase (UUID: {result.data[0]['id'][:8]}...)")
+                                    else:
+                                        st.warning("⚠️ Cliente registrato solo in SQLite, Supabase non ha risposto")
+                                else:
+                                    st.info(f"ℹ️ Cliente '{nome_pulito}' già esistente in Supabase (UUID: {check_cloud.data[0]['id'][:8]}...)")
+                            except Exception as e:
+                                st.error(f"❌ Errore Supabase: {str(e)}")
+                        else:
+                            st.warning("⚠️ Supabase non disponibile! Cliente registrato solo in SQLite.")
+                        
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Errore durante la registrazione: {e}")
+                else:
+                    st.warning("⚠️ Inserisci il nome del cliente.")
+                    
         # 3. Elenco Clienti con Auto-Compilazione Completa
         df_clienti = pd.read_sql_query(
             "SELECT id, codice_cliente, sesso, cellulare, email FROM clienti ORDER BY codice_cliente",
