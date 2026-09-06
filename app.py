@@ -19,6 +19,9 @@ import fitz  # PyMuPDF
 import warnings
 from supabase import create_client, Client
 
+# IMPOSTAZIONI PER EVITARE CANCELLAZIONI CLIENTI
+os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
+
 warnings.filterwarnings("ignore")
 
 # --- CONNESSIONE SUPABASE ---
