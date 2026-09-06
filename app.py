@@ -2825,7 +2825,50 @@ def carica_foto_supabase(cliente_uuid):
         st.code(traceback.format_exc())
         return []
 
+# ============================================================================
+# RECUPERO CLIENTI DA SUPABASE
+# ============================================================================
+def get_lista_clienti():
+    """Recupera i clienti da Supabase Cloud e forza la sincronizzazione in SQLite locale."""
+    conn = sqlite3.connect("trico_database.db", timeout=30)
+    c = conn.cursor()
 
+    if supabase:
+        try:
+            # 1. Prende tutti i clienti da Supabase
+            res = supabase.table("clienti").select("*").order("codice_cliente").execute()
+            if res.data:
+                df = pd.DataFrame(res.data)
+                
+                # 2. Sincronizza i clienti Cloud nel DB locale
+                for _, r in df.iterrows():
+                    c.execute(
+                        """
+                        INSERT INTO clienti (id, codice_cliente, sesso, cellulare, email)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT(codice_cliente) DO UPDATE SET
+                        sesso=excluded.sesso, cellulare=excluded.cellulare, email=excluded.email
+                    """,
+                        (
+                            r.get("id"),
+                            r.get("codice_cliente"),
+                            r.get("sesso", "Uomo"),
+                            r.get("cellulare", ""),
+                            r.get("email", ""),
+                        ),
+                    )
+                conn.commit()
+                conn.close()
+                return df
+        except Exception as e:
+            print(f"⚠️ Errore sincronizzazione Supabase: {e}")
+
+    # 3. Fallback: legge dal DB locale
+    df = pd.read_sql_query(
+        "SELECT * FROM clienti ORDER BY codice_cliente", conn
+    )
+    conn.close()
+    return df
 
 # ============================================================================
 # MAIN APPLICATION & INTERFACCIA STREAMLIT
