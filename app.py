@@ -2673,6 +2673,82 @@ def invia_file_a_google_drive(
     except Exception as e:
         return False, f"❌ Errore invio: {str(e)}"
 
+# ============================================================================
+# SALVATAGGIO FOTO IN SUPABASE STORAGE
+# ============================================================================
+def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto):
+    """Salva le foto in Supabase Storage per la sincronizzazione tra dispositivi"""
+    
+    if not supabase:
+        return False, "Supabase non disponibile"
+    
+    if not cliente_uuid:
+        return False, "UUID cliente non disponibile"
+    
+    try:
+        conteggio = 0
+        for i_f, f_data in enumerate(immagini_con_etichette, 1):
+            # Converti immagine in bytes (JPEG per risparmiare spazio)
+            img_bgr = cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR)
+            _, img_encoded = cv2.imencode('.jpg', img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+            img_bytes = img_encoded.tobytes()
+            
+            # Nome file: clienti/{UUID}/foto_checkup/{data}/acquisizione_{numero}.jpg
+            file_path = f"clienti/{cliente_uuid}/foto_checkup/{data_cartella_foto}/acquisizione_{i_f}.jpg"
+            
+            # Carica su Supabase Storage (sovrascrive se esiste)
+            supabase.storage.from_("foto-tricologiche").upload(
+                file_path,
+                img_bytes,
+                {"content-type": "image/jpeg"}
+            )
+            conteggio += 1
+        
+        return True, f"✅ {conteggio} foto caricate su Supabase Storage"
+    
+    except Exception as e:
+        return False, f"❌ Errore caricamento foto: {str(e)}"
+
+# ============================================================================
+# CARICAMENTO FOTO DA SUPABASE STORAGE
+# ============================================================================
+def carica_foto_supabase(cliente_uuid, data_checkup=None):
+    """Carica le foto da Supabase Storage per visualizzarle su tutti i dispositivi"""
+    
+    if not supabase or not cliente_uuid:
+        return []
+    
+    try:
+        # Costruisci il percorso: clienti/{UUID}/foto_checkup/
+        percorso_base = f"clienti/{cliente_uuid}/foto_checkup/"
+        
+        # Lista tutti i file nella cartella del cliente
+        files = supabase.storage.from_("foto-tricologiche").list(percorso_base)
+        
+        immagini = []
+        for file in files:
+            if file["name"].endswith(".jpg") or file["name"].endswith(".png"):
+                # Scarica l'immagine da Supabase
+                file_path = f"{percorso_base}{file['name']}"
+                response = supabase.storage.from_("foto-tricologiche").download(file_path)
+                
+                # Converti in immagine OpenCV
+                img_bytes = np.frombuffer(response, np.uint8)
+                img = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                
+                immagini.append({
+                    "immagine": img_rgb,
+                    "nome": file["name"],
+                    "percorso": file_path
+                })
+        
+        return immagini
+    
+    except Exception as e:
+        st.warning(f"⚠️ Nessuna foto trovata in cloud: {e}")
+        return []
+
 
 # ============================================================================
 # MAIN APPLICATION & INTERFACCIA STREAMLIT
@@ -3750,12 +3826,9 @@ def main():
                             cliente_uuid = None
                             if supabase and cliente_selezionato:
                                 try:
-                                    # Recupera l'UUID del cliente da Supabase
                                     res = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
                                     if res.data:
                                         cliente_uuid = res.data[0]["id"]
-                                    else:
-                                        st.error("❌ Cliente non trovato in Supabase! Sincronizza prima.")
                                 except Exception as e:
                                     st.error(f"❌ Errore recupero UUID: {e}")
 
@@ -3783,22 +3856,34 @@ def main():
                                         "prurito": "Sì" if chk_prurito else "No",
                                         "routine_consigliata": f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
                                     }).execute()
-                                    st.success("☁️ Dati salvati su Supabase (cloud) con UUID!")
+                                    st.success("☁️ Dati salvati su Supabase (cloud)!")
                                 except Exception as e:
                                     st.error(f"❌ Errore salvataggio Supabase: {e}")
-                            else:
-                                if not supabase:
-                                    st.warning("⚠️ Supabase non disponibile!")
-                                elif not cliente_uuid:
-                                    st.warning("⚠️ UUID cliente non trovato! Sincronizza prima il cliente.")
-
+                            
                             # ============================================================
-                            # 3. SALVATAGGIO CARTELLA CLIENTE (LOCALE)
+                            # 6. SALVATAGGIO FOTO IN SUPABASE STORAGE (CLOUD)
+                            # ============================================================
+                            if supabase and cliente_uuid:
+                                try:
+                                    ok_foto, msg_foto = salva_foto_supabase(
+                                        cliente_uuid,
+                                        immagini_con_etichette,
+                                        data_cartella_foto
+                                    )
+                                    if ok_foto:
+                                        st.success(msg_foto)
+                                    else:
+                                        st.warning(msg_foto)
+                                except Exception as e:
+                                    st.warning(f"⚠️ Errore salvataggio foto in cloud: {e}")
+                            
+                            # ============================================================
+                            # 7. SALVATAGGIO CARTELLA CLIENTE (LOCALE - BACKUP)
                             # ============================================================
                             cartella_cliente_dest = trova_o_crea_cartella_cliente(
                                 cliente_selezionato
                             )
-
+                            
                             # A. Salvataggio Cartella Foto Microcamera (con pallini)
                             nome_cartella_foto = f"Foto Check-Up | {data_cartella_foto}"
                             cartella_foto_checkup = os.path.join(
