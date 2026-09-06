@@ -25,7 +25,6 @@ os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
 warnings.filterwarnings("ignore")
 
 # --- CONNESSIONE SUPABASE ---
-# --- CONNESSIONE SUPABASE ---
 try:
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -34,8 +33,6 @@ try:
 except Exception as e:
     supabase = None
     print(f"❌ Errore Supabase: {e}")  # <-- AGGIUNGI QUESTO
-
-supabase = st.session_state.supabase  # <-- ALIAS PER COMODITÀ
 
 st.set_page_config(
     page_title="Studio Tricologico Righetti Since 1967",
