@@ -3069,9 +3069,6 @@ def main():
         # 🔧 CARICA DA SUPABASE, NON DA SQLITE!
         df_clienti = get_lista_clienti()
         
-        # 🔍 DEBUG: mostra quanti clienti sono stati caricati
-        st.write(f"🔍 Clienti caricati: {len(df_clienti) if not df_clienti.empty else 0}")
-        
         clienti_list = (
             df_clienti["codice_cliente"].tolist() if not df_clienti.empty else []
         )
