@@ -2829,6 +2829,7 @@ def carica_foto_supabase(cliente_uuid):
 # RECUPERO CLIENTI DA SUPABASE
 # ============================================================================
 def get_lista_clienti():
+    global supabase
     """Recupera i clienti da Supabase Cloud e forza la sincronizzazione in SQLite locale."""
     conn = sqlite3.connect("trico_database.db", timeout=30)
     c = conn.cursor()
