@@ -2929,7 +2929,7 @@ def main():
             if ok_auto:
                 st.cache_data.clear()
             st.session_state["auto_sync_eseguito"] = True
-
+            
                 # 2. Nuovo Cliente Manuale
         with st.expander("➕ Nuovo Cliente Manuale", expanded=False):
             nuovo_cliente = st.text_input(
@@ -2948,10 +2948,16 @@ def main():
             ):
                 if nuovo_cliente.strip():
                     nome_pulito = nuovo_cliente.strip()
+                    
+                    # 🔍 DEBUG: mostra lo stato di Supabase
+                    st.write(f"🔍 Supabase disponibile: {supabase is not None}")
+                    if supabase:
+                        st.write(f"🔍 URL Supabase: {SUPABASE_URL[:20]}...")  # Solo i primi 20 caratteri per sicurezza
+                    
                     try:
                         c = conn.cursor()
                         
-                        # 1. Inserimento in SQLite (backup locale)
+                        # 1. Inserimento in SQLite
                         try:
                             c.execute(
                                 "INSERT INTO clienti (codice_cliente, sesso) VALUES (?, ?)",
@@ -2962,31 +2968,41 @@ def main():
                         except sqlite3.IntegrityError:
                             st.warning(f"⚠️ Cliente '{nome_pulito}' già esistente in SQLite")
 
-                        # 2. Inserimento in Supabase (cloud)
+                        # 2. Inserimento in Supabase
                         if supabase:
                             try:
-                                # Controlla se esiste già in Supabase
+                                st.write("🔍 Tentativo di inserimento in Supabase...")
+                                
+                                # Controlla se esiste già
                                 check_cloud = supabase.table("clienti").select("id").eq("codice_cliente", nome_pulito).execute()
+                                st.write(f"🔍 Check esistenza: {check_cloud.data}")
+                                
                                 if not check_cloud.data:
                                     # Non esiste, lo creiamo
                                     result = supabase.table("clienti").insert({
                                         "codice_cliente": nome_pulito,
                                         "sesso": nuovo_sesso,
                                     }).execute()
+                                    st.write(f"🔍 Risultato insert: {result.data}")
+                                    
                                     if result.data:
                                         st.success(f"✅ Cliente '{nome_pulito}' registrato su Supabase (UUID: {result.data[0]['id'][:8]}...)")
                                     else:
-                                        st.warning("⚠️ Cliente registrato solo in SQLite, Supabase non ha risposto")
+                                        st.error("❌ Inserimento Supabase fallito: nessun dato restituito")
                                 else:
                                     st.info(f"ℹ️ Cliente '{nome_pulito}' già esistente in Supabase (UUID: {check_cloud.data[0]['id'][:8]}...)")
                             except Exception as e:
-                                st.error(f"❌ Errore Supabase: {str(e)}")
+                                st.error(f"❌ ERRORE SUPABASE: {str(e)}")
+                                import traceback
+                                st.code(traceback.format_exc())
                         else:
-                            st.warning("⚠️ Supabase non disponibile! Cliente registrato solo in SQLite.")
+                            st.error("❌ Supabase NON è disponibile! Controlla i secrets.")
                         
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Errore durante la registrazione: {e}")
+                        st.error(f"❌ Errore generale: {e}")
+                        import traceback
+                        st.code(traceback.format_exc())
                 else:
                     st.warning("⚠️ Inserisci il nome del cliente.")
                     
