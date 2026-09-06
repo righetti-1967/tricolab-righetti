@@ -2746,20 +2746,20 @@ def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto
         return False, f"❌ Errore caricamento foto: {str(e)}"
 
 # ============================================================================
-# CARICAMENTO FOTO DA SUPABASE STORAGE
+# CARICAMENTO FOTO DA SUPABASE STORAGE (VERSIONE TESTATA)
 # ============================================================================
 def carica_foto_supabase(cliente_uuid):
     """Carica le foto da Supabase Storage per visualizzarle su tutti i dispositivi"""
     
     if not supabase or not cliente_uuid:
+        st.warning("⚠️ Supabase o UUID non disponibile")
         return []
     
     try:
         # Costruisci il percorso: clienti/{UUID}/foto_checkup/
         percorso_base = f"clienti/{cliente_uuid}/foto_checkup/"
         
-        # 🔍 LOG PER DEBUG
-        st.write(f"🔍 Cerco foto in: {percorso_base}")
+        st.info(f"🔍 Cerco foto in: {percorso_base}")
         
         # Lista tutte le sottocartelle (es. 06-09-2026)
         files = supabase.storage.from_("foto-tricologiche").list(percorso_base)
@@ -2770,12 +2770,15 @@ def carica_foto_supabase(cliente_uuid):
         
         # Scansiona tutte le sottocartelle
         for item in files:
+            # item è un dizionario con 'name', 'id', 'metadata', etc.
             item_name = item.get("name", "")
-            st.write(f"📂 Cartella trovata: {item_name}")
+            st.write(f"📂 Item trovato: {item_name} (type: {type(item_name)})")
             
-            # Se è una cartella (es. 06-09-2026)
-            if item.get("metadata", {}).get("content-type") is None:
+            # Controlla se è una cartella (es. 06-09-2026)
+            # Le cartelle hanno metadata.content-type = None
+            if item.get("metadata") is None or item.get("metadata", {}).get("content-type") is None:
                 sub_path = f"{percorso_base}{item_name}/"
+                st.write(f"📁 Entro in sottocartella: {sub_path}")
                 
                 try:
                     # Lista i file nella sottocartella
@@ -2803,7 +2806,9 @@ def carica_foto_supabase(cliente_uuid):
                                     "data": item_name
                                 })
                 except Exception as e:
-                    st.warning(f"⚠️ Errore in {sub_path}: {e}")
+                    st.warning(f"⚠️ Errore nella sottocartella {item_name}: {e}")
+            else:
+                st.write(f"📄 File ignorato (non è una cartella): {item_name}")
         
         if immagini:
             st.success(f"✅ {len(immagini)} foto caricate dal cloud!")
@@ -2813,7 +2818,9 @@ def carica_foto_supabase(cliente_uuid):
         return immagini
     
     except Exception as e:
-        st.error(f"❌ Errore generale: {e}")
+        st.error(f"❌ Errore generale: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         return []
 
 
