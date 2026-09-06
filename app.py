@@ -2829,59 +2829,35 @@ def carica_foto_supabase(cliente_uuid):
 # RECUPERO CLIENTI DA SUPABASE
 # ============================================================================
 def get_lista_clienti():
-    """Recupera i clienti da Supabase Cloud e forza la sincronizzazione in SQLite locale."""
+    """Recupera i clienti da Supabase Cloud"""
     global supabase
     
-    conn = sqlite3.connect("trico_database.db", timeout=30)
-    c = conn.cursor()
-
     try:
         if supabase:
-            # 1. Prende tutti i clienti da Supabase
+            # Prende tutti i clienti da Supabase
             res = supabase.table("clienti").select("*").order("codice_cliente").execute()
             if res.data:
                 df = pd.DataFrame(res.data)
-                
-                # 2. Sincronizza i clienti Cloud nel DB locale
-                for _, r in df.iterrows():
-                    c.execute(
-                        """
-                        INSERT INTO clienti (id, codice_cliente, sesso, cellulare, email)
-                        VALUES (?, ?, ?, ?, ?)
-                        ON CONFLICT(codice_cliente) DO UPDATE SET
-                        sesso=excluded.sesso, cellulare=excluded.cellulare, email=excluded.email
-                    """,
-                        (
-                            r.get("id"),
-                            r.get("codice_cliente"),
-                            r.get("sesso", "Uomo"),
-                            r.get("cellulare", ""),
-                            r.get("email", ""),
-                        ),
-                    )
-                conn.commit()
-                conn.close()
-                return df  # <--- RESTITUISCE IL DATAFRAME CON I CLIENTI!
-        
-        # 3. Fallback: legge dal DB locale
+                print(f"✅ get_lista_clienti: {len(df)} clienti caricati da Supabase")
+                return df
+            else:
+                print("⚠️ get_lista_clienti: Nessun cliente in Supabase")
+        else:
+            print("⚠️ get_lista_clienti: Supabase non disponibile")
+    except Exception as e:
+        print(f"❌ get_lista_clienti: Errore: {e}")
+    
+    # Fallback: SQLite
+    try:
+        conn = sqlite3.connect("trico_database.db", timeout=30)
         df = pd.read_sql_query(
             "SELECT * FROM clienti ORDER BY codice_cliente", conn
         )
         conn.close()
+        print(f"⚠️ get_lista_clienti: Fallback SQLite - {len(df)} clienti")
         return df
-        
-    except Exception as e:
-        print(f"⚠️ Errore get_lista_clienti: {e}")
-        # Fallback: SQLite
-        try:
-            df = pd.read_sql_query(
-                "SELECT * FROM clienti ORDER BY codice_cliente", conn
-            )
-            conn.close()
-            return df
-        except:
-            conn.close()
-            return pd.DataFrame()
+    except:
+        return pd.DataFrame()
 
 # ============================================================================
 # MAIN APPLICATION & INTERFACCIA STREAMLIT
