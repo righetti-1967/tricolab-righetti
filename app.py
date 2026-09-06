@@ -2744,7 +2744,7 @@ def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto
 # ============================================================================
 # CARICAMENTO FOTO DA SUPABASE STORAGE
 # ============================================================================
-def carica_foto_supabase(cliente_uuid, data_checkup=None):
+def carica_foto_supabase(cliente_uuid):
     """Carica le foto da Supabase Storage per visualizzarle su tutti i dispositivi"""
     
     if not supabase or not cliente_uuid:
@@ -2758,28 +2758,38 @@ def carica_foto_supabase(cliente_uuid, data_checkup=None):
         files = supabase.storage.from_("foto-tricologiche").list(percorso_base)
         
         immagini = []
-        for file in files:
-            if file["name"].endswith(".jpg") or file["name"].endswith(".png"):
-                # Scarica l'immagine da Supabase
-                file_path = f"{percorso_base}{file['name']}"
-                response = supabase.storage.from_("foto-tricologiche").download(file_path)
+        
+        # Scansiona tutte le sottocartelle (per data)
+        for item in files:
+            # Se è una cartella, entra
+            if item.get("metadata", {}).get("content-type") is None:
+                # È una cartella (es. 06-09-2026)
+                sub_path = f"{percorso_base}{item['name']}/"
+                sub_files = supabase.storage.from_("foto-tricologiche").list(sub_path)
                 
-                # Converti in immagine OpenCV
-                img_bytes = np.frombuffer(response, np.uint8)
-                img = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
-                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                
-                immagini.append({
-                    "immagine": img_rgb,
-                    "nome": file["name"],
-                    "percorso": file_path
-                })
+                for sub_file in sub_files:
+                    if sub_file["name"].endswith((".jpg", ".jpeg", ".png")):
+                        # Scarica l'immagine
+                        file_path = f"{sub_path}{sub_file['name']}"
+                        response = supabase.storage.from_("foto-tricologiche").download(file_path)
+                        
+                        # Converti in immagine OpenCV
+                        img_bytes = np.frombuffer(response, np.uint8)
+                        img = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
+                        if img is not None:
+                            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                            immagini.append({
+                                "immagine": img_rgb,
+                                "nome": sub_file["name"],
+                                "percorso": file_path,
+                                "data": item["name"]
+                            })
         
         return immagini
     
     except Exception as e:
-        st.warning(f"⚠️ Nessuna foto trovata in cloud: {e}")
         return []
+
 
 
 # ============================================================================
@@ -3391,6 +3401,41 @@ def main():
                                 f"✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**"
                             )
 
+            # ============================================================
+            # CARICAMENTO FOTO DA SUPABASE STORAGE (PER SINCRONIZZAZIONE)
+            # ============================================================
+            # Recupera l'UUID del cliente
+            cliente_uuid_cloud = None
+            if supabase and cliente_selezionato:
+                try:
+                    res_uuid = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
+                    if res_uuid.data:
+                        cliente_uuid_cloud = res_uuid.data[0]["id"]
+                except:
+                    pass
+            
+            # Se ci sono foto in Supabase, le carichiamo
+            foto_da_cloud = []
+            if cliente_uuid_cloud:
+                with st.spinner("📸 Caricamento foto dal cloud..."):
+                    foto_da_cloud = carica_foto_supabase(cliente_uuid_cloud)
+                
+                if foto_da_cloud:
+                    st.success(f"✅ {len(foto_da_cloud)} foto caricate dal cloud!")
+                    
+                    # Mostra le foto caricate dal cloud in un expander
+                    with st.expander("📸 Foto dal cloud (già caricate)", expanded=False):
+                        cols = st.columns(3)
+                        for idx, img_data in enumerate(foto_da_cloud):
+                            with cols[idx % 3]:
+                                st.image(
+                                    img_data["immagine"],
+                                    caption=f"{img_data['nome']} ({img_data.get('data', '')})",
+                                    use_container_width=True,
+                                )
+                else:
+                    st.info("📭 Nessuna foto trovata nel cloud per questo cliente.")
+
             # -------------------------------------------------------------
             # CARICAMENTO IMMAGINI ODIERNE
             # -------------------------------------------------------------
@@ -3400,10 +3445,32 @@ def main():
                 accept_multiple_files=True,
             )
 
-            if uploaded_files:
+            # Se ci sono foto dal cloud, le uniamo a quelle caricate ora
+            if uploaded_files or foto_da_cloud:
                 immagini_con_etichette = []
-
-                for idx, uploaded_file in enumerate(uploaded_files):
+                
+                # PRIMA: Aggiungi le foto dal cloud (se già presenti)
+                if foto_da_cloud:
+                    for img_data in foto_da_cloud:
+                        immagini_con_etichette.append({
+                            "immagine": img_data["immagine"],
+                            "ottica": "50x",  # default
+                            "luce": "Bianca",  # default
+                            "zona": "Cloud",
+                            "note": f"Foto caricata dal cloud: {img_data['nome']}",
+                            "steli_anagen": 0,
+                            "steli_vellus": 0,
+                            "steli_nuovi": 0,
+                            "eritemi": 0,
+                            "tappi_sebacei": 0,
+                            "calibro_medio": 0,
+                            "anisotropia": 0,
+                            "densita": 0,
+                        })
+                
+                # POI: Analizza le nuove foto caricate
+                if uploaded_files:
+                    for idx, uploaded_file in enumerate(uploaded_files):
                     st.markdown(f"---")
                     st.subheader(f"📷 Acquisizione #{idx+1} — {uploaded_file.name}")
 
