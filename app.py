@@ -3286,7 +3286,7 @@ def main():
                         dati_visita_precedente = estrai_dati_da_pdf_report(pdf_bytes)
                         st.success(f"✅ PDF caricato! Data rilevata: **{dati_visita_precedente['data']}**")
 
-            # --- FOTO PANORAMICA ---
+                        # --- FOTO PANORAMICA ---
             with st.expander("📱 Foto Panoramica Globale da PC | Smartphone", expanded=False):
                 st.caption("Tocca 'Upload' e scegli 'Scatta foto' dal tuo Smartphone per fotografare la testa dall'alto ad altissima risoluzione.")
                 uploaded_macro_phone = st.file_uploader(
@@ -3309,8 +3309,29 @@ def main():
                             nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_macro_str}.jpg"
                             path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
 
+                            # Salva localmente
                             with open(path_macro_dest, "wb") as f_macro:
                                 f_macro.write(uploaded_macro_phone.getbuffer())
+
+                            # 🔥 INVIA A GOOGLE DRIVE
+                            try:
+                                # Leggi il file appena salvato
+                                with open(path_macro_dest, "rb") as img_file:
+                                    img_bytes = img_file.read()
+                                    
+                                    # Invia a Google Drive tramite webhook
+                                    ok_drive, msg_drive = invia_file_a_google_drive(
+                                        img_bytes,
+                                        nome_file_macro,
+                                        cliente_selezionato,
+                                        mime_type="image/jpeg"
+                                    )
+                                    if ok_drive:
+                                        st.success(f"📸 Foto panoramica inviata a Google Drive!")
+                                    else:
+                                        st.warning(f"⚠️ {msg_drive}")
+                            except Exception as e:
+                                st.warning(f"⚠️ Errore invio foto panoramica a Google Drive: {e}")
 
                             st.success(f"✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**")
 
