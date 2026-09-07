@@ -2501,7 +2501,7 @@ def get_prodotti_cliente(cliente_uuid):
         return pd.DataFrame()
     
     try:
-        # 🔧 LEGGE DIRETTAMENTE DA SUPABASE
+        # 🔧 PRENDE TUTTI I PRODOTTI ASSEGNATI
         res = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("data_assegnazione", desc=True).execute()
         
         if not res.data:
@@ -2509,19 +2509,53 @@ def get_prodotti_cliente(cliente_uuid):
         
         lista = []
         for row in res.data:
+            # 🔧 CERCA IL PRODOTTO PER ID
             prod_id = row.get("prodotto_id")
             nome_prodotto = "Prodotto Sconosciuto"
             categoria = ""
             
-            # 🔧 CERCA IL NOME DEL PRODOTTO
             if prod_id:
                 try:
+                    # Prova a cercare il prodotto per ID
                     prod_res = supabase.table("prodotti").select("nome", "categoria").eq("id", prod_id).execute()
                     if prod_res.data:
                         nome_prodotto = prod_res.data[0].get("nome", "Prodotto Sconosciuto")
                         categoria = prod_res.data[0].get("categoria", "")
-                except Exception as e:
-                    print(f"⚠️ Errore recupero prodotto: {e}")
+                except:
+                    pass
+            
+            # 🔧 SE NON TROVATO, USA I DATI DIRETTAMENTE
+            if nome_prodotto == "Prodotto Sconosciuto":
+                # Prova a cercare per nome usando note_utilizzo
+                note_val = row.get("note_utilizzo", "")
+                if "LIQUET" in note_val:
+                    nome_prodotto = "LIQUET CUTIS 100ML"
+                elif "LUTUM" in note_val:
+                    nome_prodotto = "LUTUM CUTIS 250ML"
+                elif "COMPENSATIO" in note_val:
+                    nome_prodotto = "SH. COMPENSATIO 300ML"
+                elif "PURGATIO" in note_val:
+                    nome_prodotto = "SH. PURGATIO 300ML"
+                elif "FORTIS" in note_val:
+                    nome_prodotto = "SH. FORTIS 300ML"
+                elif "POTENTIA" in note_val:
+                    nome_prodotto = "SH. POTENTIA 300ML"
+                elif "REPARATOR" in note_val:
+                    nome_prodotto = "SH. REPARATOR CELLULARIS 300ML"
+                elif "SPRAY" in note_val and "FORTIS" in note_val:
+                    nome_prodotto = "SPRAY FORTIS 100ML"
+                elif "SPRAY" in note_val and "PURGATIO" in note_val:
+                    nome_prodotto = "SPRAY PURGATIO 100ML"
+                elif "GOCCE" in note_val:
+                    nome_prodotto = "GOCCE POTENTIA 100ML"
+                elif "UNGUENTUM" in note_val:
+                    nome_prodotto = "UNGUENTUM CELLULARIS 300ML"
+                elif "CEROTUM" in note_val:
+                    nome_prodotto = "CEROTUM POTENTIA"
+                elif "INTEGRATORE" in note_val:
+                    nome_prodotto = "INTEGRATORE ANTI-DHT"
+                elif "PROBIOTICO" in note_val:
+                    nome_prodotto = "PROBIOTICO | MICROBIOTA"
             
             lista.append({
                 "assegnazione_id": row.get("id"),
