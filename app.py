@@ -4273,7 +4273,7 @@ def main():
             res_cl = c.execute(
                 "SELECT id FROM clienti WHERE codice_cliente = ?",
                 (cliente_selezionato,),
-            ).fetchone()[0]
+            ).fetchone()
 
             if not res_cl:
                 st.error("Cliente non trovato.")
