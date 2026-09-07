@@ -3728,6 +3728,18 @@ def main():
             # 🔧 CARICA I PRODOTTI ASSEGNATI (AGGIORNATO SEMPRE)
             prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
 
+            # ============================================================
+            # 🔍 TEST DIRETTO SUPABASE
+            # ============================================================
+            if cliente_uuid:
+                try:
+                    test = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).execute()
+                    st.write(f"🔍 TEST: Trovati {len(test.data) if test.data else 0} record")
+                    if test.data:
+                        st.write("🔍 TEST: Primo record:", test.data[0])
+                except Exception as e:
+                    st.error(f"❌ TEST ERRORE: {e}")
+
             # --- ASSEGNAZIONE PRODOTTI ---
             st.subheader("➕ Assegna Prodotti al Cliente")
 
