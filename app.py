@@ -359,8 +359,7 @@ def init_db():
 
     # Popola SQLite locale
     c.execute("SELECT COUNT(*) FROM prodotti")
-    row = c.fetchone()
-    if row and row[0] < 18:
+    if c.fetchone()[0] < 18:
         for p in prodotti_completi_righetti:
             c.execute(
                 """INSERT OR IGNORE INTO prodotti 
