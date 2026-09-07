@@ -1546,11 +1546,11 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
             f"• fase (Ricostruzione Cellulare): Dopo la detersione applicare '{u['nome']}' sul cuoio capelluto e massaggiare, lasciare agire prima di risciacquare."
         )
 
-    # 4.5 R-GOCCE - 🔥 AGGIUNTO
+        # 4.5 R-GOCCE - 🔥 MODIFICATO (SOLO R-GOCCE)
     gocce_list = [
         p
         for p in prodotti_assegnati
-        if "r-gocce" in p["nome"].lower() or "gocce" in p["nome"].lower()
+        if "r-gocce" in p["nome"].lower()  # <--- RIMOSSO "or gocce in p["nome"].lower()"
     ]
     for g in gocce_list:
         fasi.append(
