@@ -4226,7 +4226,8 @@ def main():
                                     use_container_width=True
                                 )
                             
-                            st.success(f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                            st.success(f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{o
+s.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
                     else:
                         st.warning("⚠️ Assegna almeno un prodotto al cliente.")
                         
