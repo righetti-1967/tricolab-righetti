@@ -3717,8 +3717,6 @@ def main():
     # TAB 2: PRODOTTI & SCHEDA CURA
     # =========================================================================
     with tab2:
-    # Subito dopo if cliente_selezionato != "-- Seleziona --"
-        st.write(f"🔍 UUID cliente: {cliente_uuid}")
         st.header("📦 Prodotti & Cura Domiciliare")
         if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
             st.info("⚠️ Seleziona un cliente dalla barra laterale")
