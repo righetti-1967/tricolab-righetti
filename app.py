@@ -3697,7 +3697,7 @@ def main():
                         else:
                             st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
 
-    # =========================================================================
+        # =========================================================================
     # TAB 2: PRODOTTI & SCHEDA CURA
     # =========================================================================
     with tab2:
@@ -3705,9 +3705,7 @@ def main():
         if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
             st.info("⚠️ Seleziona un cliente dalla barra laterale")
         else:
-            # Carica prodotti assegnati da Supabase
-            prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
-
+            
             # --- ASSEGNAZIONE PRODOTTI ---
             st.subheader("➕ Assegna Prodotti al Cliente")
 
@@ -3729,11 +3727,15 @@ def main():
                     try:
                         supabase.table("prodotti_cliente").delete().eq("cliente_id", cliente_uuid).execute()
                         st.success("Elenco prodotti svuotato!")
+                        st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Errore: {e}")
 
             st.markdown("---")
+
+            # 🔧 RICARICA I PRODOTTI ASSEGNATI (DOPO EVENTUALI MODIFICHE)
+            prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
 
             # --- AGGIUNTA MANUALE ---
             df_tutti = get_catalogo_prodotti()
@@ -3767,6 +3769,7 @@ def main():
                             }).execute()
 
                             st.success(f"✅ Prodotto '{sel}' assegnato!")
+                            st.cache_data.clear()
                             st.rerun()
                         except Exception as e:
                             st.error(f"Errore: {str(e)}")
@@ -3829,6 +3832,7 @@ def main():
                                         "note_utilizzo": mod_note,
                                     }).eq("id", ass_id).execute()
                                     st.success("✅ Modifiche salvate!")
+                                    st.cache_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Errore: {str(e)}")
@@ -3837,6 +3841,7 @@ def main():
                                 try:
                                     supabase.table("prodotti_cliente").delete().eq("id", ass_id).execute()
                                     st.success("✅ Rimosso!")
+                                    st.cache_data.clear()
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Errore: {str(e)}")
