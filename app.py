@@ -4185,18 +4185,44 @@ def main():
                 col_d_head1, col_d_head2 = st.columns([3, 1])
                 with col_d_head1:
                     st.subheader(f"🔬 Stato Biometrico Attuale (Check-up del {data_ultima_it})")
+        
                 with col_d_head2:
                     if st.button("📄 Salva Dashboard PDF", key="btn_pdf_dashboard", use_container_width=True):
-                        cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                        prefisso_dash = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Dashboard")
-                        pdf_filename = f"{cliente_selezionato} | {prefisso_dash}Dashboard Grafici.pdf"
-                        pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
+                            cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                            prefisso_dash = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Dashboard")
+                            pdf_filename = f"{cliente_selezionato} | {prefisso_dash}Dashboard Grafici.pdf"
+                            pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                        success = genera_pdf_dashboard_grafici(cliente_selezionato, df_trend, ultima_visita, pdf_path)
-                        if success and os.path.exists(pdf_path):
-                            with open(pdf_path, "rb") as pdf_file:
-                                st.download_button("📥 Scarica Dashboard PDF", pdf_file, pdf_filename, "application/pdf", use_container_width=True)
-                            st.success(f"✅ Dashboard salvata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                            success = genera_pdf_dashboard_grafici(cliente_selezionato, df_trend, ultima_visita, pdf_path)
+                            
+                            if success and os.path.exists(pdf_path):
+                                # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
+                                with open(pdf_path, "rb") as pdf_file:
+                                    pdf_bytes = pdf_file.read()
+                                    
+                                    # Invia a Google Drive tramite webhook
+                                    ok_drive, msg_drive = invia_file_a_google_drive(
+                                        pdf_bytes,
+                                        pdf_filename,
+                                        cliente_selezionato,
+                                        mime_type="application/pdf"
+                                    )
+                                    if ok_drive:
+                                        st.success(msg_drive)
+                                    else:
+                                        st.warning(msg_drive)
+                                
+                                # Pulsante di download (come backup)
+                                with open(pdf_path, "rb") as pdf_file:
+                                    st.download_button(
+                                        "📥 Scarica Dashboard PDF",
+                                        pdf_file,
+                                        pdf_filename,
+                                        "application/pdf",
+                                        use_container_width=True
+                                    )
+                                
+                                st.success(f"✅ Dashboard salvata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
 
                 # Metriche
                 c_m1, c_m2, c_m3, c_m4 = st.columns(4)
