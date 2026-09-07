@@ -4106,20 +4106,36 @@ def main():
             # --- GENERA SCHEDA CURA ---
             st.markdown("---")
             
-                        # --- TEST iCLOUD DRIVE ---
-            if st.button("🧪 TEST iCloud Drive", key="test_icloud", use_container_width=True):
-                try:
-                    # Crea un file di test su iCloud Drive
-                    cartella_test = trova_o_crea_cartella_cliente("Test iCloud")
-                    file_path = os.path.join(cartella_test, "test_icloud.txt")
-                    
-                    with open(file_path, "w") as f:
-                        f.write("Test iCloud Drive - " + datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-                    
-                    st.success(f"✅ File creato su iCloud Drive: {file_path}")
-                    st.info(f"📁 Controlla la cartella: {cartella_test}")
-                except Exception as e:
-                    st.error(f"❌ Errore: {e}")
+            # 🔥 METTI QUI IL TEST WEBHOOK
+            if st.button("🧪 TEST Webhook", key="test_webhook", use_container_width=True):
+                test_data = base64.b64encode(b"Test PDF content").decode("utf-8")
+                webhook_url = get_config("gdrive_webhook_url")
+                
+                st.write(f"🔍 Webhook URL: {webhook_url}")
+                
+                if not webhook_url:
+                    st.error("❌ Webhook non configurato! Inserisci l'URL nella sidebar.")
+                else:
+                    try:
+                        response = requests.post(
+                            webhook_url,
+                            json={
+                                "clientFolder": "Test",
+                                "fileName": "test.pdf",
+                                "fileBase64": test_data,
+                                "mimeType": "application/pdf"
+                            },
+                            timeout=30
+                        )
+                        st.write(f"📥 Status: {response.status_code}")
+                        st.write(f"📄 Response: {response.text}")
+                        
+                        if response.status_code == 200:
+                            st.success("✅ Webhook funzionante!")
+                        else:
+                            st.error("❌ Webhook non funzionante!")
+                    except Exception as e:
+                        st.error(f"❌ Errore: {e}")
             
             
             if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
