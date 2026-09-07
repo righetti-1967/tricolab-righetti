@@ -2342,7 +2342,7 @@ def auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict):
         return 0, "Supabase non disponibile"
     
     try:
-        # Recupera i dati biometrici dell'ultima analisi
+        # 1. Recupera i dati biometrici dell'ultima analisi
         res_analisi = supabase.table("analisi").select("*").eq("cliente_id", cliente_uuid).order("id", desc=True).limit(1).execute()
         
         if res_analisi.data:
@@ -2408,14 +2408,22 @@ def auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict):
         if chk_caduta or "Effluvio" in quadro or ani_m > 18.0:
             nomi_prodotti_target.append("CEROTUM POTENTIA")
 
-        # Recupera ID prodotti da Supabase
+        # 🔧 RECUPERA I PRODOTTI DA SUPABASE E LI ASSEGNA
         prodotti_assegnati = []
+        
+        # Prima cancella i vecchi prodotti
+        supabase.table("prodotti_cliente").delete().eq("cliente_id", cliente_uuid).execute()
+        
         for p_target in nomi_prodotti_target:
-            res_prod = supabase.table("prodotti").select("*").ilike("nome", f"%{p_target.strip()}%").execute()
+            # 🔧 CERCA IL PRODOTTO PER NOME (NON PER ID)
+            res_prod = supabase.table("prodotti").select("*").eq("nome", p_target).execute()
             if res_prod.data:
                 prod = res_prod.data[0]
-                prodotti_assegnati.append({
-                    "prodotto_id": prod["id"],
+                
+                # 🔧 SALVA IN PRODOTTI_CLIENTE
+                result = supabase.table("prodotti_cliente").insert({
+                    "cliente_id": cliente_uuid,
+                    "prodotto_id": prod["id"],  # 🔧 SALVA L'UUID DEL PRODOTTO
                     "modalita": prod.get("modalita", ""),
                     "frequenza": prod.get("frequenza", ""),
                     "orario": prod.get("orario", ""),
@@ -2423,10 +2431,13 @@ def auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict):
                     "tempi_posa": prod.get("tempi_posa", ""),
                     "durata_utilizzo": prod.get("durata_utilizzo", ""),
                     "note_utilizzo": prod.get("note", ""),
-                })
+                }).execute()
+                
+                prodotti_assegnati.append(result.data[0] if result.data else {})
+            else:
+                print(f"⚠️ Prodotto non trovato: {p_target}")
 
         if prodotti_assegnati:
-            salva_prodotti_cliente_supabase(cliente_uuid, prodotti_assegnati)
             return len(prodotti_assegnati), f"✅ {len(prodotti_assegnati)} prodotti assegnati"
         else:
             return 0, "⚠️ Nessun prodotto trovato nel catalogo"
