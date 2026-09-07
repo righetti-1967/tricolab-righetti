@@ -2498,10 +2498,15 @@ def get_analisi_cliente(cliente_uuid):
 def get_prodotti_cliente(cliente_uuid):
     """Recupera i prodotti assegnati a un cliente da Supabase"""
     if supabase is None or not cliente_uuid:
+        print("⚠️ get_prodotti_cliente: Supabase o UUID non disponibile")
         return pd.DataFrame()
     
     try:
+        print(f"🔍 get_prodotti_cliente: Cerco prodotti per UUID: {cliente_uuid}")
+        
         res = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("data_assegnazione", desc=True).execute()
+        
+        print(f"📊 get_prodotti_cliente: Trovati {len(res.data) if res.data else 0} record")
         
         if not res.data:
             return pd.DataFrame()
@@ -2509,29 +2514,40 @@ def get_prodotti_cliente(cliente_uuid):
         lista = []
         for row in res.data:
             prod_id = row.get("prodotto_id")
+            print(f"🔍 get_prodotti_cliente: Prodotto ID: {prod_id}")
+            
             if prod_id:
                 prod_res = supabase.table("prodotti").select("*").eq("id", prod_id).execute()
                 if prod_res.data:
                     p = prod_res.data[0]
+                    print(f"✅ get_prodotti_cliente: Trovato prodotto: {p.get('nome', 'N/A')}")
+                    
                     lista.append({
                         "assegnazione_id": row.get("id"),
                         "prodotto_id": prod_id,
-                        "modalita": row.get("modalita") or p.get("modalita"),
-                        "frequenza": row.get("frequenza") or p.get("frequenza"),
-                        "orario": row.get("orario") or p.get("orario"),
-                        "dosi": row.get("dosi") or p.get("dosi"),
-                        "tempi_posa": row.get("tempi_posa") or p.get("tempi_posa"),
-                        "durata_utilizzo": row.get("durata_utilizzo") or p.get("durata_utilizzo"),
-                        "note_utilizzo": row.get("note_utilizzo") or p.get("note"),
-                        "nome": p.get("nome"),
-                        "categoria": p.get("categoria"),
-                        "modalita_default": p.get("modalita"),
-                        "frequenza_default": p.get("frequenza"),
-                        "orario_default": p.get("orario"),
+                        "modalita": row.get("modalita") or p.get("modalita", ""),
+                        "frequenza": row.get("frequenza") or p.get("frequenza", ""),
+                        "orario": row.get("orario") or p.get("orario", ""),
+                        "dosi": row.get("dosi") or p.get("dosi", ""),
+                        "tempi_posa": row.get("tempi_posa") or p.get("tempi_posa", ""),
+                        "durata_utilizzo": row.get("durata_utilizzo") or p.get("durata_utilizzo", ""),
+                        "note_utilizzo": row.get("note_utilizzo") or p.get("note", ""),
+                        "nome": p.get("nome", ""),
+                        "categoria": p.get("categoria", ""),
+                        "modalita_default": p.get("modalita", ""),
+                        "frequenza_default": p.get("frequenza", ""),
+                        "orario_default": p.get("orario", ""),
                     })
+                else:
+                    print(f"⚠️ get_prodotti_cliente: Prodotto {prod_id} non trovato nel catalogo")
+        
+        print(f"✅ get_prodotti_cliente: Restituiti {len(lista)} prodotti")
         return pd.DataFrame(lista)
+        
     except Exception as e:
-        print(f"❌ Errore recupero prodotti cliente: {e}")
+        print(f"❌ get_prodotti_cliente: Errore: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return pd.DataFrame()
 
 # ============================================================================
