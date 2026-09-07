@@ -1,15 +1,14 @@
 # ============================================================================
-# STUDIO TRICOLOGICO RIGHETTI SINCE 1967 - VERSIONE DEFINITIVA IBRIDA
+# STUDIO TRICOLOGICO RIGHETTI SINCE 1967 - VERSIONE SUPABASE ONLY
 # ============================================================================
 
 import os
-import sqlite3
 import re
 import base64
 import textwrap
 from datetime import datetime
 import numpy as np
-import pandas as pd 
+import pandas as pd
 import cv2
 import requests
 import streamlit as st
@@ -19,20 +18,21 @@ import fitz  # PyMuPDF
 import warnings
 from supabase import create_client, Client
 
-# IMPOSTAZIONI PER EVITARE CANCELLAZIONI CLIENTI
+# IMPOSTAZIONI
 os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
-
 warnings.filterwarnings("ignore")
 
-# --- CONNESSIONE SUPABASE ---
+# ============================================================================
+# CONNESSIONE SUPABASE
+# ============================================================================
 try:
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("✅ Supabase connesso!")  # <-- AGGIUNGI QUESTO
+    print("✅ Supabase connesso!")
 except Exception as e:
     supabase = None
-    print(f"❌ Errore Supabase: {e}")  # <-- AGGIUNGI QUESTO
+    print(f"❌ Errore Supabase: {e}")
 
 st.set_page_config(
     page_title="Studio Tricologico Righetti Since 1967",
@@ -41,123 +41,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-
 # ============================================================================
-# DATABASE (MULTI-UTENTE WAL + TIMEOUT)
+# INIT DATABASE - SOLO SUPABASE
 # ============================================================================
 def init_db():
-    """Verifica la presenza dei 13 prodotti ufficiali su Supabase e li aggiorna se necessario."""
-    conn = sqlite3.connect("trico_database.db", timeout=30)
-    c = conn.cursor()
-    try:
-        c.execute("PRAGMA journal_mode=WAL;")
-    except Exception:
-        pass
-
-    c.execute("""CREATE TABLE IF NOT EXISTS clienti (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codice_cliente TEXT UNIQUE NOT NULL,
-        sesso TEXT DEFAULT 'Uomo',
-        cellulare TEXT,
-        email TEXT,
-        data_registrazione TEXT DEFAULT CURRENT_TIMESTAMP
-    )""")
-
-    for col_c in ["sesso", "cellulare", "email"]:
-        try:
-            c.execute(f"ALTER TABLE clienti ADD COLUMN {col_c} TEXT")
-        except sqlite3.OperationalError:
-            pass
-
-    # 🔧 DROP E RICREA LA TABELLA ANALISI CON LA STRUTTURA CORRETTA
-    try:
-        c.execute("DROP TABLE IF EXISTS analisi")
-    except Exception:
-        pass
-
-    c.execute("""CREATE TABLE IF NOT EXISTS analisi (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cliente_id INTEGER,
-        data TEXT NOT NULL,
-        zona TEXT,
-        ingrandimento TEXT,
-        luce TEXT,
-        foto_caricate INTEGER,
-        steli_totale INTEGER,
-        steli_anagen INTEGER,
-        steli_vellus INTEGER,
-        steli_nuovi INTEGER,
-        calibro_medio REAL,
-        densita_f REAL,
-        anisotropia REAL,
-        perc_vellus REAL,
-        eritemi INTEGER,
-        dermatite_seborroica INTEGER,
-        forfora_secca INTEGER,
-        osti_intasati INTEGER,
-        prurito TEXT,
-        routine_consigliata TEXT,
-        FOREIGN KEY (cliente_id) REFERENCES clienti(id)
-    )""")
-
-    # Aggiunge colonne mancanti alla tabella analisi (se non esistono)
-    colonne_analisi = [
-        "zona", "ingrandimento", "luce", "foto_caricate",
-        "steli_totale", "steli_anagen", "steli_vellus", "steli_nuovi",
-        "calibro_medio", "densita_f", "anisotropia", "perc_vellus",
-        "eritemi", "dermatite_seborroica", "forfora_secca",
-        "osti_intasati", "prurito", "routine_consigliata"
-    ]
-    for col in colonne_analisi:
-        try:
-            c.execute(f"ALTER TABLE analisi ADD COLUMN {col} TEXT")
-        except sqlite3.OperationalError:
-            pass
-
-    c.execute("""CREATE TABLE IF NOT EXISTS categorie (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE NOT NULL
-    )""")
-
-    c.execute("""CREATE TABLE IF NOT EXISTS prodotti (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE,
-        categoria TEXT,
-        modalita TEXT,
-        frequenza TEXT,
-        orario TEXT,
-        trigger_condizione TEXT,
-        note TEXT,
-        dosi TEXT,
-        tempi_posa TEXT,
-        durata_utilizzo TEXT
-    )""")
-
-    c.execute("""CREATE TABLE IF NOT EXISTS prodotti_cliente (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cliente_id INTEGER,
-        prodotto_id INTEGER,
-        modalita TEXT,
-        frequenza TEXT,
-        orario TEXT,
-        note_utilizzo TEXT,
-        dosi TEXT,
-        tempi_posa TEXT,
-        durata_utilizzo TEXT,
-        data_assegnazione TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (cliente_id) REFERENCES clienti(id),
-        FOREIGN KEY (prodotto_id) REFERENCES prodotti(id)
-    )""")
-
-    for col in ["modalita", "frequenza", "orario"]:
-        try:
-            c.execute(f"ALTER TABLE prodotti_cliente ADD COLUMN {col} TEXT")
-        except sqlite3.OperationalError:
-            pass
-
-    conn.commit()
-
-    # Catalogo 18 Prodotti Ufficiali Righetti
+    """Verifica la presenza delle tabelle su Supabase - SQLite RIMOSSO"""
+    if supabase is None:
+        st.error("❌ Supabase non connesso! Verifica i secrets.")
+        st.stop()
+        return
+    
+    # Carica i 18 prodotti se non esistono
     prodotti_completi_righetti = [
         {
             "nome": "R-GOCCCE",
@@ -377,47 +271,15 @@ def init_db():
         },
     ]
 
-    # Popola SQLite locale
-    c.execute("SELECT COUNT(*) FROM prodotti")
-    if c.fetchone()[0] < 18:
-        for p in prodotti_completi_righetti:
-            c.execute(
-                """INSERT OR IGNORE INTO prodotti 
-                (nome, categoria, modalita, frequenza, orario, trigger_condizione, note, dosi, tempi_posa, durata_utilizzo) 
-                VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                (
-                    p["nome"],
-                    p["categoria"],
-                    p["modalita"],
-                    p["frequenza"],
-                    p["orario"],
-                    p["trigger_condizione"],
-                    p["note"],
-                    p["dosi"],
-                    p["tempi_posa"],
-                    p["durata_utilizzo"],
-                ),
-            )
-        conn.commit()
-
-    # Popola Supabase Cloud
-    if supabase:
-        try:
-            res = (
-                supabase.table("prodotti")
-                .select("id", count="exact")
-                .limit(1)
-                .execute()
-            )
-            if res.count < 18:
-                for p in prodotti_completi_righetti:
-                    supabase.table("prodotti").upsert(
-                        p, on_conflict="nome"
-                    ).execute()
-        except Exception:
-            pass
-
-    return conn
+    try:
+        # Verifica se i prodotti esistono
+        res = supabase.table("prodotti").select("id", count="exact").limit(1).execute()
+        if res.count == 0:
+            for p in prodotti_completi_righetti:
+                supabase.table("prodotti").upsert(p, on_conflict="nome").execute()
+            print("✅ Prodotti caricati su Supabase")
+    except Exception as e:
+        print(f"⚠️ Errore caricamento prodotti: {e}")
 
 # ============================================================================
 # PARSER ESTRATTORE PER VECCHI REPORT PDF
@@ -1716,7 +1578,6 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
 
     return "\n".join(fasi)
 
-
 # ============================================================================
 # GESTIONE CARTELLA MASTER "PERCORSI CLIENTI" - VERSIONE PER STREAMLIT CLOUD
 # ============================================================================
@@ -1930,9 +1791,12 @@ import io
 import ssl
 import urllib.request
 
-
-def sincronizza_google_sheets(sheet_url, conn):
+def sincronizza_google_sheets(sheet_url):
+    """Sincronizza i clienti da Google Sheets a Supabase - SENZA SQLite"""
     try:
+        if supabase is None:
+            return False, "Supabase non disponibile"
+
         match = re.search(r"/d/([a-zA-Z0-9-_]+)", sheet_url)
         if not match:
             return (
@@ -1977,22 +1841,8 @@ def sincronizza_google_sheets(sheet_url, conn):
                 "Colonna 'NOME E COGNOME' non trovata nella prima riga del foglio.",
             )
 
-        c = conn.cursor()
-        for col_name in ["cellulare", "email"]:
-            try:
-                c.execute(f"ALTER TABLE clienti ADD COLUMN {col_name} TEXT")
-            except sqlite3.OperationalError:
-                pass
-
-        # 🔧 FIX: RACCOGLI TUTTI I NOMI ESISTENTI PER NON CANCELLARLI
-        clienti_esistenti = set()
-        res_esistenti = c.execute("SELECT codice_cliente FROM clienti").fetchall()
-        for row in res_esistenti:
-            clienti_esistenti.add(row[0])
-
         nuovi = 0
         aggiornati = 0
-        clienti_da_google = set()
 
         for _, row in df_gs.iterrows():
             nome_val = (
@@ -2000,8 +1850,6 @@ def sincronizza_google_sheets(sheet_url, conn):
             )
             if not nome_val or nome_val.lower() == "nan":
                 continue
-
-            clienti_da_google.add(nome_val)
 
             cell_val = (
                 str(row[col_cell]).replace(".0", "").strip()
@@ -2016,41 +1864,27 @@ def sincronizza_google_sheets(sheet_url, conn):
 
             sesso_dedotto = deduci_sesso_da_nome(nome_val)
 
-            res = c.execute(
-                "SELECT id FROM clienti WHERE codice_cliente = ?", (nome_val,)
-            ).fetchone()[0]
-            if res:
-                c.execute(
-                    "UPDATE clienti SET cellulare = ?, email = ? WHERE id = ?",
-                    (cell_val, email_val, res[0]),
-                )
+            # Verifica se il cliente esiste già in Supabase
+            res = supabase.table("clienti").select("id").eq("codice_cliente", nome_val).execute()
+            
+            if res.data:
+                # Aggiorna il cliente esistente
+                supabase.table("clienti").update({
+                    "cellulare": cell_val,
+                    "email": email_val,
+                    "sesso": sesso_dedotto,
+                }).eq("codice_cliente", nome_val).execute()
                 aggiornati += 1
             else:
-                c.execute(
-                    "INSERT INTO clienti (codice_cliente, cellulare, email, sesso) VALUES (?, ?, ?, ?)",
-                    (nome_val, cell_val, email_val, sesso_dedotto),
-                )
+                # Crea nuovo cliente
+                supabase.table("clienti").insert({
+                    "codice_cliente": nome_val,
+                    "cellulare": cell_val,
+                    "email": email_val,
+                    "sesso": sesso_dedotto,
+                }).execute()
                 nuovi += 1
 
-            # Sincronizzazione in Cloud Supabase
-            if supabase:
-                try:
-                    supabase.table("clienti").upsert(
-                        {
-                            "codice_cliente": nome_val,
-                            "cellulare": cell_val,
-                            "email": email_val,
-                            "sesso": sesso_dedotto,
-                        },
-                        on_conflict="codice_cliente",
-                    ).execute()
-                except Exception:
-                    pass
-
-        # 🔧 FIX: NON CANCELLARE I CLIENTI CHE NON SONO IN GOOGLE SHEETS
-        # I clienti creati manualmente rimangono!
-
-        conn.commit()
         return (
             True,
             f"✅ Sincronizzazione completata! {nuovi} nuovi clienti aggiunti, {aggiornati} anagrafiche aggiornate.",
@@ -2499,153 +2333,127 @@ def genera_pdf_dashboard_grafici(
 
 
 # ============================================================================
-# MOTORE PRESCRIZIONE AI RIGHETTI (LETTURA COMPLETA INCI, DESCRIZIONI E DOSI)
+# MOTORE PRESCRIZIONE AI RIGHETTI - SUPABASE ONLY
 # ============================================================================
-def auto_assegna_trattamento_righetti(cl_id, conn, sintomi_dict):
-    """Analizza le anomalie della visita, gli INCI e le descrizioni dei prodotti assegnando la cura su misura."""
-    c = conn.cursor()
-
-    # 1. Svuota la lista precedente per ripartire da zero
-    c.execute("DELETE FROM prodotti_cliente WHERE cliente_id = ?", (cl_id,))
-
-    # 2. Recupera i dati biometrici della visita odierna
-    an_rec = c.execute(
-        """
-        SELECT calibro_medio, anisotropia, densita_f, osti_intasati, eritemi, steli_nuovi
-        FROM analisi WHERE cliente_id = ? ORDER BY id DESC LIMIT 1
-    """,
-        (cl_id,),
-    ).fetchone()[0]
-
-    if an_rec:
-        cal_m = float(an_rec[0] or 75.0)
-        ani_m = float(an_rec[1] or 12.0)
-        tot_tappi = int(an_rec[3] or 0)
-        tot_eritemi = int(an_rec[4] or 0)
-    else:
-        cal_m = 75.0
-        ani_m = 12.0
-        tot_tappi = 0
-        tot_eritemi = 0
-
-    chk_prurito = sintomi_dict.get("prurito", False)
-    chk_dolore = sintomi_dict.get("dolore", False)
-    chk_caduta = sintomi_dict.get("caduta_abbondante", False)
-    chk_sebo = sintomi_dict.get("sebo_eccesso", False)
-    quadro = sintomi_dict.get("quadro_ipotesi", "Standard")
-
-    nomi_prodotti_target = []
-
-    # -------------------------------------------------------------
-    # FASE 1: ESFOLIAZIONE PRE-SHAMPOO (LIQUET vs LUTUM)
-    # -------------------------------------------------------------
-    # Se la microcamera rileva tappi sebacei, sebo o ipercheratosi ostiale -> LIQUET CUTIS
-    if tot_tappi > 0 or chk_sebo:
-        nomi_prodotti_target.append("LIQUET CUTIS 100ML")
-
-    # Se c'è infiammazione/flogosi o prurito -> Maschera detox LUTUM CUTIS
-    if tot_eritemi > 1 or chk_prurito or chk_dolore:
-        nomi_prodotti_target.append("LUTUM CUTIS 250ML")
-
-    # -------------------------------------------------------------
-    # FASE 2: DETERSIONE (MINIMO 2 SHAMPOO DA ALTERNARE)
-    # -------------------------------------------------------------
-    shampoo_selezionati = []
-
-    # Shampoo Specifici in base alle anomalie rilevate
-    if tot_tappi > 1 or chk_sebo or "Seborroico" in quadro:
-        shampoo_selezionati.append("SH. COMPENSATIO 300ML")
-    if "Pitiriasi" in quadro or "Desquamazione" in quadro or chk_prurito:
-        shampoo_selezionati.append("SH. PURGATIO 300ML")
-    if ani_m > 18.0 or "Androgenetica" in quadro or chk_caduta:
-        shampoo_selezionati.append("SH. FORTIS 300ML")
-    if cal_m < 55.0 or chk_dolore:
-        shampoo_selezionati.append("SH. POTENTIA 300ML")
-
-    # Se è stato individuato solo 1 shampoo specifico, abbina il 2° shampoo complementare
-    if len(shampoo_selezionati) == 1:
-        if (
-            "COMPENSATIO" in shampoo_selezionati[0]
-            or "PURGATIO" in shampoo_selezionati[0]
-        ):
-            shampoo_selezionati.append("SH. REPARATOR CELLULARIS 300ML")
+def auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict):
+    """Analizza le anomalie e assegna la cura su misura - SUPABASE ONLY"""
+    
+    if supabase is None or not cliente_uuid:
+        return 0, "Supabase non disponibile"
+    
+    try:
+        # Recupera i dati biometrici dell'ultima analisi
+        res_analisi = supabase.table("analisi").select("*").eq("cliente_id", cliente_uuid).order("id", desc=True).limit(1).execute()
+        
+        if res_analisi.data:
+            an_rec = res_analisi.data[0]
+            cal_m = float(an_rec.get("calibro_medio", 75.0))
+            ani_m = float(an_rec.get("anisotropia", 12.0))
+            tot_tappi = int(an_rec.get("osti_intasati", 0))
+            tot_eritemi = int(an_rec.get("eritemi", 0))
         else:
+            cal_m = 75.0
+            ani_m = 12.0
+            tot_tappi = 0
+            tot_eritemi = 0
+
+        chk_prurito = sintomi_dict.get("prurito", False)
+        chk_dolore = sintomi_dict.get("dolore", False)
+        chk_caduta = sintomi_dict.get("caduta_abbondante", False)
+        chk_sebo = sintomi_dict.get("sebo_eccesso", False)
+        quadro = sintomi_dict.get("quadro_ipotesi", "Standard")
+
+        nomi_prodotti_target = []
+
+        # FASE 1: ESFOLIAZIONE
+        if tot_tappi > 0 or chk_sebo:
+            nomi_prodotti_target.append("LIQUET CUTIS 100ML")
+        if tot_eritemi > 1 or chk_prurito or chk_dolore:
+            nomi_prodotti_target.append("LUTUM CUTIS 250ML")
+
+        # FASE 2: DETERSIONE
+        shampoo_selezionati = []
+        if tot_tappi > 1 or chk_sebo or "Seborroico" in quadro:
+            shampoo_selezionati.append("SH. COMPENSATIO 300ML")
+        if "Pitiriasi" in quadro or "Desquamazione" in quadro or chk_prurito:
+            shampoo_selezionati.append("SH. PURGATIO 300ML")
+        if ani_m > 18.0 or "Androgenetica" in quadro or chk_caduta:
+            shampoo_selezionati.append("SH. FORTIS 300ML")
+        if cal_m < 55.0 or chk_dolore:
+            shampoo_selezionati.append("SH. POTENTIA 300ML")
+
+        if len(shampoo_selezionati) == 0:
             shampoo_selezionati.append("SH. REPARATOR CELLULARIS 300ML")
-    elif len(shampoo_selezionati) == 0:
-        # Se non ci sono anomalie gravi, abbina i due shampoo di mantenimento e trofismo
-        shampoo_selezionati.append("SH. REPARATOR CELLULARIS 300ML")
-        shampoo_selezionati.append("SH. FORTIS 300ML")
+            shampoo_selezionati.append("SH. FORTIS 300ML")
+        elif len(shampoo_selezionati) == 1:
+            shampoo_selezionati.append("SH. REPARATOR CELLULARIS 300ML")
 
-    for sh_nome in shampoo_selezionati:
-        nomi_prodotti_target.append(sh_nome)
+        for sh_nome in shampoo_selezionati:
+            nomi_prodotti_target.append(sh_nome)
 
-    # -------------------------------------------------------------
-    # FASE 3: TRATTAMENTO CUTE POST-LAVAGGIO (SPRAY / GOCCE - NO LIQUET)
-    # -------------------------------------------------------------
-    if ani_m > 20.0 or "Androgenetica" in quadro:
-        nomi_prodotti_target.append("GOCCE POTENTIA 100ML")
-        nomi_prodotti_target.append("SPRAY FORTIS 100ML")
-    elif tot_tappi > 0 or chk_sebo or chk_prurito:
-        nomi_prodotti_target.append("SPRAY PURGATIO 100ML")
-    else:
-        nomi_prodotti_target.append("SPRAY FORTIS 100ML")
+        # FASE 3: TRATTAMENTO POST-LAVAGGIO
+        if ani_m > 20.0 or "Androgenetica" in quadro:
+            nomi_prodotti_target.append("GOCCE POTENTIA 100ML")
+            nomi_prodotti_target.append("SPRAY FORTIS 100ML")
+        elif tot_tappi > 0 or chk_sebo or chk_prurito:
+            nomi_prodotti_target.append("SPRAY PURGATIO 100ML")
+        else:
+            nomi_prodotti_target.append("SPRAY FORTIS 100ML")
 
-    # -------------------------------------------------------------
-    # FASE 4: MASCHERA RISTRUTTURANTE FUSTO (UNGUENTUM)
-    # -------------------------------------------------------------
-    if cal_m < 60.0 or ani_m > 14.0:
-        nomi_prodotti_target.append("UNGUENTUM CELLULARIS 300ML")
+        # FASE 4: MASCHERA RISTRUTTURANTE
+        if cal_m < 60.0 or ani_m > 14.0:
+            nomi_prodotti_target.append("UNGUENTUM CELLULARIS 300ML")
 
-    # -------------------------------------------------------------
-    # FASE 5: SUPPORTO TRANSDERMICO (CEROTTI)
-    # -------------------------------------------------------------
-    if chk_caduta or "Effluvio" in quadro or ani_m > 18.0:
-        nomi_prodotti_target.append("CEROTUM POTENTIA")
+        # FASE 5: CEROTTI
+        if chk_caduta or "Effluvio" in quadro or ani_m > 18.0:
+            nomi_prodotti_target.append("CEROTUM POTENTIA")
 
-    # Inserimento nel database ereditando esattamente dosi, tempi e descrizioni dal tuo catalogo
-    n_assegnati = 0
-    for p_target in nomi_prodotti_target:
-        res_prod = c.execute(
-            """
-            SELECT id, modalita, frequenza, orario, dosi, tempi_posa, durata_utilizzo, note 
-            FROM prodotti WHERE nome LIKE ?
-        """,
-            (f"%{p_target.strip()}%",),
-        ).fetchone()[0]
+        # Recupera ID prodotti da Supabase
+        prodotti_assegnati = []
+        for p_target in nomi_prodotti_target:
+            res_prod = supabase.table("prodotti").select("*").ilike("nome", f"%{p_target.strip()}%").execute()
+            if res_prod.data:
+                prod = res_prod.data[0]
+                prodotti_assegnati.append({
+                    "prodotto_id": prod["id"],
+                    "modalita": prod.get("modalita", ""),
+                    "frequenza": prod.get("frequenza", ""),
+                    "orario": prod.get("orario", ""),
+                    "dosi": prod.get("dosi", ""),
+                    "tempi_posa": prod.get("tempi_posa", ""),
+                    "durata_utilizzo": prod.get("durata_utilizzo", ""),
+                    "note_utilizzo": prod.get("note", ""),
+                })
 
-        if res_prod:
-            (
-                p_id,
-                p_mod,
-                p_freq,
-                p_ora,
-                p_dosi,
-                p_posa,
-                p_dur,
-                p_note,
-            ) = res_prod
-            c.execute(
-                """
-                INSERT INTO prodotti_cliente 
-                (cliente_id, prodotto_id, modalita, frequenza, orario, dosi, tempi_posa, durata_utilizzo, note_utilizzo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    cl_id,
-                    p_id,
-                    str(p_mod or ""),
-                    str(p_freq or ""),
-                    str(p_ora or ""),
-                    str(p_dosi or ""),
-                    str(p_posa or ""),
-                    str(p_dur or ""),
-                    str(p_note or ""),
-                ),
-            )
-            n_assegnati += 1
+        if prodotti_assegnati:
+            salva_prodotti_cliente_supabase(cliente_uuid, prodotti_assegnati)
+            return len(prodotti_assegnati), f"✅ {len(prodotti_assegnati)} prodotti assegnati"
+        else:
+            return 0, "⚠️ Nessun prodotto trovato nel catalogo"
 
-    conn.commit()
-    return n_assegnati
+    except Exception as e:
+        return 0, f"❌ Errore: {str(e)}"
+
+# ============================================================================
+# RECUPERO CLIENTI DA SUPABASE
+# ============================================================================
+def get_lista_clienti():
+    """Recupera i clienti da Supabase Cloud"""
+    if supabase is None:
+        return pd.DataFrame()
+    
+    try:
+        res = supabase.table("clienti").select("*").order("codice_cliente").execute()
+        if res.data:
+            df = pd.DataFrame(res.data)
+            print(f"✅ {len(df)} clienti caricati da Supabase")
+            return df
+        else:
+            print("⚠️ Nessun cliente in Supabase")
+            return pd.DataFrame()
+    except Exception as e:
+        print(f"❌ Errore: {e}")
+        return pd.DataFrame()
 
 # ============================================================================
 # RECUPERO CATALOGO PRODOTTI DA SUPABASE
@@ -2653,170 +2461,167 @@ def auto_assegna_trattamento_righetti(cl_id, conn, sintomi_dict):
 @st.cache_data(ttl=60)
 def get_catalogo_prodotti():
     """Recupera il catalogo prodotti da Supabase"""
-    global supabase  # <--- AGGIUNGI QUESTA RIGA!
+    if supabase is None:
+        return pd.DataFrame()
     
-    if supabase:
-        try:
-            res = supabase.table("prodotti").select("*").order("categoria").order("nome").execute()
-            if res.data:
-                return pd.DataFrame(res.data)
-        except Exception as e:
-            st.error(f"Errore caricamento Supabase: {e}")
-    
-    # Fallback: SQLite
-    conn = sqlite3.connect("trico_database.db", timeout=30)
-    df = pd.read_sql_query("SELECT * FROM prodotti ORDER BY categoria, nome", conn)
-    conn.close()
-    return df
-
-# ============================================================================
-# 🆕 QUI DEVI INSERIRE LA FUNZIONE MANCANTE PER GOOGLE DRIVE
-# ============================================================================
-def invia_file_a_google_drive(
-    file_bytes, nome_file, nome_cliente, mime_type="application/pdf"
-):
-    """Invia file a Google Drive tramite webhook"""
-    
-    # 1. Legge il webhook da session_state o dal file
-    webhook_url = st.session_state.get("gdrive_webhook_url", "") or os.getenv(
-        "GDRIVE_WEBHOOK_URL", ""
-    )
-
-    if not webhook_url and os.path.exists("gdrive_webhook.txt"):
-        try:
-            with open("gdrive_webhook.txt", "r") as f:
-                webhook_url = f.read().strip()
-        except Exception:
-            pass
-
-    if not webhook_url:
-        return False, "Webhook Google Drive non configurato. Inserisci l'URL nella sidebar."
-
     try:
-        # 2. Codifica il file in base64
-        b64_file = base64.b64encode(file_bytes).decode("utf-8")
-        
-        # 3. Prepara il payload per lo script Google Apps
-        payload = {
-            "clientFolder": str(nome_cliente).strip(),
-            "fileName": str(nome_file).strip(),
-            "fileBase64": b64_file,
-            "mimeType": mime_type,
-        }
-        
-        # 4. Invia la richiesta al webhook
-        resp = requests.post(webhook_url.strip(), json=payload, timeout=30)
-        
-        # 5. Gestisce la risposta
-        if resp.status_code == 200:
-            try:
-                res_json = resp.json()
-                if res_json.get("status") == "success":
-                    return True, f"✅ File salvato su Google Drive: {res_json.get('finalFileName', nome_file)}"
-                else:
-                    return False, f"❌ Errore Google Drive: {res_json.get('message', 'Errore sconosciuto')}"
-            except:
-                return True, "✅ File inviato a Google Drive (risposta non JSON)"
+        res = supabase.table("prodotti").select("*").order("categoria").order("nome").execute()
+        if res.data:
+            return pd.DataFrame(res.data)
         else:
-            return False, f"❌ Errore HTTP {resp.status_code}: {resp.text[:200]}"
-            
-    except requests.exceptions.Timeout:
-        return False, "⏰ Timeout: Google Drive non risponde (30 secondi)"
-    except requests.exceptions.ConnectionError:
-        return False, "🔌 Errore di connessione a Google Drive"
+            return pd.DataFrame()
     except Exception as e:
-        return False, f"❌ Errore invio: {str(e)}"
+        st.error(f"Errore caricamento Supabase: {e}")
+        return pd.DataFrame()
 
 # ============================================================================
-# SALVATAGGIO FOTO IN SUPABASE STORAGE (CON TIMESTAMP)
+# RECUPERO ANALISI DA SUPABASE
 # ============================================================================
-def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto):
-    """Salva le foto in Supabase Storage con timestamp per evitare duplicati"""
-    
-    if not supabase:
-        return False, "Supabase non disponibile"
-    
-    if not cliente_uuid:
-        return False, "UUID cliente non disponibile"
+def get_analisi_cliente(cliente_uuid):
+    """Recupera le analisi di un cliente da Supabase"""
+    if supabase is None or not cliente_uuid:
+        return pd.DataFrame()
     
     try:
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%H%M%S")  # HHMMSS (es. 233025)
-        
-        conteggio = 0
-        for i_f, f_data in enumerate(immagini_con_etichette, 1):
-            # Converti immagine in bytes (JPEG)
-            img_bgr = cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR)
-            _, img_encoded = cv2.imencode('.jpg', img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-            img_bytes = img_encoded.tobytes()
-            
-            # Nome file UNICO: clienti/{UUID}/foto_checkup/{data}/acquisizione_{numero}_{timestamp}.jpg
-            # Esempio: clienti/550e.../foto_checkup/06-09-2026/acquisizione_1_233025.jpg
-            file_path = f"clienti/{cliente_uuid}/foto_checkup/{data_cartella_foto}/acquisizione_{i_f}_{timestamp}.jpg"
-            
-            # Carica su Supabase Storage (sovrascrive se esiste - ma con timestamp è sempre unico)
-            supabase.storage.from_("foto-tricologiche").upload(
-                file_path,
-                img_bytes,
-                {"content-type": "image/jpeg"}
-            )
-            conteggio += 1
-        
-        return True, f"✅ {conteggio} foto caricate su Supabase Storage (timestamp: {timestamp})"
-    
+        res = supabase.table("analisi").select("*").eq("cliente_id", cliente_uuid).order("id", desc=False).execute()
+        if res.data:
+            return pd.DataFrame(res.data)
+        else:
+            return pd.DataFrame()
     except Exception as e:
-        return False, f"❌ Errore caricamento foto: {str(e)}"
+        print(f"❌ Errore recupero analisi: {e}")
+        return pd.DataFrame()
 
 # ============================================================================
-# CARICAMENTO FOTO DA SUPABASE STORAGE (VERSIONE TESTATA)
+# RECUPERO PRODOTTI ASSEGNATI DA SUPABASE
+# ============================================================================
+def get_prodotti_cliente(cliente_uuid):
+    """Recupera i prodotti assegnati a un cliente da Supabase"""
+    if supabase is None or not cliente_uuid:
+        return pd.DataFrame()
+    
+    try:
+        res = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("data_assegnazione", desc=True).execute()
+        
+        if not res.data:
+            return pd.DataFrame()
+        
+        lista = []
+        for row in res.data:
+            prod_id = row.get("prodotto_id")
+            if prod_id:
+                prod_res = supabase.table("prodotti").select("*").eq("id", prod_id).execute()
+                if prod_res.data:
+                    p = prod_res.data[0]
+                    lista.append({
+                        "assegnazione_id": row.get("id"),
+                        "prodotto_id": prod_id,
+                        "modalita": row.get("modalita") or p.get("modalita"),
+                        "frequenza": row.get("frequenza") or p.get("frequenza"),
+                        "orario": row.get("orario") or p.get("orario"),
+                        "dosi": row.get("dosi") or p.get("dosi"),
+                        "tempi_posa": row.get("tempi_posa") or p.get("tempi_posa"),
+                        "durata_utilizzo": row.get("durata_utilizzo") or p.get("durata_utilizzo"),
+                        "note_utilizzo": row.get("note_utilizzo") or p.get("note"),
+                        "nome": p.get("nome"),
+                        "categoria": p.get("categoria"),
+                        "modalita_default": p.get("modalita"),
+                        "frequenza_default": p.get("frequenza"),
+                        "orario_default": p.get("orario"),
+                    })
+        return pd.DataFrame(lista)
+    except Exception as e:
+        print(f"❌ Errore recupero prodotti cliente: {e}")
+        return pd.DataFrame()
+
+# ============================================================================
+# SALVATAGGIO ANALISI IN SUPABASE
+# ============================================================================
+def salva_analisi_supabase(cliente_uuid, data_analisi, parametri):
+    """Salva una nuova analisi in Supabase"""
+    if supabase is None or not cliente_uuid:
+        return False, "Supabase non disponibile o UUID mancante"
+    
+    try:
+        result = supabase.table("analisi").insert({
+            "cliente_id": cliente_uuid,
+            "data": data_analisi,
+            "zona": parametri.get("zona", "Multi-zona"),
+            "ingrandimento": parametri.get("ingrandimento", "50x/200x"),
+            "luce": parametri.get("luce", "Mista"),
+            "foto_caricate": parametri.get("foto_caricate", 0),
+            "steli_totale": parametri.get("steli_totale", 0),
+            "steli_anagen": parametri.get("steli_anagen", 0),
+            "steli_vellus": parametri.get("steli_vellus", 0),
+            "steli_nuovi": parametri.get("steli_nuovi", 0),
+            "calibro_medio": parametri.get("calibro_medio", 0.0),
+            "densita_f": parametri.get("densita_f", 0),
+            "anisotropia": parametri.get("anisotropia", 0.0),
+            "perc_vellus": parametri.get("perc_vellus", 0.0),
+            "eritemi": parametri.get("eritemi", 0),
+            "dermatite_seborroica": parametri.get("dermatite_seborroica", 0),
+            "forfora_secca": parametri.get("forfora_secca", 0),
+            "osti_intasati": parametri.get("osti_intasati", 0),
+            "prurito": parametri.get("prurito", "No"),
+            "routine_consigliata": parametri.get("routine_consigliata", ""),
+        }).execute()
+        return True, f"✅ Analisi salvata su Supabase (ID: {result.data[0]['id']})"
+    except Exception as e:
+        return False, f"❌ Errore salvataggio: {str(e)}"
+
+# ============================================================================
+# SALVATAGGIO PRODOTTI ASSEGNATI IN SUPABASE
+# ============================================================================
+def salva_prodotti_cliente_supabase(cliente_uuid, prodotti_lista):
+    """Salva i prodotti assegnati a un cliente in Supabase"""
+    if supabase is None or not cliente_uuid:
+        return False, "Supabase non disponibile o UUID mancante"
+    
+    try:
+        # Cancella i vecchi prodotti
+        supabase.table("prodotti_cliente").delete().eq("cliente_id", cliente_uuid).execute()
+        
+        # Inserisci i nuovi prodotti
+        for prod in prodotti_lista:
+            supabase.table("prodotti_cliente").insert({
+                "cliente_id": cliente_uuid,
+                "prodotto_id": prod.get("prodotto_id"),
+                "modalita": prod.get("modalita", ""),
+                "frequenza": prod.get("frequenza", ""),
+                "orario": prod.get("orario", ""),
+                "dosi": prod.get("dosi", ""),
+                "tempi_posa": prod.get("tempi_posa", ""),
+                "durata_utilizzo": prod.get("durata_utilizzo", ""),
+                "note_utilizzo": prod.get("note_utilizzo", ""),
+            }).execute()
+        return True, f"✅ {len(prodotti_lista)} prodotti assegnati su Supabase"
+    except Exception as e:
+        return False, f"❌ Errore salvataggio prodotti: {str(e)}"
+
+# ============================================================================
+# CARICAMENTO FOTO DA SUPABASE STORAGE
 # ============================================================================
 def carica_foto_supabase(cliente_uuid):
-    """Carica le foto da Supabase Storage per visualizzarle su tutti i dispositivi"""
-    
+    """Carica le foto da Supabase Storage"""
     if not supabase or not cliente_uuid:
-        st.warning("⚠️ Supabase o UUID non disponibile")
         return []
     
     try:
-        # Costruisci il percorso: clienti/{UUID}/foto_checkup/
         percorso_base = f"clienti/{cliente_uuid}/foto_checkup/"
-        
-        st.info(f"🔍 Cerco foto in: {percorso_base}")
-        
-        # Lista tutte le sottocartelle (es. 06-09-2026)
         files = supabase.storage.from_("foto-tricologiche").list(percorso_base)
         
-        st.write(f"📁 Trovate {len(files)} cartelle in {percorso_base}")
-        
         immagini = []
-        
-        # Scansiona tutte le sottocartelle
         for item in files:
-            # item è un dizionario con 'name', 'id', 'metadata', etc.
             item_name = item.get("name", "")
-            st.write(f"📂 Item trovato: {item_name} (type: {type(item_name)})")
-            
-            # Controlla se è una cartella (es. 06-09-2026)
-            # Le cartelle hanno metadata.content-type = None
             if item.get("metadata") is None or item.get("metadata", {}).get("content-type") is None:
                 sub_path = f"{percorso_base}{item_name}/"
-                st.write(f"📁 Entro in sottocartella: {sub_path}")
-                
                 try:
-                    # Lista i file nella sottocartella
                     sub_files = supabase.storage.from_("foto-tricologiche").list(sub_path)
-                    st.write(f"📸 Trovati {len(sub_files)} file in {sub_path}")
-                    
                     for sub_file in sub_files:
                         file_name = sub_file.get("name", "")
                         if file_name.endswith((".jpg", ".jpeg", ".png")):
-                            st.write(f"🖼️ Carico foto: {file_name}")
-                            
-                            # Scarica l'immagine
                             file_path = f"{sub_path}{file_name}"
                             response = supabase.storage.from_("foto-tricologiche").download(file_path)
-                            
-                            # Converti in immagine OpenCV
                             img_bytes = np.frombuffer(response, np.uint8)
                             img = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
                             if img is not None:
@@ -2827,63 +2632,97 @@ def carica_foto_supabase(cliente_uuid):
                                     "percorso": file_path,
                                     "data": item_name
                                 })
-                except Exception as e:
-                    st.warning(f"⚠️ Errore nella sottocartella {item_name}: {e}")
-            else:
-                st.write(f"📄 File ignorato (non è una cartella): {item_name}")
-        
-        if immagini:
-            st.success(f"✅ {len(immagini)} foto caricate dal cloud!")
-        else:
-            st.info("📭 Nessuna foto trovata nel cloud per il cliente.")
+                except Exception:
+                    pass
         
         return immagini
-    
     except Exception as e:
-        st.error(f"❌ Errore generale: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
         return []
 
 # ============================================================================
-# RECUPERO CLIENTI DA SUPABASE
+# SALVATAGGIO FOTO IN SUPABASE STORAGE
 # ============================================================================
-def get_lista_clienti():
-    """Recupera i clienti da Supabase Cloud"""
-    global supabase
+def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto):
+    """Salva le foto in Supabase Storage con timestamp"""
+    if not supabase or not cliente_uuid:
+        return False, "Supabase non disponibile"
     
     try:
-        if supabase:
-            # Prende tutti i clienti da Supabase
-            res = supabase.table("clienti").select("*").order("codice_cliente").execute()
-            if res.data:
-                df = pd.DataFrame(res.data)
-                print(f"✅ get_lista_clienti: {len(df)} clienti caricati da Supabase")
-                return df
-            else:
-                print("⚠️ get_lista_clienti: Nessun cliente in Supabase")
-        else:
-            print("⚠️ get_lista_clienti: Supabase non disponibile")
+        timestamp = datetime.now().strftime("%H%M%S")
+        conteggio = 0
+        
+        for i_f, f_data in enumerate(immagini_con_etichette, 1):
+            img_bgr = cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR)
+            _, img_encoded = cv2.imencode('.jpg', img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+            img_bytes = img_encoded.tobytes()
+            
+            file_path = f"clienti/{cliente_uuid}/foto_checkup/{data_cartella_foto}/acquisizione_{i_f}_{timestamp}.jpg"
+            
+            supabase.storage.from_("foto-tricologiche").upload(
+                file_path,
+                img_bytes,
+                {"content-type": "image/jpeg"}
+            )
+            conteggio += 1
+        
+        return True, f"✅ {conteggio} foto caricate su Supabase Storage (timestamp: {timestamp})"
     except Exception as e:
-        print(f"❌ get_lista_clienti: Errore: {e}")
-    
-    # Fallback: SQLite
-    try:
-        conn = sqlite3.connect("trico_database.db", timeout=30)
-        df = pd.read_sql_query(
-            "SELECT * FROM clienti ORDER BY codice_cliente", conn
-        )
-        conn.close()
-        print(f"⚠️ get_lista_clienti: Fallback SQLite - {len(df)} clienti")
-        return df
-    except:
-        return pd.DataFrame()
+        return False, f"❌ Errore caricamento foto: {str(e)}"
 
 # ============================================================================
-# MAIN APPLICATION & INTERFACCIA STREAMLIT
+# INVIO FILE A GOOGLE DRIVE
+# ============================================================================
+def invia_file_a_google_drive(
+    file_bytes, nome_file, nome_cliente, mime_type="application/pdf"
+):
+    """Invia file a Google Drive tramite webhook"""
+    
+    webhook_url = st.session_state.get("gdrive_webhook_url", "") or os.getenv("GDRIVE_WEBHOOK_URL", "")
+    
+    if not webhook_url and os.path.exists("gdrive_webhook.txt"):
+        try:
+            with open("gdrive_webhook.txt", "r") as f:
+                webhook_url = f.read().strip()
+        except Exception:
+            pass
+    
+    if not webhook_url:
+        return False, "Webhook Google Drive non configurato."
+    
+    try:
+        b64_file = base64.b64encode(file_bytes).decode("utf-8")
+        payload = {
+            "clientFolder": str(nome_cliente).strip(),
+            "fileName": str(nome_file).strip(),
+            "fileBase64": b64_file,
+            "mimeType": mime_type,
+        }
+        
+        resp = requests.post(webhook_url.strip(), json=payload, timeout=30)
+        
+        if resp.status_code == 200:
+            try:
+                res_json = resp.json()
+                if res_json.get("status") == "success":
+                    return True, f"✅ File salvato su Google Drive: {res_json.get('finalFileName', nome_file)}"
+                else:
+                    return False, f"❌ Errore: {res_json.get('message', 'Errore sconosciuto')}"
+            except:
+                return True, "✅ File inviato a Google Drive"
+        else:
+            return False, f"❌ Errore HTTP {resp.status_code}"
+    except Exception as e:
+        return False, f"❌ Errore invio: {str(e)}"
+
+# ============================================================================
+# MAIN APPLICATION - SUPABASE ONLY
 # ============================================================================
 def main():
     global supabase
+    
+    # =========================================================================
+    # BANNER
+    # =========================================================================
     st.markdown(
         """
     <div style="background: linear-gradient(90deg, #1e3a5f, #2d5f8a); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 30px;">
@@ -2894,11 +2733,14 @@ def main():
         unsafe_allow_html=True,
     )
 
-    conn = init_db()
+    # =========================================================================
+    # INIT DB
+    # =========================================================================
+    init_db()
 
-    # ============================================================
-    # SIDEBAR: GESTIONE CLIENTE CON AUTO-SYNC E CANCELLAZIONE
-    # ============================================================
+    # =========================================================================
+    # SIDEBAR
+    # =========================================================================
     with st.sidebar:
         st.header("👤 Gestione Cliente")
 
@@ -2933,23 +2775,14 @@ def main():
                 key="input_gdrive_webhook",
             )
 
-            if (
-                link_webhook_input.strip()
-                and link_webhook_input != webhook_saved
-            ):
+            if link_webhook_input.strip() and link_webhook_input != webhook_saved:
                 with open("gdrive_webhook.txt", "w") as f_w:
                     f_w.write(link_webhook_input.strip())
-                st.session_state["gdrive_webhook_url"] = (
-                    link_webhook_input.strip()
-                )
+                st.session_state["gdrive_webhook_url"] = link_webhook_input.strip()
 
             col_s1, col_s2 = st.columns(2)
             with col_s1:
-                if st.button(
-                    "💾 Salva Link",
-                    key="btn_save_url",
-                    use_container_width=True,
-                ):
+                if st.button("💾 Salva Link", key="btn_save_url", use_container_width=True):
                     with open(config_file_sheet, "w") as f:
                         f.write(link_foglio.strip())
                     st.cache_data.clear()
@@ -2957,16 +2790,10 @@ def main():
                     st.rerun()
 
             with col_s2:
-                if st.button(
-                    "🔄 Sincronizza Ora",
-                    key="btn_sync_manuale",
-                    use_container_width=True,
-                ):
+                if st.button("🔄 Sincronizza Ora", key="btn_sync_manuale", use_container_width=True):
                     if link_foglio.strip():
                         with st.spinner("Sincronizzazione..."):
-                            ok_s, msg_s = sincronizza_google_sheets(
-                                link_foglio.strip(), conn
-                            )
+                            ok_s, msg_s = sincronizza_google_sheets(link_foglio.strip())
                         if ok_s:
                             st.cache_data.clear()
                             st.success(msg_s)
@@ -2976,122 +2803,61 @@ def main():
 
         # --- AUTO-SYNC SILENZIOSO ALL'AVVIO ---
         if link_salvato and "auto_sync_eseguito" not in st.session_state:
-            ok_auto, _ = sincronizza_google_sheets(link_salvato, conn)
+            ok_auto, _ = sincronizza_google_sheets(link_salvato)
             if ok_auto:
                 st.cache_data.clear()
             st.session_state["auto_sync_eseguito"] = True
-            
-                # 2. Nuovo Cliente Manuale
+
+        # --- 2. NUOVO CLIENTE MANUALE ---
         with st.expander("➕ Nuovo Cliente Manuale", expanded=False):
-            nuovo_cliente = st.text_input(
-                "Nome e Cognome", placeholder="Es. Mario Rossi"
-            )
+            nuovo_cliente = st.text_input("Nome e Cognome", placeholder="Es. Mario Rossi")
             nuovo_sesso = st.radio(
                 "Profilo Fisiologico:",
                 ["Uomo", "Donna"],
                 horizontal=True,
                 key="nuovo_sesso_radio",
             )
-            if st.button(
-                "➕ Registra Cliente",
-                key="btn_reg_cliente",
-                use_container_width=True,
-            ):
+            if st.button("➕ Registra Cliente", key="btn_reg_cliente", use_container_width=True):
                 if nuovo_cliente.strip():
                     nome_pulito = nuovo_cliente.strip()
-                    
-                    # 🔍 DEBUG: mostra lo stato di Supabase
-                    st.write(f"🔍 Supabase disponibile: {supabase is not None}")
-                    if supabase:
-                        st.write(f"🔍 URL Supabase: {SUPABASE_URL[:20]}...")  # Solo i primi 20 caratteri per sicurezza
-                    
                     try:
-                        c = conn.cursor()
-                        
-                        # 1. Inserimento in SQLite
-                        try:
-                            c.execute(
-                                "INSERT INTO clienti (codice_cliente, sesso) VALUES (?, ?)",
-                                (nome_pulito, nuovo_sesso),
-                            )
-                            conn.commit()
-                            st.success(f"✅ Cliente '{nome_pulito}' registrato in SQLite")
-                        except sqlite3.IntegrityError:
-                            st.warning(f"⚠️ Cliente '{nome_pulito}' già esistente in SQLite")
-
-                        # 2. Inserimento in Supabase
-                        if supabase:
-                            try:
-                                st.write("🔍 Tentativo di inserimento in Supabase...")
-                                
-                                # Controlla se esiste già
-                                check_cloud = supabase.table("clienti").select("id").eq("codice_cliente", nome_pulito).execute()
-                                st.write(f"🔍 Check esistenza: {check_cloud.data}")
-                                
-                                if not check_cloud.data:
-                                    # Non esiste, lo creiamo
-                                    result = supabase.table("clienti").insert({
-                                        "codice_cliente": nome_pulito,
-                                        "sesso": nuovo_sesso,
-                                    }).execute()
-                                    st.write(f"🔍 Risultato insert: {result.data}")
-                                    
-                                    if result.data:
-                                        st.success(f"✅ Cliente '{nome_pulito}' registrato su Supabase (UUID: {result.data[0]['id'][:8]}...)")
-                                    else:
-                                        st.error("❌ Inserimento Supabase fallito: nessun dato restituito")
-                                else:
-                                    st.info(f"ℹ️ Cliente '{nome_pulito}' già esistente in Supabase (UUID: {check_cloud.data[0]['id'][:8]}...)")
-                            except Exception as e:
-                                st.error(f"❌ ERRORE SUPABASE: {str(e)}")
-                                import traceback
-                                st.code(traceback.format_exc())
+                        # Registra direttamente su Supabase
+                        check = supabase.table("clienti").select("id").eq("codice_cliente", nome_pulito).execute()
+                        if not check.data:
+                            result = supabase.table("clienti").insert({
+                                "codice_cliente": nome_pulito,
+                                "sesso": nuovo_sesso,
+                            }).execute()
+                            if result.data:
+                                st.success(f"✅ Cliente '{nome_pulito}' registrato su Supabase!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Errore registrazione su Supabase")
                         else:
-                            st.error("❌ Supabase NON è disponibile! Controlla i secrets.")
-                        
-                        st.rerun()
+                            st.warning(f"⚠️ Cliente '{nome_pulito}' già esistente!")
                     except Exception as e:
-                        st.error(f"❌ Errore generale: {e}")
-                        import traceback
-                        st.code(traceback.format_exc())
+                        st.error(f"❌ Errore: {e}")
                 else:
                     st.warning("⚠️ Inserisci il nome del cliente.")
-                    
-                # 3. Elenco Clienti con Auto-Compilazione Completa
-        # 🔧 CARICA DA SUPABASE, NON DA SQLITE!
+
+        # --- 3. ELENCO CLIENTI ---
         df_clienti = get_lista_clienti()
-        
-        clienti_list = (
-            df_clienti["codice_cliente"].tolist() if not df_clienti.empty else []
-        )
-        cliente_selezionato = st.selectbox(
-            "Seleziona Cliente", ["-- Seleziona --"] + clienti_list
-        )
+        clienti_list = df_clienti["codice_cliente"].tolist() if not df_clienti.empty else []
+        cliente_selezionato = st.selectbox("Seleziona Cliente", ["-- Seleziona --"] + clienti_list)
 
         sesso_cliente = "Uomo"
         cell_default = ""
         email_default = ""
+        cliente_uuid = None
 
         if cliente_selezionato != "-- Seleziona --":
-            riga_cl = df_clienti[
-                df_clienti["codice_cliente"] == cliente_selezionato
-            ].iloc[0]
-            cl_id_selezionato = riga_cl["id"]  # <-- NON convertire in int, è UUID!
-            sesso_cliente_db = (
-                riga_cl["sesso"] if pd.notna(riga_cl["sesso"]) else "Uomo"
-            )
+            riga_cl = df_clienti[df_clienti["codice_cliente"] == cliente_selezionato].iloc[0]
+            cliente_uuid = riga_cl["id"]
+            sesso_cliente_db = riga_cl["sesso"] if pd.notna(riga_cl["sesso"]) else "Uomo"
             idx_sesso = 0 if sesso_cliente_db == "Uomo" else 1
 
-            cell_default = (
-                str(riga_cl["cellulare"]).replace("None", "").strip()
-                if pd.notna(riga_cl.get("cellulare"))
-                else ""
-            )
-            email_default = (
-                str(riga_cl["email"]).replace("None", "").strip()
-                if pd.notna(riga_cl.get("email"))
-                else ""
-            )
+            cell_default = str(riga_cl["cellulare"]).replace("None", "").strip() if pd.notna(riga_cl.get("cellulare")) else ""
+            email_default = str(riga_cl["email"]).replace("None", "").strip() if pd.notna(riga_cl.get("email")) else ""
 
             sesso_cliente = st.radio(
                 "Profilo Fisiologico Attivo:",
@@ -3102,65 +2868,35 @@ def main():
             )
 
             if sesso_cliente != sesso_cliente_db:
-                c = conn.cursor()
-                c.execute(
-                    "UPDATE clienti SET sesso = ? WHERE codice_cliente = ?",
-                    (sesso_cliente, cliente_selezionato),
-                )
-                conn.commit()
-                if supabase:
-                    try:
-                        supabase.table("clienti").update({
-                            "sesso": sesso_cliente
-                        }).eq("codice_cliente", cliente_selezionato).execute()
-                    except Exception:
-                        pass
+                try:
+                    supabase.table("clienti").update({"sesso": sesso_cliente}).eq("id", cliente_uuid).execute()
+                except Exception:
+                    pass
 
-            # 4. Box Eliminazione Cliente Sicura
+            # --- ELIMINA CLIENTE ---
             with st.expander("🗑️ Elimina Cliente"):
-                st.caption(
-                    f"Eliminazione anagrafica e storico di: **{cliente_selezionato}**"
-                )
-                conferma_canc = st.checkbox(
-                    "Confermo eliminazione definitiva",
-                    key=f"chk_del_{cl_id_selezionato}",
-                )
+                st.caption(f"Eliminazione anagrafica e storico di: **{cliente_selezionato}**")
+                conferma_canc = st.checkbox("Confermo eliminazione definitiva", key=f"chk_del_{cliente_uuid}")
                 if st.button(
                     "🗑️ Elimina Definitivamente",
-                    key=f"btn_del_cl_{cl_id_selezionato}",
+                    key=f"btn_del_cl_{cliente_uuid}",
                     disabled=not conferma_canc,
                     use_container_width=True,
                 ):
-                    c = conn.cursor()
-                    c.execute(
-                        "DELETE FROM analisi WHERE cliente_id = ?",
-                        (cl_id_selezionato,),
-                    )
-                    c.execute(
-                        "DELETE FROM prodotti_cliente WHERE cliente_id = ?",
-                        (cl_id_selezionato,),
-                    )
-                    c.execute(
-                        "DELETE FROM clienti WHERE id = ?",
-                        (cl_id_selezionato,),
-                    )
-                    conn.commit()
-
-                    if supabase:
-                        try:
-                            supabase.table("clienti").delete().eq(
-                                "id", cl_id_selezionato
-                            ).execute()
-                        except Exception:
-                            pass
-
-                    st.cache_data.clear()
-                    st.success(f"Cliente '{cliente_selezionato}' eliminato!")
-                    st.rerun()
+                    try:
+                        # Elimina da Supabase
+                        supabase.table("analisi").delete().eq("cliente_id", cliente_uuid).execute()
+                        supabase.table("prodotti_cliente").delete().eq("cliente_id", cliente_uuid).execute()
+                        supabase.table("clienti").delete().eq("id", cliente_uuid).execute()
+                        st.cache_data.clear()
+                        st.success(f"Cliente '{cliente_selezionato}' eliminato!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Errore: {e}")
 
         st.markdown("---")
 
-        # 4. Configurazione AI Avanzata con MEMORIZZAZIONE CHIAVE PERMANENTE
+        # --- 4. CONFIGURAZIONE AI ---
         ai_key_file = "ai_api_key.txt"
         saved_ai_key = ""
         if os.path.exists(ai_key_file):
@@ -3181,24 +2917,15 @@ def main():
                     placeholder="gsk_...",
                     help="La chiave verrà memorizzata nel computer.",
                 )
-
                 col_k1, col_k2 = st.columns([1, 1])
                 with col_k1:
-                    if st.button(
-                        "💾 Salva Chiave",
-                        key="btn_save_ai_k",
-                        use_container_width=True,
-                    ):
+                    if st.button("💾 Salva Chiave", key="btn_save_ai_k", use_container_width=True):
                         with open(ai_key_file, "w") as f:
                             f.write(ai_api_key.strip())
                         st.success("✅ Chiave memorizzata!")
                         st.rerun()
                 with col_k2:
-                    if st.button(
-                        "🗑️ Rimuovi",
-                        key="btn_del_ai_k",
-                        use_container_width=True,
-                    ):
+                    if st.button("🗑️ Rimuovi", key="btn_del_ai_k", use_container_width=True):
                         if os.path.exists(ai_key_file):
                             os.remove(ai_key_file)
                         st.success("Chiave rimossa!")
@@ -3215,44 +2942,23 @@ def main():
                         if r_models.status_code == 200:
                             lista_m = [m["id"] for m in r_models.json().get("data", [])]
                             lista_utili = [
-                                m
-                                for m in lista_m
-                                if (
-                                    "qwen" in m
-                                    or "llama-3.3" in m
-                                    or "llama-3.1" in m
-                                    or "mixtral" in m
-                                )
-                                and "whisper" not in m
-                                and "guard" not in m
+                                m for m in lista_m
+                                if ("qwen" in m or "llama-3.3" in m or "llama-3.1" in m or "mixtral" in m)
+                                and "whisper" not in m and "guard" not in m
                             ]
                             if not lista_utili:
                                 lista_utili = lista_m
                             idx_def = 0
-                            for target_m in [
-                                "qwen/qwen3.8-27b",
-                                "llama-3.3-70b-versatile",
-                            ]:
+                            for target_m in ["qwen/qwen3.8-27b", "llama-3.3-70b-versatile"]:
                                 if target_m in lista_utili:
                                     idx_def = lista_utili.index(target_m)
                                     break
-                            ai_modello_scelto = st.selectbox(
-                                "Modello Groq:", lista_utili, index=idx_def
-                            )
+                            ai_modello_scelto = st.selectbox("Modello Groq:", lista_utili, index=idx_def)
                     except Exception:
                         pass
             else:
-                ai_api_key = st.text_input(
-                    "OpenAI API Key:",
-                    value=saved_ai_key,
-                    type="password",
-                    placeholder="sk-proj-...",
-                )
-                if st.button(
-                    "💾 Salva Chiave",
-                    key="btn_save_oai_k",
-                    use_container_width=True,
-                ):
+                ai_api_key = st.text_input("OpenAI API Key:", value=saved_ai_key, type="password", placeholder="sk-proj-...")
+                if st.button("💾 Salva Chiave", key="btn_save_oai_k", use_container_width=True):
                     with open(ai_key_file, "w") as f:
                         f.write(ai_api_key.strip())
                     st.success("✅ Chiave memorizzata!")
@@ -3261,7 +2967,7 @@ def main():
 
         st.markdown("---")
 
-        # 5. Scala Alopecia Dinamica
+        # --- 5. SCALA ALOPECIA ---
         st.header("📐 Grado / Scala Alopecia")
         if sesso_cliente == "Uomo":
             scale_opzioni = [
@@ -3304,12 +3010,18 @@ def main():
 
         st.markdown("---")
 
-        # 6. Dati Check-up con NUMERO PROGRESSIVO AUTOMATICO DA 679
+        # --- 6. DATI CHECK-UP ---
         st.header("📋 Dati Check-up")
 
-        # Calcolo del numero progressivo a partire da 679
-        c = conn.cursor()
-        conteggio_analisi = c.execute("SELECT COUNT(*) FROM analisi").fetchone()[0]
+        # Conta le analisi da Supabase
+        conteggio_analisi = 0
+        if cliente_uuid:
+            try:
+                res_count = supabase.table("analisi").select("id", count="exact").eq("cliente_id", cliente_uuid).execute()
+                conteggio_analisi = res_count.count or 0
+            except:
+                pass
+
         numero_checkup_automatico = 679 + int(conteggio_analisi or 0)
 
         checkup_num = st.number_input(
@@ -3344,7 +3056,7 @@ def main():
 
         st.markdown("---")
 
-        # 7. Sintomatologia & Anamnesi
+        # --- 7. SINTOMATOLOGIA ---
         st.header("🩺 Sintomatologia & Anamnesi")
         chk_prurito = st.checkbox("🔴 Prurito / Bruciore")
         chk_dolore = st.checkbox("⚡ Tricodinia (Dolore al cuoio capelluto)")
@@ -3374,9 +3086,9 @@ def main():
             "sesso": sesso_cliente,
         }
 
-    # ============================================================
-    # TABS PRINCIPALI (5 TAB PERFETTAMENTE ALLINEATI)
-    # ============================================================
+    # =========================================================================
+    # TABS PRINCIPALI
+    # =========================================================================
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
         [
             "📸 Analisi & Report",
@@ -3387,34 +3099,25 @@ def main():
         ]
     )
 
-    # ============================================================
-    # TAB 1: ANALISI CON CHECK-UP DI CONTROLLO & CONFRONTO EVOLUTIVO
-    # ============================================================
+    # =========================================================================
+    # TAB 1: ANALISI & REPORT
+    # =========================================================================
     with tab1:
-        if cliente_selezionato == "-- Seleziona --":
-            st.info(
-                "⚠️ Seleziona un cliente dalla barra laterale per avviare la seduta di analisi."
-            )
+        if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
+            st.info("⚠️ Seleziona un cliente dalla barra laterale per avviare la seduta di analisi.")
         else:
-            st.success(
-                f"👤 Scheda Analisi Attiva: **{cliente_selezionato}** ({sesso_cliente}) — {scala_selezionata}"
-            )
+            st.success(f"👤 Scheda Analisi Attiva: **{cliente_selezionato}** ({sesso_cliente}) — {scala_selezionata}")
 
             def reset_testo_callback(chiave_da_aggiornare, nuovo_testo):
                 st.session_state[chiave_da_aggiornare] = nuovo_testo
 
-                        # -------------------------------------------------------------
-            # SEZIONE CONFRONTO PREGRESSO (DATABASE O PDF)
-            # -------------------------------------------------------------
-            with st.expander(
-                "🔄 Check-up di Controllo: Confronto Evolutivo (Prima / Dopo)",
-                expanded=False,
-            ):
+            # --- SEZIONE CONFRONTO PREGRESSO ---
+            with st.expander("🔄 Check-up di Controllo: Confronto Evolutivo (Prima / Dopo)", expanded=False):
                 modalita_confronto = st.radio(
                     "Modalità di Confronto:",
                     [
                         "❌ Nessun confronto (Prima Visita)",
-                        "📊 Confronto Automatico da Storico Database",
+                        "📊 Confronto Automatico da Storico Database (Supabase)",
                         "📄 Carica PDF Visita Precedente",
                     ],
                     horizontal=True,
@@ -3424,77 +3127,53 @@ def main():
                 dati_visita_precedente = None
                 prodotti_visita_precedente = ""
 
-                if modalita_confronto == "📊 Confronto Automatico da Storico Database":
-                    c = conn.cursor()
-                    
-                    # 🔧 RECUPERA L'ID DEL CLIENTE CON CONTROLLO
-                    cl_id_row_tmp = c.execute(
-                        "SELECT id FROM clienti WHERE codice_cliente = ?",
-                        (cliente_selezionato,),
-                    ).fetchone()
-                    
-                    if cl_id_row_tmp:
-                        cl_id_tmp = cl_id_row_tmp[0]
-                    else:
-                        st.warning("⚠️ Cliente non trovato nel database locale. Sincronizza prima da Supabase.")
-                        st.stop()
-                    
-                    analisi_precedenti = pd.read_sql_query(
-                        "SELECT * FROM analisi WHERE cliente_id = ? ORDER BY data DESC",
-                        conn,
-                        params=(cl_id_tmp,),
-                    )
+                if modalita_confronto == "📊 Confronto Automatico da Storico Database (Supabase)":
+                    try:
+                        # Recupera analisi da Supabase
+                        res_analisi = supabase.table("analisi").select("*").eq("cliente_id", cliente_uuid).order("id", desc=True).execute()
+                        if res_analisi.data:
+                            df_analisi = pd.DataFrame(res_analisi.data)
+                            df_analisi["data_formattata"] = df_analisi["data"].apply(lambda d: formatta_data_it(d))
 
-                    if not analisi_precedenti.empty:
-                        # Date in formato italiano GG/MM/AAAA HH:MM
-                        opzioni_visite = [
-                            f"Check-up del {formatta_data_it(r['data'])} — (Calibro: {r['calibro_medio']} µm | Anisotropia: {r['anisotropia']}%)"
-                            for _, r in analisi_precedenti.iterrows()
-                        ]
+                            opzioni_visite = [
+                                f"Check-up del {formatta_data_it(r['data'])} — (Calibro: {r['calibro_medio']} µm | Anisotropia: {r['anisotropia']}%)"
+                                for _, r in df_analisi.iterrows()
+                            ]
 
-                        visita_scelta_str = st.selectbox(
-                            "Seleziona quale visita passata vuoi confrontare:",
-                            opzioni_visite,
-                            key=f"sel_visita_confronto_{cliente_selezionato}",
-                            help="Puoi scegliere l'ultimo controllo oppure la primissima visita per vedere i progressi complessivi.",
-                        )
+                            visita_scelta_str = st.selectbox(
+                                "Seleziona quale visita passata vuoi confrontare:",
+                                opzioni_visite,
+                                key=f"sel_visita_confronto_{cliente_selezionato}",
+                            )
 
-                        idx_scelta = opzioni_visite.index(visita_scelta_str)
-                        visita_scelta = analisi_precedenti.iloc[idx_scelta]
+                            idx_scelta = opzioni_visite.index(visita_scelta_str)
+                            visita_scelta = df_analisi.iloc[idx_scelta]
 
-                        prod_prec = pd.read_sql_query(
-                            """
-                            SELECT p.nome FROM prodotti_cliente pc 
-                            INNER JOIN prodotti p ON pc.prodotto_id = p.id 
-                            WHERE pc.cliente_id = ?
-                        """,
-                            conn,
-                            params=(cl_id_tmp,),
-                        )
-                        prodotti_visita_precedente = (
-                            ", ".join(prod_prec["nome"].tolist())
-                            if not prod_prec.empty
-                            else ""
-                        )
+                            # Recupera prodotti del cliente per quella visita (dalla tabella prodotti_cliente)
+                            res_prodotti = supabase.table("prodotti_cliente").select("*, prodotti(*)").eq("cliente_id", cliente_uuid).execute()
+                            if res_prodotti.data:
+                                nomi_prodotti = []
+                                for row in res_prodotti.data:
+                                    if row.get("prodotti"):
+                                        nomi_prodotti.append(row["prodotti"].get("nome", ""))
+                                prodotti_visita_precedente = ", ".join(nomi_prodotti) if nomi_prodotti else ""
 
-                        dati_visita_precedente = {
-                            "data": visita_scelta["data"],
-                            "calibro_medio": float(visita_scelta["calibro_medio"] or 0),
-                            "anisotropia": float(visita_scelta["anisotropia"] or 0),
-                            "densita_f": int(visita_scelta["densita_f"] or 0),
-                            "eritemi": int(visita_scelta["eritemi"] or 0),
-                            "tappi_sebacei": int(visita_scelta["osti_intasati"] or 0),
-                            "steli_nuovi": int(visita_scelta["steli_nuovi"] or 0),
-                            "checkup_num": f"ID #{visita_scelta['id']}",
-                        }
+                            dati_visita_precedente = {
+                                "data": visita_scelta["data"],
+                                "calibro_medio": float(visita_scelta.get("calibro_medio", 0) or 0),
+                                "anisotropia": float(visita_scelta.get("anisotropia", 0) or 0),
+                                "densita_f": int(visita_scelta.get("densita_f", 0) or 0),
+                                "eritemi": int(visita_scelta.get("eritemi", 0) or 0),
+                                "tappi_sebacei": int(visita_scelta.get("osti_intasati", 0) or 0),
+                                "steli_nuovi": int(visita_scelta.get("steli_nuovi", 0) or 0),
+                                "checkup_num": f"ID #{visita_scelta['id']}",
+                            }
 
-                        st.info(
-                            f"📌 **Confronto attivo con:** Check-up del **{dati_visita_precedente['data']}** | Calibro: **{dati_visita_precedente['calibro_medio']} µm** | Anisotropia: **{dati_visita_precedente['anisotropia']}%**"
-                        )
-                    else:
-                        st.warning(
-                            "Nessuna visita precedente registrata nel database per questo cliente."
-                        )
+                            st.info(f"📌 **Confronto attivo con:** Check-up del **{dati_visita_precedente['data']}** | Calibro: **{dati_visita_precedente['calibro_medio']} µm** | Anisotropia: **{dati_visita_precedente['anisotropia']}%**")
+                        else:
+                            st.warning("Nessuna visita precedente registrata per questo cliente.")
+                    except Exception as e:
+                        st.warning(f"Errore caricamento storico: {e}")
 
                 elif modalita_confronto == "📄 Carica PDF Visita Precedente":
                     uploaded_pdf = st.file_uploader(
@@ -3505,20 +3184,11 @@ def main():
                     if uploaded_pdf is not None:
                         pdf_bytes = uploaded_pdf.read()
                         dati_visita_precedente = estrai_dati_da_pdf_report(pdf_bytes)
-                        st.success(
-                            f"✅ PDF caricato! Data rilevata: **{dati_visita_precedente['data']}**"
-                        )
+                        st.success(f"✅ PDF caricato! Data rilevata: **{dati_visita_precedente['data']}**")
 
-            # -------------------------------------------------------------
-            # FOTO PANORAMICA (UPLOAD FILE OPPURE SCATTO DAL VIVO CON IPHONE)
-            # -------------------------------------------------------------
-            with st.expander(
-                "📱 Foto Panoramica Globale da PC | Smartphone",
-                expanded=False,
-            ):
-                st.caption(
-                    "Tocca 'Upload' e scegli 'Scatta foto' dal tuo Smartphone per fotografare la testa dall'alto ad altissima risoluzione."
-                )
+            # --- FOTO PANORAMICA ---
+            with st.expander("📱 Foto Panoramica Globale da PC | Smartphone", expanded=False):
+                st.caption("Tocca 'Upload' e scegli 'Scatta foto' dal tuo Smartphone per fotografare la testa dall'alto ad altissima risoluzione.")
                 uploaded_macro_phone = st.file_uploader(
                     "Carica o Scatta Foto da PC o Smartphone (JPG / PNG):",
                     type=["jpg", "jpeg", "png"],
@@ -3528,129 +3198,60 @@ def main():
                 if uploaded_macro_phone is not None:
                     col_ph1, col_ph2 = st.columns([1.2, 1])
                     with col_ph1:
-                        st.image(
-                            uploaded_macro_phone,
-                            caption=f"Panoramica Globale — {cliente_selezionato}",
-                            width=300,
-                        )
+                        st.image(uploaded_macro_phone, caption=f"Panoramica Globale — {cliente_selezionato}", width=300)
                     with col_ph2:
                         st.write("")
                         st.write("")
-                        if st.button(
-                            "💾 Archivia Foto Panoramica",
-                            key=f"btn_save_solo_macro_{cliente_selezionato}",
-                            help="Salva la foto nella cartella del cliente sul Desktop",
-                            use_container_width=True,
-                        ):
-                            cartella_cliente_dest = trova_o_crea_cartella_cliente(
-                                cliente_selezionato
-                            )
+                        if st.button("💾 Archivia Foto Panoramica", key=f"btn_save_solo_macro_{cliente_selezionato}", use_container_width=True):
+                            cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                             data_macro_str = datetime.now().strftime("%d-%m-%Y")
-                            prefisso_macro = calcola_prefisso_da_file_esistenti(
-                                cartella_cliente_dest, "Panoramica"
-                            )
+                            prefisso_macro = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Panoramica")
                             nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_macro_str}.jpg"
-                            path_macro_dest = os.path.join(
-                                cartella_cliente_dest, nome_file_macro
-                            )
+                            path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
 
                             with open(path_macro_dest, "wb") as f_macro:
                                 f_macro.write(uploaded_macro_phone.getbuffer())
 
-                            st.success(
-                                f"✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**"
-                            )
+                            st.success(f"✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**")
 
-            # ============================================================
-            # CARICAMENTO FOTO DA SUPABASE STORAGE (PER SINCRONIZZAZIONE)
-            # ============================================================
-            # Recupera l'UUID del cliente
-            cliente_uuid_cloud = None
-            if supabase and cliente_selezionato:
-                try:
-                    res_uuid = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
-                    if res_uuid.data:
-                        cliente_uuid_cloud = res_uuid.data[0]["id"]
-                except:
-                    pass
-            
-            # Se ci sono foto in Supabase, le carichiamo
+            # --- CARICAMENTO FOTO DAL CLOUD ---
             foto_da_cloud = []
-            if cliente_uuid_cloud:
+            if cliente_uuid:
                 with st.spinner("📸 Caricamento foto dal cloud..."):
-                    foto_da_cloud = carica_foto_supabase(cliente_uuid_cloud)
-                
+                    foto_da_cloud = carica_foto_supabase(cliente_uuid)
+
                 if foto_da_cloud:
-                    # Mostra le foto caricate dal cloud in un expander
-                    with st.expander("📸 Foto dal cloud (già caricate)", expanded=False):
+                    with st.expander(f"📸 {len(foto_da_cloud)} foto dal cloud (già caricate)", expanded=False):
                         cols = st.columns(3)
                         for idx, img_data in enumerate(foto_da_cloud):
                             with cols[idx % 3]:
-                                st.image(
-                                    img_data["immagine"],
-                                    caption=f"{img_data['nome']} ({img_data.get('data', '')})",
-                                    use_container_width=True,
-                                )
+                                st.image(img_data["immagine"], caption=f"{img_data['nome']} ({img_data.get('data', '')})", use_container_width=True)
                 else:
                     st.info("📭 Nessuna foto trovata da sincronizzare per il cliente.")
 
-            # -------------------------------------------------------------
-            # CARICAMENTO IMMAGINI ODIERNE
-            # -------------------------------------------------------------
+            # --- CARICAMENTO NUOVE IMMAGINI ---
             uploaded_files = st.file_uploader(
                 "📤 Carica immagini tricoscopiche della seduta odierna",
                 type=["jpg", "jpeg", "png"],
                 accept_multiple_files=True,
             )
 
-            # Se ci sono foto dal cloud, le uniamo a quelle caricate ora
-            if uploaded_files or foto_da_cloud:
-                immagini_con_etichette = []
-                
-                # PRIMA: Aggiungi le foto dal cloud (se già presenti)
-                if foto_da_cloud:
-                    for img_data in foto_da_cloud:
-                        immagini_con_etichette.append({
-                            "immagine": img_data["immagine"],
-                            "ottica": "50x",  # default
-                            "luce": "Bianca",  # default
-                            "zona": "Cloud",
-                            "note": f"Foto caricata dal cloud: {img_data['nome']}",
-                            "steli_anagen": 0,
-                            "steli_vellus": 0,
-                            "steli_nuovi": 0,
-                            "eritemi": 0,
-                            "tappi_sebacei": 0,
-                            "calibro_medio": 0,
-                            "anisotropia": 0,
-                            "densita": 0,
-                        })
-                
-                # POI: Analizza le nuove foto caricate
+            immagini_con_etichette = []
+
             if uploaded_files:
                 for idx, uploaded_file in enumerate(uploaded_files):
                     st.markdown(f"---")
                     st.subheader(f"📷 Acquisizione #{idx+1} — {uploaded_file.name}")
 
-                    file_bytes = np.asarray(
-                        bytearray(uploaded_file.read()), dtype=np.uint8
-                    )
+                    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
                     img_raw = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
                     img_rgb = cv2.cvtColor(img_raw, cv2.COLOR_BGR2RGB)
 
                     col_opt1, col_opt2, col_opt3 = st.columns(3)
                     with col_opt1:
-                        ottica = st.selectbox(
-                            "Ottica / Ingrandimento",
-                            ["50x", "200x"],
-                            key=f"opt_ottica_{idx}",
-                        )
+                        ottica = st.selectbox("Ottica / Ingrandimento", ["50x", "200x"], key=f"opt_ottica_{idx}")
                     with col_opt2:
-                        luce = st.selectbox(
-                            "Tipo di Luce",
-                            ["Bianca", "Polarizzata"],
-                            key=f"opt_luce_{idx}",
-                        )
+                        luce = st.selectbox("Tipo di Luce", ["Bianca", "Polarizzata"], key=f"opt_luce_{idx}")
                     with col_opt3:
                         zona = st.selectbox(
                             "Area Cuoio Capelluto",
@@ -3676,10 +3277,7 @@ def main():
                     tracker_key = f"tracker_params_{cliente_selezionato}_{idx}"
                     config_attuale = f"{ottica}_{luce}_{zona}_{sesso_cliente}_{scala_selezionata}_{quadro_clinico}_{chk_prurito}_{chk_dolore}_{chk_caduta}_{chk_sebo_iper}_{modalita_confronto}"
 
-                    if (
-                        tracker_key not in st.session_state
-                        or st.session_state[tracker_key] != config_attuale
-                    ):
+                    if tracker_key not in st.session_state or st.session_state[tracker_key] != config_attuale:
                         st.session_state[tracker_key] = config_attuale
                         st.session_state[note_key] = risultato["note_auto"]
                     elif note_key not in st.session_state:
@@ -3688,14 +3286,8 @@ def main():
                     col_img, col_dettagli = st.columns([1.2, 1])
 
                     with col_img:
-                        st.image(
-                            risultato["immagine_annotata"],
-                            caption=f"Mappatura {zona} - {ottica} ({luce})",
-                            use_container_width=True,
-                        )
-
-                        st.markdown(
-                            """
+                        st.image(risultato["immagine_annotata"], caption=f"Mappatura {zona} - {ottica} ({luce})", use_container_width=True)
+                        st.markdown("""
                         <div style="background-color: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #e9ecef; font-size: 13px;">
                             <b>Legenda Marker:</b><br>
                             🟡 <b>Giallo:</b> Tappi sebacei / Ipercheratosi &nbsp;|&nbsp; 
@@ -3703,14 +3295,10 @@ def main():
                             🟣 <b>Viola:</b> Germogli anagen ricrescita<br>
                             🟢 <b>Verde:</b> Ostio sano con stelo
                         </div>
-                        """,
-                            unsafe_allow_html=True,
-                        )
+                        """, unsafe_allow_html=True)
 
                     with col_dettagli:
-                        # Stile CSS per non troncare i testi con i puntini (...)
-                        st.markdown(
-                            """
+                        st.markdown("""
                         <style>
                         div[data-testid="stMetricValue"] > div {
                             font-size: 1.35rem !important;
@@ -3723,103 +3311,61 @@ def main():
                             font-weight: 500 !important;
                         }
                         </style>
-                        """,
-                            unsafe_allow_html=True,
-                        )
+                        """, unsafe_allow_html=True)
 
                         st.markdown(f"##### 🔬 Parametri Rilevati: Area {zona}")
 
-                        # Prima riga di metriche: Biometria Principale
                         m1, m2, m3 = st.columns(3)
-                        valore_densita = (
-                            f"{risultato['densita_stimata']} cap/cm²"
-                            if ottica == "50x"
-                            else f"{len(risultato['spessori_um'])} steli (200x)"
-                        )
+                        valore_densita = f"{risultato['densita_stimata']} cap/cm²" if ottica == "50x" else f"{len(risultato['spessori_um'])} steli (200x)"
                         m1.metric("Densità", valore_densita)
                         m2.metric("Calibro Medio", f"{risultato['calibro_medio']} µm")
                         m3.metric("Anisotropia", f"{risultato['anisotropia']} %")
 
-                        # Seconda riga di metriche: Anomalie & Attività Follicolare
                         m4, m5, m6 = st.columns(3)
                         m4.metric("🟡 Tappi Sebacei", risultato["tappi_sebacei"])
-                        m5.metric(
-                            "🔵 Follicoli Silenti",
-                            risultato["follicoli_dormienti"],
-                        )
+                        m5.metric("🔵 Follicoli Silenti", risultato["follicoli_dormienti"])
                         m6.metric("🟣 Germogli Anagen", risultato["steli_nuovi"])
 
                         st.markdown("##### 📝 Sintesi Immagine (Soli Punti Chiave)")
-                        nota_operatore_img = st.text_area(
-                            "Descrizione sintetica immagine:",
-                            key=note_key,
-                            height=100,
-                        )
+                        nota_operatore_img = st.text_area("Descrizione sintetica immagine:", key=note_key, height=100)
 
                         st.button(
                             "🔄 Ricalcola Testo AI",
                             key=f"btn_reset_note_{idx}",
                             on_click=reset_testo_callback,
                             args=(note_key, risultato["note_auto"]),
-                            help="Ripristina il testo automatico dell'AI per questa foto",
                             use_container_width=True,
                         )
 
-                    immagini_con_etichette.append(
-                        {
-                            "immagine": risultato["immagine_annotata"],
-                            "ottica": ottica,
-                            "luce": luce,
-                            "zona": zona,
-                            "note": nota_operatore_img,
-                            "steli_anagen": risultato["steli_anagen"],
-                            "steli_vellus": risultato["steli_vellus"],
-                            "steli_nuovi": risultato["steli_nuovi"],
-                            "eritemi": risultato["eritema_diffuso"],
-                            "tappi_sebacei": risultato["tappi_sebacei"],
-                            "calibro_medio": risultato["calibro_medio"],
-                            "anisotropia": risultato["anisotropia"],
-                            "densita": risultato["densita_stimata"],
-                        }
-                    )
+                    immagini_con_etichette.append({
+                        "immagine": risultato["immagine_annotata"],
+                        "ottica": ottica,
+                        "luce": luce,
+                        "zona": zona,
+                        "note": nota_operatore_img,
+                        "steli_anagen": risultato["steli_anagen"],
+                        "steli_vellus": risultato["steli_vellus"],
+                        "steli_nuovi": risultato["steli_nuovi"],
+                        "eritemi": risultato["eritema_diffuso"],
+                        "tappi_sebacei": risultato["tappi_sebacei"],
+                        "calibro_medio": risultato["calibro_medio"],
+                        "anisotropia": risultato["anisotropia"],
+                        "densita": risultato["densita_stimata"],
+                    })
 
-                # -------------------------------------------------------------
-                # CALCOLO MEDIE GLOBALI PONDERATE
-                # -------------------------------------------------------------
-                foto_200x = [
-                    r
-                    for r in immagini_con_etichette
-                    if r["ottica"] == "200x" and r["calibro_medio"] > 0
-                ]
+            # --- CALCOLO MEDIE ---
+            if immagini_con_etichette:
+                foto_200x = [r for r in immagini_con_etichette if r["ottica"] == "200x" and r["calibro_medio"] > 0]
                 if foto_200x:
-                    media_cal_oggi = round(
-                        float(np.mean([r["calibro_medio"] for r in foto_200x])),
-                        1,
-                    )
-                    media_ani_oggi = round(
-                        float(np.mean([r["anisotropia"] for r in foto_200x])), 1
-                    )
+                    media_cal_oggi = round(float(np.mean([r["calibro_medio"] for r in foto_200x])), 1)
+                    media_ani_oggi = round(float(np.mean([r["anisotropia"] for r in foto_200x])), 1)
                 else:
-                    cal_val = [
-                        r["calibro_medio"]
-                        for r in immagini_con_etichette
-                        if r["calibro_medio"] > 0
-                    ]
-                    media_cal_oggi = (
-                        round(float(np.mean(cal_val)), 1) if cal_val else 0.0
-                    )
-                    ani_val = [
-                        r["anisotropia"]
-                        for r in immagini_con_etichette
-                        if r["anisotropia"] > 0
-                    ]
-                    media_ani_oggi = (
-                        round(float(np.mean(ani_val)), 1) if ani_val else 0.0
-                    )
+                    cal_val = [r["calibro_medio"] for r in immagini_con_etichette if r["calibro_medio"] > 0]
+                    media_cal_oggi = round(float(np.mean(cal_val)), 1) if cal_val else 0.0
+                    ani_val = [r["anisotropia"] for r in immagini_con_etichette if r["anisotropia"] > 0]
+                    media_ani_oggi = round(float(np.mean(ani_val)), 1) if ani_val else 0.0
 
-                den_val = [
-                    r["densita"] for r in immagini_con_etichette if r["densita"] > 0
-                ]
+                den_val = [r["densita"] for r in immagini_con_etichette if r["densita"] > 0]
                 media_den_oggi = int(round(np.mean(den_val))) if den_val else 0
 
                 tot_tappi_oggi = sum(r["tappi_sebacei"] for r in immagini_con_etichette)
@@ -3835,9 +3381,7 @@ def main():
                     "steli_nuovi": tot_nuovi_oggi,
                 }
 
-                # -------------------------------------------------------------
-                # BOX CONFRONTO EVOLUTIVO AI (SE ATTIVO)
-                # -------------------------------------------------------------
+                # --- CONFRONTO EVOLUTIVO ---
                 comparativa = None
                 if dati_visita_precedente and immagini_con_etichette:
                     st.markdown("---")
@@ -3856,34 +3400,17 @@ def main():
                     den_p_val = dati_visita_precedente.get("densita_f", 0)
 
                     d_den = media_den_oggi - den_p_val
-                    p_den = (
-                        round((d_den / den_p_val) * 100, 1) if den_p_val > 0 else 0.0
-                    )
-                    perc_cal = (
-                        round((comparativa["delta_cal"] / cal_p_val) * 100, 1)
-                        if cal_p_val > 0
-                        else 0.0
-                    )
-                    perc_ani = (
-                        round((comparativa["delta_ani"] / ani_p_val) * 100, 1)
-                        if ani_p_val > 0
-                        else 0.0
-                    )
+                    p_den = round((d_den / den_p_val) * 100, 1) if den_p_val > 0 else 0.0
+                    perc_cal = round((comparativa["delta_cal"] / cal_p_val) * 100, 1) if cal_p_val > 0 else 0.0
+                    perc_ani = round((comparativa["delta_ani"] / ani_p_val) * 100, 1) if ani_p_val > 0 else 0.0
 
                     tempo_trascorso = "Periodo di controllo"
                     try:
                         d_prec = None
                         raw_date = str(dati_visita_precedente.get("data", "")).strip()
-                        for fmt in (
-                            "%Y-%m-%d %H:%M",
-                            "%d/%m/%Y",
-                            "%Y-%m-%d",
-                            "%d-%m-%Y",
-                        ):
+                        for fmt in ("%Y-%m-%d %H:%M", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
                             try:
-                                d_prec = datetime.strptime(
-                                    raw_date.split()[0], fmt.split()[0]
-                                )
+                                d_prec = datetime.strptime(raw_date.split()[0], fmt.split()[0])
                                 break
                             except Exception:
                                 pass
@@ -3915,54 +3442,26 @@ def main():
                         "delta_tap": comparativa["delta_tap"],
                         "prodotti_prec": prodotti_visita_precedente,
                         "tempo_trascorso": tempo_trascorso,
-                        "sintesi_ai": comparativa["testo"]
-                        .replace("📊 RELAZIONE COMPARATIVA DI CONTROLLO:", "")
-                        .strip(),
+                        "sintesi_ai": comparativa["testo"].replace("📊 RELAZIONE COMPARATIVA DI CONTROLLO:", "").strip(),
                     }
 
                     col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-                    col_c1.metric(
-                        "Variazione Densità",
-                        f"{media_den_oggi} cap/cm²",
-                        delta=f"{'+' if d_den > 0 else ''}{d_den} cap/cm² ({'+' if p_den > 0 else ''}{p_den}%)",
-                    )
-                    col_c2.metric(
-                        "Variazione Calibro",
-                        f"{media_cal_oggi} µm",
-                        delta=f"{comparativa['delta_cal']} µm ({'+' if perc_cal > 0 else ''}{perc_cal}%)",
-                    )
-                    col_c3.metric(
-                        "Variazione Anisotropia",
-                        f"{media_ani_oggi} %",
-                        delta=f"{comparativa['delta_ani']} %",
-                        delta_color="inverse",
-                    )
-                    col_c4.metric(
-                        "Tappi Sebacei",
-                        f"{tot_tappi_oggi}",
-                        delta=f"{comparativa['delta_tap']}",
-                        delta_color="inverse",
-                    )
+                    col_c1.metric("Variazione Densità", f"{media_den_oggi} cap/cm²", delta=f"{'+' if d_den > 0 else ''}{d_den} cap/cm² ({'+' if p_den > 0 else ''}{p_den}%)")
+                    col_c2.metric("Variazione Calibro", f"{media_cal_oggi} µm", delta=f"{comparativa['delta_cal']} µm ({'+' if perc_cal > 0 else ''}{perc_cal}%)")
+                    col_c3.metric("Variazione Anisotropia", f"{media_ani_oggi} %", delta=f"{comparativa['delta_ani']} %", delta_color="inverse")
+                    col_c4.metric("Tappi Sebacei", f"{tot_tappi_oggi}", delta=f"{comparativa['delta_tap']}", delta_color="inverse")
 
                     st.info(comparativa["testo"])
 
-                # -------------------------------------------------------------
-                # RELAZIONE GLOBALE AI (6-8 RIGHE CON FOCUS TRATTAMENTO)
-                # -------------------------------------------------------------
+                # --- RELAZIONE GLOBALE ---
                 st.markdown("---")
                 st.subheader("📋 Relazione Globale Check-up (Sintesi per Report PDF)")
-                st.caption(
-                    "Questa sintesi di 6-8 righe riassume tutte le foto e definisce il focus del trattamento che verrà stampato a pagina 2 del Report PDF."
-                )
+                st.caption("Questa sintesi di 6-8 righe riassume tutte le foto e definisce il focus del trattamento che verrà stampato a pagina 2 del Report PDF.")
 
-                confronto_per_sintesi = st.session_state.get(
-                    f"dati_confronto_pdf_{cliente_selezionato}", None
-                )
+                confronto_per_sintesi = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
 
-                if ai_api_key.strip():
-                    img_sample_bgr = cv2.cvtColor(
-                        immagini_con_etichette[0]["immagine"], cv2.COLOR_RGB2BGR
-                    )
+                if ai_api_key.strip() and immagini_con_etichette:
+                    img_sample_bgr = cv2.cvtColor(immagini_con_etichette[0]["immagine"], cv2.COLOR_RGB2BGR)
                     sintesi_globale_calcolata = esegui_perizia_vision_ai(
                         img_sample_bgr,
                         ai_api_key,
@@ -3993,10 +3492,7 @@ def main():
                 tracker_glob_key = f"tracker_glob_{cliente_selezionato}"
                 config_glob_tracker = f"{config_attuale}_{len(immagini_con_etichette)}_{media_cal_oggi}_{ai_api_key.strip()}"
 
-                if (
-                    tracker_glob_key not in st.session_state
-                    or st.session_state[tracker_glob_key] != config_glob_tracker
-                ):
+                if tracker_glob_key not in st.session_state or st.session_state[tracker_glob_key] != config_glob_tracker:
                     st.session_state[tracker_glob_key] = config_glob_tracker
                     st.session_state[note_glob_key] = sintesi_globale_calcolata
                 elif note_glob_key not in st.session_state:
@@ -4004,11 +3500,7 @@ def main():
 
                 col_not1, col_not2 = st.columns([4, 1])
                 with col_not1:
-                    nota_globale_finale = st.text_area(
-                        "Relazione Globale (modificabile):",
-                        key=note_glob_key,
-                        height=160,
-                    )
+                    nota_globale_finale = st.text_area("Relazione Globale (modificabile):", key=note_glob_key, height=160)
                 with col_not2:
                     st.write("")
                     st.write("")
@@ -4021,172 +3513,61 @@ def main():
                         use_container_width=True,
                     )
 
-                    if st.button(
-                        "💾 Salva Sessione di Analisi",
-                        key="btn_salva_analisi_completa",
-                        use_container_width=True,
-                    ):
-                        try:
-                            c = conn.cursor()
-                            
-                                                        # ============================================================
-                            # 1. RECUPERA L'UUID DA SUPABASE (PER IL CLOUD)
-                            # ============================================================
-                            cliente_uuid = None
-                            if supabase and cliente_selezionato:
-                                try:
-                                    res = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
-                                    if res.data:
-                                        cliente_uuid = res.data[0]["id"]  # UUID
-                                    else:
-                                        st.error("❌ Cliente non trovato in Supabase!")
-                                        raise Exception("Cliente non trovato in Supabase")
-                                except Exception as e:
-                                    st.error(f"❌ Errore recupero UUID: {e}")
-                                    raise e
+                # --- SALVA SESSIONE ---
+                st.markdown("---")
+                col_b1, col_b2 = st.columns(2)
 
-                            # ============================================================
-                            # 2. RECUPERA L'ID DA SQLITE (PER IL BACKUP LOCALE)
-                            # ============================================================
-                            cl_id_row = c.execute(
-                                "SELECT rowid FROM clienti WHERE codice_cliente = ?",
-                                (cliente_selezionato,),
-                            ).fetchone()
-                            
-                            if cl_id_row:
-                                cl_id = cl_id_row[0]  # INTEGER per SQLite
-                            else:
-                                # Se non c'è in SQLite, lo creiamo
-                                c.execute(
-                                    "INSERT INTO clienti (codice_cliente) VALUES (?)",
-                                    (cliente_selezionato,)
-                                )
-                                conn.commit()
-                                cl_id = c.lastrowid  # INTEGER per SQLite
-                            
+                with col_b1:
+                    if st.button("💾 Salva Sessione di Analisi", key="btn_salva_analisi_completa", use_container_width=True):
+                        try:
                             data_oggi = datetime.now().strftime("%d/%m/%Y %H:%M")
                             data_cartella_foto = datetime.now().strftime("%d-%m-%Y")
 
-                            # Calcolo parametri
-                            tot_steli = sum(
-                                r["steli_anagen"] + r["steli_vellus"] + r["steli_nuovi"]
-                                for r in immagini_con_etichette
-                            )
-                            tot_anagen = sum(
-                                r["steli_anagen"] for r in immagini_con_etichette
-                            )
-                            tot_vellus = sum(
-                                r["steli_vellus"] for r in immagini_con_etichette
-                            )
-                            tot_nuovi = sum(
-                                r["steli_nuovi"] for r in immagini_con_etichette
-                            )
+                            tot_steli = sum(r["steli_anagen"] + r["steli_vellus"] + r["steli_nuovi"] for r in immagini_con_etichette)
+                            tot_anagen = sum(r["steli_anagen"] for r in immagini_con_etichette)
+                            tot_vellus = sum(r["steli_vellus"] for r in immagini_con_etichette)
+                            tot_nuovi = sum(r["steli_nuovi"] for r in immagini_con_etichette)
 
-                            # ============================================================
-                            # 1. SALVATAGGIO IN SQLITE (BACKUP LOCALE)
-                            # ============================================================
-                            c.execute(
-                                """INSERT INTO analisi 
-                                (cliente_id, data, zona, ingrandimento, luce, foto_caricate, steli_totale, steli_anagen, steli_vellus, steli_nuovi, calibro_medio, densita_f, anisotropia, perc_vellus, eritemi, dermatite_seborroica, forfora_secca, osti_intasati, prurito, routine_consigliata)
-                                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                                (
-                                    cl_id,
-                                    data_oggi,
-                                    "Multi-zona",
-                                    "50x/200x",
-                                    "Mista",
-                                    len(immagini_con_etichette),
-                                    tot_steli,
-                                    tot_anagen,
-                                    tot_vellus,
-                                    tot_nuovi,
-                                    media_cal_oggi,
-                                    media_den_oggi,
-                                    media_ani_oggi,
-                                    (
-                                        round((tot_vellus / tot_steli) * 100, 1)
-                                        if tot_steli > 0
-                                        else 0
-                                    ),
-                                    tot_eritemi_oggi,
-                                    0,
-                                    0,
-                                    tot_tappi_oggi,
-                                    "Sì" if chk_prurito else "No",
-                                    f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
-                                ),
-                            )
-                            conn.commit()
-                            
-                            # ============================================================
-                            # 2. SALVATAGGIO IN SUPABASE (CLOUD) - CON UUID
-                            # ============================================================
-                            cliente_uuid = None
-                            if supabase and cliente_selezionato:
-                                try:
-                                    res = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
-                                    if res.data:
-                                        cliente_uuid = res.data[0]["id"]
-                                except Exception as e:
-                                    st.error(f"❌ Errore recupero UUID: {e}")
+                            # Salva in Supabase
+                            parametri = {
+                                "zona": "Multi-zona",
+                                "ingrandimento": "50x/200x",
+                                "luce": "Mista",
+                                "foto_caricate": len(immagini_con_etichette),
+                                "steli_totale": tot_steli,
+                                "steli_anagen": tot_anagen,
+                                "steli_vellus": tot_vellus,
+                                "steli_nuovi": tot_nuovi,
+                                "calibro_medio": media_cal_oggi,
+                                "densita_f": media_den_oggi,
+                                "anisotropia": media_ani_oggi,
+                                "perc_vellus": round((tot_vellus / tot_steli) * 100, 1) if tot_steli > 0 else 0,
+                                "eritemi": tot_eritemi_oggi,
+                                "dermatite_seborroica": 0,
+                                "forfora_secca": 0,
+                                "osti_intasati": tot_tappi_oggi,
+                                "prurito": "Sì" if chk_prurito else "No",
+                                "routine_consigliata": f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
+                            }
 
-                            if supabase and cliente_uuid:
-                                try:
-                                    supabase.table("analisi").insert({
-                                        "cliente_id": cliente_uuid,
-                                        "data": data_oggi,
-                                        "zona": "Multi-zona",
-                                        "ingrandimento": "50x/200x",
-                                        "luce": "Mista",
-                                        "foto_caricate": len(immagini_con_etichette),
-                                        "steli_totale": tot_steli,
-                                        "steli_anagen": tot_anagen,
-                                        "steli_vellus": tot_vellus,
-                                        "steli_nuovi": tot_nuovi,
-                                        "calibro_medio": media_cal_oggi,
-                                        "densita_f": media_den_oggi,
-                                        "anisotropia": media_ani_oggi,
-                                        "perc_vellus": round((tot_vellus / tot_steli) * 100, 1) if tot_steli > 0 else 0,
-                                        "eritemi": tot_eritemi_oggi,
-                                        "dermatite_seborroica": 0,
-                                        "forfora_secca": 0,
-                                        "osti_intasati": tot_tappi_oggi,
-                                        "prurito": "Sì" if chk_prurito else "No",
-                                        "routine_consigliata": f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
-                                    }).execute()
-                                    st.success("☁️ Dati salvati su Supabase (cloud)!")
-                                except Exception as e:
-                                    st.error(f"❌ Errore salvataggio Supabase: {e}")
-                            
-                            # ============================================================
-                            # 3. SALVATAGGIO FOTO IN SUPABASE STORAGE (CLOUD)
-                            # ============================================================
-                            if supabase and cliente_uuid:
-                                try:
-                                    ok_foto, msg_foto = salva_foto_supabase(
-                                        cliente_uuid,
-                                        immagini_con_etichette,
-                                        data_cartella_foto
-                                    )
-                                    if ok_foto:
-                                        st.success(msg_foto)
-                                    else:
-                                        st.warning(msg_foto)
-                                except Exception as e:
-                                    st.warning(f"⚠️ Errore salvataggio foto in cloud: {e}")
-                            
-                            # ============================================================
-                            # 4. SALVATAGGIO CARTELLA CLIENTE (LOCALE - BACKUP)
-                            # ============================================================
-                            cartella_cliente_dest = trova_o_crea_cartella_cliente(
-                                cliente_selezionato
-                            )
-                            
-                            # A. Salvataggio Cartella Foto Microcamera (con pallini)
+                            ok, msg = salva_analisi_supabase(cliente_uuid, data_oggi, parametri)
+                            if ok:
+                                st.success(msg)
+                            else:
+                                st.error(msg)
+
+                            # Salva foto in Supabase Storage
+                            if immagini_con_etichette:
+                                ok_foto, msg_foto = salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto)
+                                if ok_foto:
+                                    st.success(msg_foto)
+                                else:
+                                    st.warning(msg_foto)
+
+                            # Salva localmente (backup)
+                            cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                             nome_cartella_foto = f"Foto Check-Up | {data_cartella_foto}"
-                            cartella_foto_checkup = os.path.join(
-                                cartella_cliente_dest, nome_cartella_foto
-                            )
+                            cartella_foto_checkup = os.path.join(cartella_cliente_dest, nome_cartella_foto)
                             os.makedirs(cartella_foto_checkup, exist_ok=True)
 
                             for i_f, f_data in enumerate(immagini_con_etichette, 1):
@@ -4196,564 +3577,271 @@ def main():
                                     cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR),
                                 )
 
-                            # B. Salvataggio Foto Panoramica Smartphone (se caricata)
+                            # Foto panoramica
                             msg_macro_info = ""
-                            if (
-                                "uploaded_macro_phone" in locals()
-                                and uploaded_macro_phone is not None
-                            ):
-                                prefisso_macro = calcola_prefisso_da_file_esistenti(
-                                    cartella_cliente_dest, "Panoramica"
-                                )
+                            if "uploaded_macro_phone" in locals() and uploaded_macro_phone is not None:
+                                prefisso_macro = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Panoramica")
                                 nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_cartella_foto}.jpg"
-                                path_macro_dest = os.path.join(
-                                    cartella_cliente_dest, nome_file_macro
-                                )
+                                path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
                                 with open(path_macro_dest, "wb") as f_macro:
                                     f_macro.write(uploaded_macro_phone.getbuffer())
-                                msg_macro_info = (
-                                    f" + Foto Panoramica '{nome_file_macro}'"
-                                )
+                                msg_macro_info = f" + Foto Panoramica '{nome_file_macro}'"
 
-                            st.success(
-                                f"✅ Dati salvati e file archiviati in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/** ({nome_cartella_foto}{msg_macro_info})"
-                            )
+                            st.success(f"✅ Dati salvati e file archiviati in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/** ({nome_cartella_foto}{msg_macro_info})")
+
                         except Exception as e:
                             st.error(f"Errore durante il salvataggio: {e}")
 
                 with col_b2:
-                    if st.button(
-                        "📄 Genera Report TricoCamera PDF",
-                        key="btn_gen_pdf_pro",
-                        use_container_width=True,
-                    ):
-                        success = False
-                        cartella_cliente_dest = trova_o_crea_cartella_cliente(
-                            cliente_selezionato
-                        )
+                    if st.button("📄 Genera Report TricoCamera PDF", key="btn_gen_pdf_pro", use_container_width=True):
+                        if immagini_con_etichette:
+                            cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                            prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report")
+                            pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico.pdf"
+                            pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                        # Riconoscimento automatico del prefisso dai file già presenti nella cartella
-                        prefisso_report = calcola_prefisso_da_file_esistenti(
-                            cartella_cliente_dest, "Report"
-                        )
-                        pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico.pdf"
-                        pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
+                            nota_da_stampare = st.session_state.get(note_glob_key, "")
+                            if not nota_da_stampare and "nota_globale_finale" in locals():
+                                nota_da_stampare = nota_globale_finale
 
-                        nota_da_stampare = st.session_state.get(note_glob_key, "")
-                        if not nota_da_stampare and "nota_globale_finale" in locals():
-                            nota_da_stampare = nota_globale_finale
+                            note_extra_str = str(nota_operatore_extra).strip() if ("nota_operatore_extra" in locals() and nota_operatore_extra) else ""
+                            if note_extra_str:
+                                nota_da_stampare += f"\n\nNote Aggiuntive: {note_extra_str}"
 
-                        note_extra_str = (
-                            str(nota_operatore_extra).strip()
-                            if (
-                                "nota_operatore_extra" in locals()
-                                and nota_operatore_extra
-                            )
-                            else ""
-                        )
-                        if note_extra_str:
-                            nota_da_stampare += f"\n\nNote Aggiuntive: {note_extra_str}"
-
-                        template_path = "Report TricoCamera.pdf"
-                        if not os.path.exists(template_path):
-                            st.error(
-                                f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!"
-                            )
+                            template_path = "Report TricoCamera.pdf"
+                            if not os.path.exists(template_path):
+                                st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
+                            else:
+                                try:
+                                    success = genera_pdf_righetti_completo(
+                                        nome_cliente=cliente_selezionato,
+                                        eta=eta_cliente,
+                                        cellulare=cell_cliente,
+                                        email=email_cliente,
+                                        nota_operatore=nota_da_stampare,
+                                        checkup_num=checkup_num,
+                                        num_immagini=len(immagini_con_etichette),
+                                        immagini_con_etichette=immagini_con_etichette,
+                                        path_salvataggio=pdf_path,
+                                        template_path=template_path,
+                                    )
+                                    if success and os.path.exists(pdf_path):
+                                        with open(pdf_path, "rb") as pdf_file:
+                                            st.download_button("📥 Scarica Report PDF", pdf_file, pdf_filename, "application/pdf", use_container_width=True)
+                                        st.success(f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                                except Exception as e:
+                                    st.error(f"❌ Errore durante la creazione del PDF: {e}")
                         else:
-                            try:
-                                success = genera_pdf_righetti_completo(
-                                    nome_cliente=cliente_selezionato,
-                                    eta=eta_cliente,
-                                    cellulare=cell_cliente,
-                                    email=email_cliente,
-                                    nota_operatore=nota_da_stampare,
-                                    checkup_num=checkup_num,
-                                    num_immagini=len(immagini_con_etichette),
-                                    immagini_con_etichette=immagini_con_etichette,
-                                    path_salvataggio=pdf_path,
-                                    template_path=template_path,
-                                )
-                            except Exception as e:
-                                st.error(f"❌ Errore durante la creazione del PDF: {e}")
-                                success = False
+                            st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
 
-                        if success and os.path.exists(pdf_path):
-                            with open(pdf_path, "rb") as pdf_file:
-                                st.download_button(
-                                    "📥 Scarica Report PDF",
-                                    pdf_file,
-                                    pdf_filename,
-                                    "application/pdf",
-                                    use_container_width=True,
-                                )
-                            st.success(
-                                f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**"
-                            )
-
-    # ============================================================
-    # TAB 2: PRODOTTI, PROTOCOLLO SEQUENZIALE & CURA DOMICILIARE
-    # ============================================================
+    # =========================================================================
+    # TAB 2: PRODOTTI & SCHEDA CURA
+    # =========================================================================
     with tab2:
         st.header("📦 Prodotti & Cura Domiciliare")
-        if cliente_selezionato == "-- Seleziona --":
+        if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
             st.info("⚠️ Seleziona un cliente dalla barra laterale")
         else:
-            c = conn.cursor()
-            
-            # 🔧 PROVA PRIMA IN SQLITE
-            res_cl_row = c.execute(
-                "SELECT id FROM clienti WHERE codice_cliente = ?",
-                (cliente_selezionato,),
-            ).fetchone()
-            
-            if res_cl_row:
-                cl_id = res_cl_row[0]
-                st.write(f"✅ Cliente trovato in SQLite: {cl_id}")
-            else:
-                # Se non c'è in SQLite, prendi da Supabase
-                if supabase:
-                    st.write("🔍 Cliente non trovato in SQLite, cerco in Supabase...")
-                    res_sup = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
-                    if res_sup.data:
-                        # 🔧 NON INSERIRE L'UUID IN SQLITE!
-                        # Invece, crea un nuovo record in SQLite con il suo ID autoincrement
-                        c.execute(
-                            "INSERT INTO clienti (codice_cliente, sesso) VALUES (?, ?)",
-                            (cliente_selezionato, "Uomo")  # Usa il sesso predefinito
-                        )
-                        conn.commit()
-                        cl_id = c.lastrowid  # Prende l'ID generato da SQLite
-                        st.write(f"✅ Cliente sincronizzato in SQLite con ID: {cl_id}")
-                    else:
-                        st.error("❌ Cliente non trovato in Supabase!")
-                        st.stop()
-                else:
-                    st.error("❌ Cliente non trovato e Supabase non disponibile!")
-                    st.stop()
+            # Carica prodotti assegnati da Supabase
+            prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
 
-            prodotti_assegnati = pd.read_sql_query(
-                """
-                SELECT pc.id AS assegnazione_id, pc.prodotto_id,
-                       COALESCE(pc.modalita, p.modalita) AS modalita,
-                       COALESCE(pc.frequenza, p.frequenza) AS frequenza,
-                       COALESCE(pc.orario, p.orario) AS orario,
-                       COALESCE(pc.dosi, p.dosi) AS dosi,
-                       COALESCE(pc.tempi_posa, p.tempi_posa) AS tempi_posa,
-                       COALESCE(pc.durata_utilizzo, p.durata_utilizzo) AS durata_utilizzo,
-                       COALESCE(pc.note_utilizzo, p.note) AS note_utilizzo,
-                       p.nome, p.categoria,
-                       p.modalita AS modalita_default,
-                       p.frequenza AS frequenza_default,
-                       p.orario AS orario_default
-                FROM prodotti_cliente pc
-                INNER JOIN prodotti p ON pc.prodotto_id = p.id
-                WHERE pc.cliente_id = ?
-                ORDER BY pc.data_assegnazione DESC
-                """,
-                conn,
-                params=(cl_id,),
-            )
-
-            # ---------------------------------------------------------
-            # SEZIONE 1: ASSEGNAZIONE PRODOTTI
-            # ---------------------------------------------------------
+            # --- ASSEGNAZIONE PRODOTTI ---
             st.subheader("➕ Assegna Prodotti al Cliente")
 
             col_as_ai, col_as_clear = st.columns([3, 1])
 
             with col_as_ai:
-                if st.button(
-                    "✨ Auto-Assegna Trattamento con AI (Matching Telecamera & INCI)",
-                    key="btn_auto_ai_prescribe",
-                    help="Azzera la vecchia lista e assegna la nuova cura personalizzata per oggi",
-                    use_container_width=True,
-                ):
-                        n_ass = auto_assegna_trattamento_righetti(
-                            cl_id, conn, sintomi_dict
-                        )
-
-                        prod_aggiornati = pd.read_sql_query(
-                            """
-                            SELECT pc.*, p.nome, p.categoria 
-                            FROM prodotti_cliente pc 
-                            INNER JOIN prodotti p ON pc.prodotto_id = p.id 
-                            WHERE pc.cliente_id = ?
-                        """,
-                            conn,
-                            params=(cl_id,),
-                        ).to_dict("records")
-
-                        proto_key = f"proto_testo_{cliente_selezionato}"
-                        st.session_state[proto_key] = (
-                            genera_bozza_protocollo_automatico(prod_aggiornati)
-                        )
-                        st.success(
-                            f"✅ Nuova cura Righetti assegnata ({n_ass} prodotti caricati da zero)!"
-                        )
+                if st.button("✨ Auto-Assegna Trattamento con AI", key="btn_auto_ai_prescribe", use_container_width=True):
+                    n_ass, msg = auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict)
+                    if n_ass > 0:
+                        st.success(msg)
                         st.rerun()
+                    else:
+                        st.warning(msg)
 
-                with col_as_clear:
-                    if st.button(
-                        "🧹 Svuota Elenco",
-                        key="btn_clear_all_prod",
-                        help="Cancella tutti i prodotti assegnati per ripartire da zero",
-                        use_container_width=True,
-                    ):
-                        c.execute(
-                            "DELETE FROM prodotti_cliente WHERE cliente_id = ?",
-                            (cl_id,),
-                        )
-                        conn.commit()
-                        proto_key = f"proto_testo_{cliente_selezionato}"
-                        st.session_state[proto_key] = ""
+            with col_as_clear:
+                if st.button("🧹 Svuota Elenco", key="btn_clear_all_prod", use_container_width=True):
+                    try:
+                        supabase.table("prodotti_cliente").delete().eq("cliente_id", cliente_uuid).execute()
                         st.success("Elenco prodotti svuotato!")
                         st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Errore: {e}")
 
-                st.markdown("---")
+            st.markdown("---")
 
-                # Assegnazione manuale singolo prodotto
-                df_tutti = pd.read_sql_query(
-                    "SELECT * FROM prodotti ORDER BY nome", conn
-                )
-                if not prodotti_assegnati.empty:
-                    ids_assegnati = prodotti_assegnati["prodotto_id"].tolist()
-                    df_disponibili = df_tutti[~df_tutti["id"].isin(ids_assegnati)]
-                else:
-                    df_disponibili = df_tutti
+            # --- AGGIUNTA MANUALE ---
+            df_tutti = get_catalogo_prodotti()
+            if not prodotti_assegnati.empty and 'prodotto_id' in prodotti_assegnati.columns:
+                ids_assegnati = prodotti_assegnati["prodotto_id"].tolist()
+                df_disponibili = df_tutti[~df_tutti["id"].isin(ids_assegnati)] if not df_tutti.empty else pd.DataFrame()
+            else:
+                df_disponibili = df_tutti
 
-                if not df_disponibili.empty:
-                    col1, col2 = st.columns([2, 1])
-                    with col1:
-                        sel = st.selectbox(
-                            "Oppure aggiungi un singolo prodotto a mano:",
-                            df_disponibili["nome"].tolist(),
-                            key="sel_prodotto",
-                        )
-                    with col2:
-                        st.write("")
-                        if st.button(
-                            "➕ Aggiungi Singolo",
-                            key="btn_assegna",
-                            use_container_width=True,
-                        ):
-                            try:
-                                prod_row = df_disponibili[
-                                    df_disponibili["nome"] == sel
-                                ].iloc[0]
-                                prod_id = int(prod_row["id"])
-                                c.execute(
-                                    """
-                                    INSERT INTO prodotti_cliente 
-                                    (cliente_id, prodotto_id, modalita, frequenza, orario, dosi, tempi_posa, durata_utilizzo, note_utilizzo) 
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """,
-                                    (
-                                        cl_id,
-                                        prod_id,
-                                        str(prod_row["modalita"] or ""),
-                                        str(prod_row["frequenza"] or ""),
-                                        str(prod_row["orario"] or ""),
-                                        str(prod_row["dosi"] or ""),
-                                        str(prod_row["tempi_posa"] or ""),
-                                        str(prod_row["durata_utilizzo"] or ""),
-                                        str(prod_row["note"] or ""),
-                                    ),
-                                )
-                                conn.commit()
-                                st.success(f"✅ Prodotto '{sel}' assegnato!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Errore durante l'assegnazione: {str(e)}")
-                else:
-                    st.info("✅ Tutti i prodotti sono già stati assegnati.")
-
-                st.markdown("---")
-
-                # 2. Protocollo Sequenziale
-                st.subheader(
-                    "📝 Protocollo di Utilizzo Sequenziale (Prima dei Prodotti nel PDF)"
-                )
-                st.caption(
-                    "Scrivi qui la sequenza logica di applicazione per il cliente (es. alternanza shampoo, spray a cute tamponata, trattamenti periodici, durata primi mesi)."
-                )
-
-                proto_key = f"proto_testo_{cliente_selezionato}"
-                prodotti_list_dict = (
-                    prodotti_assegnati.to_dict("records")
-                    if not prodotti_assegnati.empty
-                    else []
-                )
-
-                def bozza_proto_callback():
-                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(
-                        prodotti_list_dict
-                    )
-
-                if proto_key not in st.session_state:
-                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(
-                        prodotti_list_dict
-                    )
-
-                col_pr1, col_pr2 = st.columns([4, 1])
-                with col_pr1:
-                    testo_protocollo_inserito = st.text_area(
-                        "Istruzioni Sequenziali di Utilizzo (modificabili):",
-                        key=proto_key,
-                        height=160,
-                    )
-                with col_pr2:
+            if not df_disponibili.empty:
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    sel = st.selectbox("Oppure aggiungi un singolo prodotto a mano:", df_disponibili["nome"].tolist(), key="sel_prodotto")
+                with col2:
                     st.write("")
-                    st.write("")
-                    st.button(
-                        "✨ Bozza Automatica AI",
-                        key=f"btn_bozza_proto_{cliente_selezionato}",
-                        on_click=bozza_proto_callback,
-                        help="Genera una sequenza ordinata in fasi basandosi sui prodotti attualmente assegnati",
-                        use_container_width=True,
-                    )
+                    if st.button("➕ Aggiungi Singolo", key="btn_assegna", use_container_width=True):
+                        try:
+                            prod_row = df_disponibili[df_disponibili["nome"] == sel].iloc[0]
+                            prod_id = prod_row["id"]
 
-                st.markdown("---")
+                            supabase.table("prodotti_cliente").insert({
+                                "cliente_id": cliente_uuid,
+                                "prodotto_id": prod_id,
+                                "modalita": str(prod_row.get("modalita") or ""),
+                                "frequenza": str(prod_row.get("frequenza") or ""),
+                                "orario": str(prod_row.get("orario") or ""),
+                                "dosi": str(prod_row.get("dosi") or ""),
+                                "tempi_posa": str(prod_row.get("tempi_posa") or ""),
+                                "durata_utilizzo": str(prod_row.get("durata_utilizzo") or ""),
+                                "note_utilizzo": str(prod_row.get("note") or ""),
+                            }).execute()
 
-                # 3. Dettaglio Prodotti
-                st.subheader("📋 Dettaglio Prodotti Assegnati")
+                            st.success(f"✅ Prodotto '{sel}' assegnato!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Errore: {str(e)}")
+            else:
+                st.info("✅ Tutti i prodotti sono già stati assegnati.")
+
+            st.markdown("---")
+
+            # --- PROTOCOLLO ---
+            st.subheader("📝 Protocollo di Utilizzo Sequenziale")
+            proto_key = f"proto_testo_{cliente_selezionato}"
+            prodotti_list_dict = prodotti_assegnati.to_dict("records") if not prodotti_assegnati.empty else []
+
+            def bozza_proto_callback():
+                st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
+
+            if proto_key not in st.session_state:
+                st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
+
+            col_pr1, col_pr2 = st.columns([4, 1])
+            with col_pr1:
+                testo_protocollo_inserito = st.text_area("Istruzioni Sequenziali di Utilizzo (modificabili):", key=proto_key, height=160)
+            with col_pr2:
+                st.write("")
+                st.write("")
+                st.button("✨ Bozza Automatica AI", key=f"btn_bozza_proto_{cliente_selezionato}", on_click=bozza_proto_callback, use_container_width=True)
+
+            st.markdown("---")
+
+            # --- DETTAGLIO PRODOTTI ---
+            st.subheader("📋 Dettaglio Prodotti Assegnati")
+            if not prodotti_assegnati.empty:
+                for _, prod in prodotti_assegnati.iterrows():
+                    ass_id = prod["assegnazione_id"]
+                    with st.expander(f"💊 {prod['nome']} — [{prod['categoria']}]"):
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            mod_modalita = st.text_input("Modalità d'uso", value=prod["modalita"] or "", key=f"mod_{ass_id}")
+                            mod_frequenza = st.text_input("Frequenza", value=prod["frequenza"] or "", key=f"freq_{ass_id}")
+                        with col2:
+                            mod_orario = st.text_input("Orario", value=prod["orario"] or "", key=f"ora_{ass_id}")
+                            mod_dosi = st.text_input("Dosi", value=prod["dosi"] or "", key=f"dosi_{ass_id}")
+                        with col3:
+                            mod_tempi = st.text_input("Tempo di posa", value=prod["tempi_posa"] or "", key=f"tempi_{ass_id}")
+                            mod_durata = st.text_input("Durata trattamento", value=prod["durata_utilizzo"] or "", key=f"durata_{ass_id}")
+
+                        mod_note = st.text_area("Note personalizzate per il cliente", value=prod["note_utilizzo"] or "", key=f"note_{ass_id}")
+
+                        col_s1, col_s2 = st.columns(2)
+                        with col_s1:
+                            if st.button("💾 Salva Modifiche", key=f"save_{ass_id}", use_container_width=True):
+                                try:
+                                    supabase.table("prodotti_cliente").update({
+                                        "modalita": mod_modalita,
+                                        "frequenza": mod_frequenza,
+                                        "orario": mod_orario,
+                                        "dosi": mod_dosi,
+                                        "tempi_posa": mod_tempi,
+                                        "durata_utilizzo": mod_durata,
+                                        "note_utilizzo": mod_note,
+                                    }).eq("id", ass_id).execute()
+                                    st.success("✅ Modifiche salvate!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Errore: {str(e)}")
+                        with col_s2:
+                            if st.button("🗑️ Rimuovi dal Cliente", key=f"del_{ass_id}", use_container_width=True):
+                                try:
+                                    supabase.table("prodotti_cliente").delete().eq("id", ass_id).execute()
+                                    st.success("✅ Rimosso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Errore: {str(e)}")
+            else:
+                st.info("📭 Nessun prodotto assegnato a questo cliente.")
+
+            # --- GENERA SCHEDA CURA ---
+            st.markdown("---")
+            if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
                 if not prodotti_assegnati.empty:
-                    for _, prod in prodotti_assegnati.iterrows():
-                        ass_id = int(prod["assegnazione_id"])
-                        with st.expander(f"💊 {prod['nome']} — [{prod['categoria']}]"):
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                mod_modalita = st.text_input(
-                                    "Modalità d'uso",
-                                    value=prod["modalita"] or "",
-                                    key=f"mod_{ass_id}",
-                                )
-                                mod_frequenza = st.text_input(
-                                    "Frequenza",
-                                    value=prod["frequenza"] or "",
-                                    key=f"freq_{ass_id}",
-                                )
-                            with col2:
-                                mod_orario = st.text_input(
-                                    "Orario",
-                                    value=prod["orario"] or "",
-                                    key=f"ora_{ass_id}",
-                                )
-                                mod_dosi = st.text_input(
-                                    "Dosi",
-                                    value=prod["dosi"] or "",
-                                    key=f"dosi_{ass_id}",
-                                )
-                            with col3:
-                                mod_tempi = st.text_input(
-                                    "Tempo di posa",
-                                    value=prod["tempi_posa"] or "",
-                                    key=f"tempi_{ass_id}",
-                                )
-                                mod_durata = st.text_input(
-                                    "Durata trattamento",
-                                    value=prod["durata_utilizzo"] or "",
-                                    key=f"durata_{ass_id}",
-                                )
+                    prodotti_list = prodotti_assegnati.to_dict("records")
+                    cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                    prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
+                    pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
+                    pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                            mod_note = st.text_area(
-                                "Note personalizzate per il cliente",
-                                value=prod["note_utilizzo"] or "",
-                                key=f"note_{ass_id}",
-                            )
+                    confronto_dati = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
+                    proto_da_stampare = st.session_state.get(proto_key, testo_protocollo_inserito)
 
-                            col_s1, col_s2 = st.columns(2)
-                            with col_s1:
-                                if st.button(
-                                    "💾 Salva Modifiche",
-                                    key=f"save_{ass_id}",
-                                    use_container_width=True,
-                                ):
-                                    try:
-                                        c.execute(
-                                            """
-                                            UPDATE prodotti_cliente 
-                                            SET modalita=?, frequenza=?, orario=?, dosi=?, tempi_posa=?, durata_utilizzo=?, note_utilizzo=? 
-                                            WHERE id=?
-                                        """,
-                                            (
-                                                mod_modalita,
-                                                mod_frequenza,
-                                                mod_orario,
-                                                mod_dosi,
-                                                mod_tempi,
-                                                mod_durata,
-                                                mod_note,
-                                                ass_id,
-                                            ),
-                                        )
-                                        conn.commit()
-                                        st.success("✅ Modifiche salvate!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(
-                                            f"Errore durante il salvataggio: {str(e)}"
-                                        )
-
-                            with col_s2:
-                                if st.button(
-                                    "🗑️ Rimuovi dal Cliente",
-                                    key=f"del_{ass_id}",
-                                    use_container_width=True,
-                                ):
-                                    try:
-                                        c.execute(
-                                            "DELETE FROM prodotti_cliente WHERE id=?",
-                                            (ass_id,),
-                                        )
-                                        conn.commit()
-                                        st.success("✅ Rimosso!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(
-                                            f"Errore durante l'eliminazione: {str(e)}"
-                                        )
+                    success = genera_pdf_cura_domiciliare(
+                        cliente_selezionato,
+                        prodotti_list,
+                        pdf_path,
+                        dati_confronto=confronto_dati,
+                        protocollo_testo=proto_da_stampare,
+                    )
+                    if success and os.path.exists(pdf_path):
+                        with open(pdf_path, "rb") as pdf_file:
+                            st.download_button("📥 Scarica Scheda Cura PDF", pdf_file, pdf_filename, "application/pdf", use_container_width=True)
+                        st.success(f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
                 else:
-                    st.info("📭 Nessun prodotto assegnato a questo cliente.")
+                    st.warning("⚠️ Assegna almeno un prodotto al cliente.")
 
-                # ---------------------------------------------------------
-                # SEZIONE 4: GENERA SCHEDA CURA PDF (CON NOME FORMATTATO)
-                # ---------------------------------------------------------
-                st.markdown("---")
-                # Nel TAB 2:
-                if st.button(
-                    "📄 Genera Scheda Cura PDF",
-                    key="btn_scheda_cura",
-                    use_container_width=True,
-                ):
-                    if not prodotti_assegnati.empty:
-                        prodotti_list = prodotti_assegnati.to_dict("records")
-                        cartella_cliente_dest = trova_o_crea_cartella_cliente(
-                            cliente_selezionato
-                        )
-
-                        # Riconoscimento automatico del prefisso per il Rituale di Cura
-                        prefisso_cura = calcola_prefisso_da_file_esistenti(
-                            cartella_cliente_dest, "Rituale"
-                        )
-                        pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
-                        pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
-
-                        confronto_dati = st.session_state.get(
-                            f"dati_confronto_pdf_{cliente_selezionato}", None
-                        )
-                        proto_da_stampare = st.session_state.get(
-                            proto_key, testo_protocollo_inserito
-                        )
-
-                        success = genera_pdf_cura_domiciliare(
-                            cliente_selezionato,
-                            prodotti_list,
-                            pdf_path,
-                            dati_confronto=confronto_dati,
-                            protocollo_testo=proto_da_stampare,
-                        )
-                        if success and os.path.exists(pdf_path):
-                            with open(pdf_path, "rb") as pdf_file:
-                                st.download_button(
-                                    "📥 Scarica Scheda Cura PDF",
-                                    pdf_file,
-                                    pdf_filename,
-                                    "application/pdf",
-                                    use_container_width=True,
-                                )
-                            st.success(
-                                f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**"
-                            )
-                    else:
-                        st.warning("⚠️ Assegna almeno un prodotto al cliente.")
-
-    # ============================================================
-    # TAB 3: DASHBOARD GRAFICI & ANALYTICS EVOLUTIVE
-    # ============================================================
+    # =========================================================================
+    # TAB 3: DASHBOARD GRAFICI
+    # =========================================================================
     with tab3:
         st.header("📊 Dashboard & Monitoraggio Grafico Risultati")
 
-        if cliente_selezionato == "-- Seleziona --":
-            st.info(
-                "⚠️ Seleziona un cliente dalla barra laterale per visualizzare i grafici."
-            )
+        if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
+            st.info("⚠️ Seleziona un cliente dalla barra laterale per visualizzare i grafici.")
         else:
-            c = conn.cursor()
-            cl_id = c.execute(
-                "SELECT id FROM clienti WHERE codice_cliente = ?",
-                (cliente_selezionato,),
-            ).fetchone()
-
-            # Recupera lo storico cronologico (dal più vecchio al più recente per i grafici)
-            df_trend = pd.read_sql_query(
-                """
-                SELECT id, data, calibro_medio, densita_f, anisotropia, 
-                       perc_vellus, eritemi, osti_intasati, steli_nuovi, steli_totale
-                FROM analisi 
-                WHERE cliente_id = ? 
-                ORDER BY id ASC
-                """,
-                conn,
-                params=(cl_id,),
-            )
+            # Carica analisi da Supabase
+            df_trend = get_analisi_cliente(cliente_uuid)
 
             if df_trend.empty:
-                st.info(
-                    f"📭 Nessun dato storico ancora registrato per **{cliente_selezionato}**."
-                )
+                st.info(f"📭 Nessun dato storico ancora registrato per **{cliente_selezionato}**.")
             else:
-                # 1. Definizione sicura dell'ultima visita
                 ultima_visita = df_trend.iloc[-1]
                 data_ultima_it = formatta_data_it(ultima_visita["data"], con_ora=False)
 
-                # Formattazione date in italiano per l'asse X dei grafici
-                df_trend["Data_Visita"] = df_trend["data"].apply(
-                    lambda d: formatta_data_it(d, con_ora=False)
-                )
+                df_trend["Data_Visita"] = df_trend["data"].apply(lambda d: formatta_data_it(d, con_ora=False))
 
-                # Pulsante di salvataggio PDF in alto a destra
                 col_d_head1, col_d_head2 = st.columns([3, 1])
                 with col_d_head1:
-                    st.subheader(
-                        f"🔬 Stato Biometrico Attuale (Check-up del {data_ultima_it})"
-                    )
+                    st.subheader(f"🔬 Stato Biometrico Attuale (Check-up del {data_ultima_it})")
                 with col_d_head2:
-                    if st.button(
-                        "📄 Salva Dashboard PDF",
-                        key="btn_pdf_dashboard",
-                        use_container_width=True,
-                    ):
-                        cartella_cliente_dest = trova_o_crea_cartella_cliente(
-                            cliente_selezionato
-                        )
-                        prefisso_dash = calcola_prefisso_da_file_esistenti(
-                            cartella_cliente_dest, "Dashboard"
-                        )
+                    if st.button("📄 Salva Dashboard PDF", key="btn_pdf_dashboard", use_container_width=True):
+                        cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                        prefisso_dash = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Dashboard")
                         pdf_filename = f"{cliente_selezionato} | {prefisso_dash}Dashboard Grafici.pdf"
                         pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                        success = genera_pdf_dashboard_grafici(
-                            cliente_selezionato,
-                            df_trend,
-                            ultima_visita,
-                            pdf_path,
-                        )
+                        success = genera_pdf_dashboard_grafici(cliente_selezionato, df_trend, ultima_visita, pdf_path)
                         if success and os.path.exists(pdf_path):
                             with open(pdf_path, "rb") as pdf_file:
-                                st.download_button(
-                                    "📥 Scarica Dashboard PDF",
-                                    pdf_file,
-                                    pdf_filename,
-                                    "application/pdf",
-                                    use_container_width=True,
-                                )
-                            st.success(
-                                f"✅ Dashboard salvata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**"
-                            )
+                                st.download_button("📥 Scarica Dashboard PDF", pdf_file, pdf_filename, "application/pdf", use_container_width=True)
+                            st.success(f"✅ Dashboard salvata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
 
-                # -------------------------------------------------------------
-                # 2. PANNELLO RIEPILOGO ULTIMO CHECK-UP
-                # -------------------------------------------------------------
+                # Metriche
                 c_m1, c_m2, c_m3, c_m4 = st.columns(4)
                 c_m1.metric("Densità Attuale", f"{ultima_visita['densita_f']} cap/cm²")
                 c_m2.metric("Calibro Medio", f"{ultima_visita['calibro_medio']} µm")
@@ -4762,31 +3850,22 @@ def main():
 
                 st.markdown("---")
 
-                # -------------------------------------------------------------
-                # 3. DISTRIBUZIONE REALE PER FASCE DI CALIBRO
-                # -------------------------------------------------------------
+                # Composizione Fasce
                 st.subheader("🎯 Qualità & Composizione dei Fusti")
 
                 cal_val = float(ultima_visita["calibro_medio"] or 0)
                 ani_val = float(ultima_visita["anisotropia"] or 0)
                 vellus_pct = float(ultima_visita["perc_vellus"] or 0)
-
-                quota_vellus = (
-                    vellus_pct if vellus_pct > 0 else (4.0 if ani_val > 15 else 1.0)
-                )
+                quota_vellus = vellus_pct if vellus_pct > 0 else (4.0 if ani_val > 15 else 1.0)
 
                 if cal_val >= 75.0:
                     quota_robusti = max(10.0, 75.0 - (ani_val * 1.2))
                     quota_medi = max(10.0, 20.0 + (ani_val * 0.8))
-                    quota_sottili = max(
-                        2.0, 100.0 - quota_robusti - quota_medi - quota_vellus
-                    )
+                    quota_sottili = max(2.0, 100.0 - quota_robusti - quota_medi - quota_vellus)
                 elif cal_val >= 55.0:
                     quota_robusti = max(5.0, 35.0 - (ani_val * 0.8))
                     quota_medi = 45.0
-                    quota_sottili = max(
-                        5.0, 100.0 - quota_robusti - quota_medi - quota_vellus
-                    )
+                    quota_sottili = max(5.0, 100.0 - quota_robusti - quota_medi - quota_vellus)
                 else:
                     quota_robusti = 5.0
                     quota_medi = 25.0
@@ -4798,191 +3877,76 @@ def main():
                     "Fusti Sottili (35-50 µm)",
                     "Miniaturizzati / Vellus (<35 µm)",
                 ]
-                values_fasce = [
-                    round(quota_robusti, 1),
-                    round(quota_medi, 1),
-                    round(quota_sottili, 1),
-                    round(quota_vellus, 1),
-                ]
+                values_fasce = [round(quota_robusti, 1), round(quota_medi, 1), round(quota_sottili, 1), round(quota_vellus, 1)]
                 colors_fasce = ["#1E7E34", "#2E86AB", "#F39C12", "#E74C3C"]
 
                 col_g1, col_g2 = st.columns([1.1, 1])
-
                 with col_g1:
-                    fig_fasce = go.Figure(
-                        data=[
-                            go.Pie(
-                                labels=labels_fasce,
-                                values=values_fasce,
-                                hole=0.48,
-                                marker=dict(colors=colors_fasce),
-                                textinfo="percent",
-                                hoverinfo="label+percent",
-                            )
-                        ]
-                    )
-                    fig_fasce.update_layout(
-                        title=f"Composizione Strutturale Fusti ({data_ultima_it})",
-                        height=360,
-                        margin=dict(l=20, r=20, t=40, b=20),
-                        legend=dict(orientation="h", y=-0.15),
-                    )
+                    fig_fasce = go.Figure(data=[go.Pie(labels=labels_fasce, values=values_fasce, hole=0.48, marker=dict(colors=colors_fasce), textinfo="percent", hoverinfo="label+percent")])
+                    fig_fasce.update_layout(title=f"Composizione Strutturale Fusti ({data_ultima_it})", height=360, margin=dict(l=20, r=20, t=40, b=20), legend=dict(orientation="h", y=-0.15))
                     st.plotly_chart(fig_fasce, use_container_width=True)
 
                 with col_g2:
                     st.markdown("#### 💡 Interpretazione Clinica Fasce:")
                     if quota_robusti > 55.0 and quota_vellus < 8.0:
-                        st.success(
-                            f"🟢 **Patrimonio Capelli Ottimale:** Il **{values_fasce[0]}%** dei capelli appartiene alla classe terminale grossa (>70 µm). Ottima resistenza alla miniaturizzazione."
-                        )
+                        st.success(f"🟢 **Patrimonio Capelli Ottimale:** Il **{values_fasce[0]}%** dei capelli appartiene alla classe terminale grossa (>70 µm). Ottima resistenza alla miniaturizzazione.")
                     elif quota_vellus > 15.0 or quota_sottili > 30.0:
-                        st.warning(
-                            f"🟡 **Presenza di Miniaturizzazione Attiva:** Si riscontra un **{values_fasce[3]}%** di fusti vellus/sottili. Necessaria stimolazione topica eutrofica."
-                        )
+                        st.warning(f"🟡 **Presenza di Miniaturizzazione Attiva:** Si riscontra un **{values_fasce[3]}%** di fusti vellus/sottili. Necessaria stimolazione topica eutrofica.")
                     else:
-                        st.info(
-                            f"🔵 **Trofismo Medio da Consolidare:** Buona presenza di fusti medi (**{values_fasce[1]}%**), con margine di inspessimento tramite il protocollo domiciliare."
-                        )
+                        st.info(f"🔵 **Trofismo Medio da Consolidare:** Buona presenza di fusti medi (**{values_fasce[1]}%**), con margine di inspessimento tramite il protocollo domiciliare.")
 
-                # -------------------------------------------------------------
-                # 4. GRAFICI EVOLUTIVI NEL TEMPO (SE CI SONO ALMENO 2 VISITE)
-                # -------------------------------------------------------------
+                # Grafici di Trend
                 st.markdown("---")
-                st.subheader(
-                    "📈 Curve di Risposta & Monitoraggio nel Tempo (Check-up a Confronto)"
-                )
+                st.subheader("📈 Curve di Risposta & Monitoraggio nel Tempo (Check-up a Confronto)")
 
                 if len(df_trend) < 2:
-                    st.info(
-                        "📌 I grafici di trend temporale si attiveranno automaticamente a partire dal **2° check-up di controllo** per mostrare le curve di miglioramento."
-                    )
+                    st.info("📌 I grafici di trend temporale si attiveranno automaticamente a partire dal **2° check-up di controllo**.")
                 else:
                     col_t1, col_t2 = st.columns(2)
-
                     with col_t1:
-                        fig_den = px.line(
-                            df_trend,
-                            x="Data_Visita",
-                            y="densita_f",
-                            title="Evoluzione DENSITÀ (capelli/cm²)",
-                            markers=True,
-                            text="densita_f",
-                        )
-                        fig_den.update_traces(
-                            line_color="#1E7E34",
-                            line_width=3.5,
-                            textposition="top center",
-                            marker=dict(size=10, color="#1E7E34"),
-                        )
+                        fig_den = px.line(df_trend, x="Data_Visita", y="densita_f", title="Evoluzione DENSITÀ (capelli/cm²)", markers=True, text="densita_f")
+                        fig_den.update_traces(line_color="#1E7E34", line_width=3.5, textposition="top center", marker=dict(size=10, color="#1E7E34"))
                         fig_den.update_layout(height=340, yaxis_title="capelli / cm²")
                         st.plotly_chart(fig_den, use_container_width=True)
 
-                        fig_ani = px.line(
-                            df_trend,
-                            x="Data_Visita",
-                            y="anisotropia",
-                            title="Trend ANISOTROPIA % (Regressione Miniaturizzazione)",
-                            markers=True,
-                            text="anisotropia",
-                        )
-                        fig_ani.update_traces(
-                            line_color="#E74C3C",
-                            line_width=3.5,
-                            textposition="top center",
-                            marker=dict(size=10, color="#E74C3C"),
-                        )
+                        fig_ani = px.line(df_trend, x="Data_Visita", y="anisotropia", title="Trend ANISOTROPIA % (Regressione Miniaturizzazione)", markers=True, text="anisotropia")
+                        fig_ani.update_traces(line_color="#E74C3C", line_width=3.5, textposition="top center", marker=dict(size=10, color="#E74C3C"))
                         fig_ani.update_layout(height=340, yaxis_title="Anisotropia %")
                         st.plotly_chart(fig_ani, use_container_width=True)
 
                     with col_t2:
-                        fig_cal = px.line(
-                            df_trend,
-                            x="Data_Visita",
-                            y="calibro_medio",
-                            title="Evoluzione CALIBRO MEDIO (µm)",
-                            markers=True,
-                            text="calibro_medio",
-                        )
-                        fig_cal.update_traces(
-                            line_color="#2E86AB",
-                            line_width=3.5,
-                            textposition="top center",
-                            marker=dict(size=10, color="#2E86AB"),
-                        )
+                        fig_cal = px.line(df_trend, x="Data_Visita", y="calibro_medio", title="Evoluzione CALIBRO MEDIO (µm)", markers=True, text="calibro_medio")
+                        fig_cal.update_traces(line_color="#2E86AB", line_width=3.5, textposition="top center", marker=dict(size=10, color="#2E86AB"))
                         fig_cal.update_layout(height=340, yaxis_title="Micron (µm)")
                         st.plotly_chart(fig_cal, use_container_width=True)
 
-                        fig_bar = go.Figure(
-                            data=[
-                                go.Bar(
-                                    name="Tappi Sebacei",
-                                    x=df_trend["Data_Visita"],
-                                    y=df_trend["osti_intasati"],
-                                    marker_color="#F39C12",
-                                ),
-                                go.Bar(
-                                    name="Indice Eritema",
-                                    x=df_trend["Data_Visita"],
-                                    y=df_trend["eritemi"],
-                                    marker_color="#C0392B",
-                                ),
-                            ]
-                        )
-                        fig_bar.update_layout(
-                            title="Trend Ipercheratosi Ostiale & Infiammazione",
-                            barmode="group",
-                            height=340,
-                        )
+                        fig_bar = go.Figure(data=[
+                            go.Bar(name="Tappi Sebacei", x=df_trend["Data_Visita"], y=df_trend["osti_intasati"], marker_color="#F39C12"),
+                            go.Bar(name="Indice Eritema", x=df_trend["Data_Visita"], y=df_trend["eritemi"], marker_color="#C0392B"),
+                        ])
+                        fig_bar.update_layout(title="Trend Ipercheratosi Ostiale & Infiammazione", barmode="group", height=340)
                         st.plotly_chart(fig_bar, use_container_width=True)
 
-    # ============================================================
-    # TAB 4: STORICO INTERATTIVO & GESTIONE VISITE SALVATE
-    # ============================================================
+    # =========================================================================
+    # TAB 4: STORICO & GESTIONE VISITE
+    # =========================================================================
     with tab4:
         st.header("📈 Storico & Gestione Visite Salvate")
 
-        if cliente_selezionato == "-- Seleziona --":
-            st.info(
-                "⚠️ Seleziona un cliente dalla barra laterale per consultare o modificare il suo storico."
-            )
+        if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
+            st.info("⚠️ Seleziona un cliente dalla barra laterale per consultare o modificare il suo storico.")
         else:
-            c = conn.cursor()
-            cl_id = c.execute(
-                "SELECT id FROM clienti WHERE codice_cliente = ?",
-                (cliente_selezionato,),
-            ).fetchone()
-
-            # Recupera tutte le visite salvate per il cliente selezionato
-            df_analisi = pd.read_sql_query(
-                """
-                SELECT id, data, zona, ingrandimento, luce, foto_caricate, 
-                       calibro_medio, densita_f, anisotropia, perc_vellus, 
-                       eritemi, osti_intasati, steli_nuovi, prurito, routine_consigliata
-                FROM analisi 
-                WHERE cliente_id = ? 
-                ORDER BY id DESC
-                """,
-                conn,
-                params=(cl_id,),
-            )
+            df_analisi = get_analisi_cliente(cliente_uuid)
 
             if df_analisi.empty:
-                st.info(
-                    f"📭 Nessuna analisi ancora registrata per **{cliente_selezionato}**."
-                )
+                st.info(f"📭 Nessuna analisi ancora registrata per **{cliente_selezionato}**.")
             else:
-                # Converte tutte le date della tabella in formato italiano
-                df_analisi["data"] = df_analisi["data"].apply(
-                    lambda d: formatta_data_it(d)
-                )
+                df_analisi["data"] = df_analisi["data"].apply(lambda d: formatta_data_it(d))
 
-                # 1. Tabella Riassuntiva in formato italiano
                 st.subheader(f"📋 Riepilogo Visite di: {cliente_selezionato}")
                 st.dataframe(df_analisi, use_container_width=True)
 
                 st.markdown("---")
-
-                # 2. Selettore Visite con date GG/MM/AAAA
                 st.subheader("🔍 Dettaglio & Modifica Visita Selezionata")
 
                 opzioni_visite_storico = [
@@ -4990,133 +3954,83 @@ def main():
                     for _, r in df_analisi.iterrows()
                 ]
 
-                sel_visita_str = st.selectbox(
-                    "Scegli quale visita passata vuoi consultare o modificare:",
-                    opzioni_visite_storico,
-                    key=f"sel_storico_{cliente_selezionato}",
-                )
-
+                sel_visita_str = st.selectbox("Scegli quale visita passata vuoi consultare o modificare:", opzioni_visite_storico, key=f"sel_storico_{cliente_selezionato}")
                 idx_visita = opzioni_visite_storico.index(sel_visita_str)
                 visita_dettaglio = df_analisi.iloc[idx_visita]
-                id_visita_sel = int(visita_dettaglio["id"])
+                id_visita_sel = visita_dettaglio["id"]
 
                 with st.container():
-                    st.markdown(
-                        f"#### 🩺 Scheda Visita: **{formatta_data_it(visita_dettaglio['data'])}** (ID #{id_visita_sel})"
-                    )
+                    st.markdown(f"#### 🩺 Scheda Visita: **{formatta_data_it(visita_dettaglio['data'])}** (ID #{id_visita_sel})")
 
-                    # Griglia Metriche Biometriche di quella specifica seduta
                     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
                     col_m1.metric("Densità", f"{visita_dettaglio['densita_f']} cap/cm²")
-                    col_m2.metric(
-                        "Calibro Medio",
-                        f"{visita_dettaglio['calibro_medio']} µm",
-                    )
+                    col_m2.metric("Calibro Medio", f"{visita_dettaglio['calibro_medio']} µm")
                     col_m3.metric("Anisotropia", f"{visita_dettaglio['anisotropia']} %")
-                    col_m4.metric(
-                        "Tappi Sebacei", int(visita_dettaglio["osti_intasati"])
-                    )
+                    col_m4.metric("Tappi Sebacei", int(visita_dettaglio["osti_intasati"]))
 
                     col_m5, col_m6, col_m7, col_m8 = st.columns(4)
                     col_m5.metric("Eritemi", int(visita_dettaglio["eritemi"]))
-                    col_m6.metric(
-                        "Germogli Anagen", int(visita_dettaglio["steli_nuovi"])
-                    )
+                    col_m6.metric("Germogli Anagen", int(visita_dettaglio["steli_nuovi"]))
                     col_m7.metric("% Vellus", f"{visita_dettaglio['perc_vellus']} %")
                     col_m8.metric("Prurito", str(visita_dettaglio["prurito"]))
 
-                    # Campi Modificabili di quella specifica visita
                     st.markdown("##### 📝 Modifica Note e Relazione della Visita:")
-                    note_mod = st.text_area(
-                        "Note / Protocollo salvato per questa visita:",
-                        value=str(visita_dettaglio["routine_consigliata"] or ""),
-                        key=f"edit_note_visita_{id_visita_sel}",
-                        height=120,
-                    )
+                    note_mod = st.text_area("Note / Protocollo salvato per questa visita:", value=str(visita_dettaglio["routine_consigliata"] or ""), key=f"edit_note_visita_{id_visita_sel}", height=120)
 
                     col_act1, col_act2 = st.columns([1, 1])
-
                     with col_act1:
-                        if st.button(
-                            "💾 Salva Modifiche a questa Visita",
-                            key=f"btn_save_visita_{id_visita_sel}",
-                            use_container_width=True,
-                        ):
-                            c = conn.cursor()
-                            c.execute(
-                                "UPDATE analisi SET routine_consigliata = ? WHERE id = ?",
-                                (note_mod.strip(), id_visita_sel),
-                            )
-                            conn.commit()
-                            st.success("✅ Visita aggiornata con successo!")
-                            st.rerun()
+                        if st.button("💾 Salva Modifiche a questa Visita", key=f"btn_save_visita_{id_visita_sel}", use_container_width=True):
+                            try:
+                                supabase.table("analisi").update({"routine_consigliata": note_mod.strip()}).eq("id", id_visita_sel).execute()
+                                st.success("✅ Visita aggiornata con successo!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Errore: {e}")
 
                     with col_act2:
-                        # Eliminazione sicura della singola visita errata
                         with st.expander("🗑️ Elimina solo questa singola visita"):
-                            st.warning(
-                                f"Vuoi eliminare definitivamente solo la visita del {visita_dettaglio['data']}?"
-                            )
-                            conferma_del_vis = st.checkbox(
-                                "Confermo eliminazione singola visita",
-                                key=f"chk_del_vis_{id_visita_sel}",
-                            )
-                            if st.button(
-                                "🗑️ Elimina Definitivamente Visita",
-                                key=f"btn_del_vis_{id_visita_sel}",
-                                disabled=not conferma_del_vis,
-                                use_container_width=True,
-                            ):
-                                c = conn.cursor()
-                                c.execute(
-                                    "DELETE FROM analisi WHERE id = ?",
-                                    (id_visita_sel,),
-                                )
-                                conn.commit()
-                                st.success("✅ Singola visita eliminata!")
-                                st.rerun()
+                            st.warning(f"Vuoi eliminare definitivamente solo la visita del {visita_dettaglio['data']}?")
+                            conferma_del_vis = st.checkbox("Confermo eliminazione singola visita", key=f"chk_del_vis_{id_visita_sel}")
+                            if st.button("🗑️ Elimina Definitivamente Visita", key=f"btn_del_vis_{id_visita_sel}", disabled=not conferma_del_vis, use_container_width=True):
+                                try:
+                                    supabase.table("analisi").delete().eq("id", id_visita_sel).execute()
+                                    st.success("✅ Singola visita eliminata!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ Errore: {e}")
 
-                    # 3. Elenco File e Foto Archiviati in PERCORSI CLIENTI
                     st.markdown("---")
                     st.markdown("##### 📁 File e Foto Archiviati sul Desktop:")
                     cartella_cl = trova_o_crea_cartella_cliente(cliente_selezionato)
                     if os.path.exists(cartella_cl):
                         files_presenti = os.listdir(cartella_cl)
                         if files_presenti:
-                            st.write(
-                                f"Cartella: `PERCORSI CLIENTI/{os.path.basename(cartella_cl)}/`"
-                            )
+                            st.write(f"Cartella: `PERCORSI CLIENTI/{os.path.basename(cartella_cl)}/`")
                             for f_nome in sorted(files_presenti):
-                                if not f_nome.startswith(
-                                    "."
-                                ):  # Nasconde file di sistema nascosti
+                                if not f_nome.startswith("."):
                                     st.write(f"• 📄 **{f_nome}**")
                         else:
-                            st.info(
-                                "Nessun PDF o foto ancora presente nella cartella del cliente."
-                            )
+                            st.info("Nessun PDF o foto ancora presente nella cartella del cliente.")
                     else:
-                        st.info(
-                            "Cartella cliente non ancora creata in PERCORSI CLIENTI."
-                        )
+                        st.info("Cartella cliente non ancora creata in PERCORSI CLIENTI.")
 
-    # ============================================================
+    # =========================================================================
     # TAB 5: GESTIONE PRODOTTI & CATEGORIE
-    # ============================================================
+    # =========================================================================
     with tab5:
         st.header("⚙️ Gestione Prodotti & Categorie")
-        
+
         # Usa la variabile globale supabase
-        sb = supabase  # ✅ CORRETTO
-        
-        # 🔄 PULSANTE RICARICA DA SUPABASE
+        sb = supabase
+
+        # 🔄 PULSANTE RICARICA
         col_refresh1, col_refresh2 = st.columns([4, 1])
         with col_refresh2:
             if st.button("🔄 Ricarica da Supabase", use_container_width=True):
                 st.cache_data.clear()
                 st.rerun()
-        
-        # 📋 CARICA CATEGORIE - SOLO DA SUPABASE
+
+        # 📋 CARICA CATEGORIE
         df_categorie = pd.DataFrame()
         if sb is not None:
             try:
@@ -5130,26 +4044,18 @@ def main():
                 st.error(f"❌ Errore caricamento categorie: {e}")
         else:
             st.error("❌ Supabase non configurato!")
-        
-        categorie_disponibili = (
-            df_categorie["nome"].tolist() if not df_categorie.empty else []
-        )
+
+        categorie_disponibili = df_categorie["nome"].tolist() if not df_categorie.empty else []
 
         with st.expander("🏷️ Gestione Categorie (Aggiungi ed Elimina)"):
             col_cat1, col_cat2 = st.columns([1, 1])
-
             with col_cat1:
                 st.subheader("➕ Nuova Categoria")
-                nuova_cat = st.text_input(
-                    "Nome Categoria", placeholder="Es. Fiale Anticaduta"
-                )
+                nuova_cat = st.text_input("Nome Categoria", placeholder="Es. Fiale Anticaduta")
                 if st.button("➕ Aggiungi Categoria", key="btn_add_cat", use_container_width=True):
                     if nuova_cat.strip():
                         try:
-                            sb.table("categorie").upsert(
-                                {"nome": nuova_cat.strip()},
-                                on_conflict="nome"
-                            ).execute()
+                            sb.table("categorie").upsert({"nome": nuova_cat.strip()}, on_conflict="nome").execute()
                             st.success(f"✅ Categoria '{nuova_cat.strip()}' creata su Supabase!")
                             st.cache_data.clear()
                             st.rerun()
@@ -5164,7 +4070,6 @@ def main():
                     for _, cat_row in df_categorie.iterrows():
                         c_id = cat_row["id"]
                         c_nome = cat_row["nome"]
-
                         col_c1, col_c2 = st.columns([3, 1])
                         col_c1.write(f"• **{c_nome}**")
                         if col_c2.button("🗑️", key=f"del_cat_{c_id}", help=f"Elimina {c_nome}"):
@@ -5181,16 +4086,13 @@ def main():
 
         st.markdown("---")
 
+        # AGGIUNTA PRODOTTO
         st.subheader("➕ Aggiungi Nuovo Prodotto al Catalogo")
         with st.form("nuovo_prodotto", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
                 nome = st.text_input("Nome Prodotto")
-                categoria = st.selectbox(
-                    "Categoria",
-                    categorie_disponibili,
-                    index=0 if categorie_disponibili else None,
-                )
+                categoria = st.selectbox("Categoria", categorie_disponibili, index=0 if categorie_disponibili else None)
                 modalita = st.text_input("Modalità")
                 frequenza = st.text_input("Frequenza")
             with col2:
@@ -5215,7 +4117,6 @@ def main():
                             "tempi_posa": tempi,
                             "durata_utilizzo": durata,
                         }, on_conflict="nome").execute()
-                        
                         st.success(f"✅ Prodotto '{nome.strip()}' aggiunto su Supabase!")
                         st.cache_data.clear()
                         st.rerun()
@@ -5226,53 +4127,28 @@ def main():
 
         st.markdown("---")
 
+        # CATALOGO PRODOTTI
         st.subheader("📋 Catalogo Prodotti (Modifica ed Elimina)")
-        
-        # 📦 CARICA PRODOTTI - SOLO DA SUPABASE
-        df_prodotti = pd.DataFrame()
-        if sb is not None:
-            try:
-                res_prod = sb.table("prodotti").select("*").order("categoria").order("nome").execute()
-                if res_prod.data:
-                    df_prodotti = pd.DataFrame(res_prod.data)
-                    st.success(f"✅ {len(df_prodotti)} prodotti caricati da Supabase")
-                else:
-                    st.warning("⚠️ Nessun prodotto trovato in Supabase")
-            except Exception as e:
-                st.error(f"❌ Errore caricamento prodotti: {e}")
-        else:
-            st.error("❌ Supabase non configurato!")
+        df_prodotti = get_catalogo_prodotti()
 
         if not df_prodotti.empty:
             for _, prod in df_prodotti.iterrows():
                 p_id = prod["id"]
-
                 with st.expander(f"💊 {prod['nome']} — [{prod['categoria']}]", expanded=False):
                     with st.form(f"form_edit_prod_{p_id}"):
                         col1, col2 = st.columns(2)
                         with col1:
                             mod_nome = st.text_input("Nome Prodotto", value=prod["nome"] or "")
-                            
                             cat_attuale = prod["categoria"]
-                            cat_idx = (
-                                categorie_disponibili.index(cat_attuale)
-                                if cat_attuale in categorie_disponibili
-                                else 0
-                            )
-                            mod_categoria = st.selectbox(
-                                "Categoria",
-                                categorie_disponibili,
-                                index=cat_idx,
-                            )
+                            cat_idx = categorie_disponibili.index(cat_attuale) if cat_attuale in categorie_disponibili else 0
+                            mod_categoria = st.selectbox("Categoria", categorie_disponibili, index=cat_idx)
                             mod_modalita = st.text_input("Modalità", value=prod["modalita"] or "")
                             mod_frequenza = st.text_input("Frequenza", value=prod["frequenza"] or "")
-
                         with col2:
                             mod_orario = st.text_input("Orario", value=prod["orario"] or "")
                             mod_dosi = st.text_input("Dosi", value=prod["dosi"] or "")
                             mod_tempi = st.text_input("Tempo di posa", value=prod["tempi_posa"] or "")
                             mod_durata = st.text_input("Durata utilizzo", value=prod["durata_utilizzo"] or "")
-
                         mod_note = st.text_area("Note / Proprietà", value=prod["note"] or "")
 
                         if st.form_submit_button("💾 Salva Modifiche", use_container_width=True):
@@ -5288,7 +4164,6 @@ def main():
                                     "tempi_posa": mod_tempi,
                                     "durata_utilizzo": mod_durata,
                                 }).eq("id", p_id).execute()
-                                
                                 st.success("✅ Modifiche salvate su Supabase!")
                                 st.cache_data.clear()
                                 st.rerun()
@@ -5299,7 +4174,6 @@ def main():
                         try:
                             sb.table("prodotti_cliente").delete().eq("prodotto_id", p_id).execute()
                             sb.table("prodotti").delete().eq("id", p_id).execute()
-                            
                             st.success(f"✅ Prodotto eliminato da Supabase!")
                             st.cache_data.clear()
                             st.rerun()
@@ -5307,8 +4181,6 @@ def main():
                             st.error(f"❌ Errore: {e}")
         else:
             st.info("📭 Nessun prodotto nel catalogo.")
-
-    conn.close()
 
 # ============================================================================
 # AVVIO
