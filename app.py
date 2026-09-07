@@ -3697,7 +3697,7 @@ def main():
                         else:
                             st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
 
-        # =========================================================================
+    # =========================================================================
     # TAB 2: PRODOTTI & SCHEDA CURA
     # =========================================================================
     with tab2:
@@ -3705,7 +3705,9 @@ def main():
         if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
             st.info("⚠️ Seleziona un cliente dalla barra laterale")
         else:
-            
+            # 🔧 CARICA I PRODOTTI ASSEGNATI (AGGIORNATO SEMPRE)
+            prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
+
             # --- ASSEGNAZIONE PRODOTTI ---
             st.subheader("➕ Assegna Prodotti al Cliente")
 
@@ -3716,7 +3718,6 @@ def main():
                     n_ass, msg = auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict)
                     if n_ass > 0:
                         st.success(msg)
-                        # 🔧 FORZA IL RICARICAMENTO DEI PRODOTTI
                         st.cache_data.clear()
                         st.rerun()
                     else:
@@ -3733,9 +3734,6 @@ def main():
                         st.error(f"❌ Errore: {e}")
 
             st.markdown("---")
-
-            # 🔧 RICARICA I PRODOTTI ASSEGNATI (DOPO EVENTUALI MODIFICHE)
-            prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
 
             # --- AGGIUNTA MANUALE ---
             df_tutti = get_catalogo_prodotti()
@@ -3777,6 +3775,9 @@ def main():
                 st.info("✅ Tutti i prodotti sono già stati assegnati.")
 
             st.markdown("---")
+
+            # 🔧 RICARICA I PRODOTTI ASSEGNATI (DOPO EVENTUALI MODIFICHE)
+            prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
 
             # --- PROTOCOLLO ---
             st.subheader("📝 Protocollo di Utilizzo Sequenziale")
