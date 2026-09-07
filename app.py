@@ -4028,32 +4028,40 @@ def main():
                         try:
                             c = conn.cursor()
                             
-                            # 🔧 RECUPERA IL CLIENTE (SQLITE + SUPABASE)
+                            # ============================================================
+                            # 1. RECUPERA L'UUID DA SUPABASE (PER IL CLOUD)
+                            # ============================================================
+                            cliente_uuid = None
+                            if supabase and cliente_selezionato:
+                                try:
+                                    res = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
+                                    if res.data:
+                                        cliente_uuid = res.data[0]["id"]  # UUID
+                                    else:
+                                        st.error("❌ Cliente non trovato in Supabase!")
+                                        raise Exception("Cliente non trovato in Supabase")
+                                except Exception as e:
+                                    st.error(f"❌ Errore recupero UUID: {e}")
+                                    raise e
+
+                            # ============================================================
+                            # 2. RECUPERA L'ID DA SQLITE (PER IL BACKUP LOCALE)
+                            # ============================================================
                             cl_id_row = c.execute(
-                                "SELECT id FROM clienti WHERE codice_cliente = ?",
+                                "SELECT rowid FROM clienti WHERE codice_cliente = ?",
                                 (cliente_selezionato,),
                             ).fetchone()
                             
                             if cl_id_row:
-                                cl_id = cl_id_row[0]
+                                cl_id = cl_id_row[0]  # INTEGER per SQLite
                             else:
-                                # Se non c'è in SQLite, prendi da Supabase
-                                if supabase:
-                                    res = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
-                                    if res.data:
-                                        cl_id = res.data[0]["id"]
-                                        # Sincronizza in SQLite
-                                        c.execute(
-                                            "INSERT INTO clienti (id, codice_cliente) VALUES (?, ?)",
-                                            (cl_id, cliente_selezionato)
-                                        )
-                                        conn.commit()
-                                    else:
-                                        st.error("❌ Cliente non trovato in Supabase!")
-                                        raise Exception("Cliente non trovato")
-                                else:
-                                    st.error("❌ Cliente non trovato!")
-                                    raise Exception("Cliente non trovato")
+                                # Se non c'è in SQLite, lo creiamo
+                                c.execute(
+                                    "INSERT INTO clienti (codice_cliente) VALUES (?)",
+                                    (cliente_selezionato,)
+                                )
+                                conn.commit()
+                                cl_id = c.lastrowid  # INTEGER per SQLite
                             
                             data_oggi = datetime.now().strftime("%d/%m/%Y %H:%M")
                             data_cartella_foto = datetime.now().strftime("%d-%m-%Y")
