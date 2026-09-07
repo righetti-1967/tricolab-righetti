@@ -3762,18 +3762,53 @@ def main():
                                 else:
                                     st.warning(msg_foto)
 
-                            # Salva localmente (backup)
+                            # Salva localmente (backup) e invia a Google Drive
                             cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                             nome_cartella_foto = f"Foto Check-Up | {data_cartella_foto}"
                             cartella_foto_checkup = os.path.join(cartella_cliente_dest, nome_cartella_foto)
                             os.makedirs(cartella_foto_checkup, exist_ok=True)
 
+                            # 🔥 PREPARA LISTA PER BATCH UPLOAD SU GOOGLE DRIVE
+                            lista_file_batch = []
+
                             for i_f, f_data in enumerate(immagini_con_etichette, 1):
                                 f_filename = f"Acquisizione_{i_f}_{f_data['zona'].split()[0]}_{f_data['ottica']}.png"
+                                file_path = os.path.join(cartella_foto_checkup, f_filename)
+                                
+                                # Salva localmente
                                 cv2.imwrite(
-                                    os.path.join(cartella_foto_checkup, f_filename),
+                                    file_path,
                                     cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR),
                                 )
+                                
+                                # 🔥 AGGIUNGI AL BATCH PER GOOGLE DRIVE
+                                with open(file_path, "rb") as img_file:
+                                    img_bytes = img_file.read()
+                                    lista_file_batch.append({
+                                        "name": f"{nome_cartella_foto}/{f_filename}",
+                                        "base64": base64.b64encode(img_bytes).decode("utf-8"),
+                                        "mimeType": "image/png"
+                                    })
+
+                            # 🔥 INVIA TUTTE LE FOTO A GOOGLE DRIVE IN UNICO BATCH
+                            if lista_file_batch:
+                                webhook_url = st.session_state.get("gdrive_webhook_url", "") or get_config("gdrive_webhook_url")
+                                if webhook_url:
+                                    try:
+                                        payload = {
+                                            "action": "batch_upload",
+                                            "clientFolder": str(cliente_selezionato).strip(),
+                                            "files": lista_file_batch
+                                        }
+                                        resp = requests.post(webhook_url.strip(), json=payload, timeout=120)
+                                        if resp.status_code == 200:
+                                            st.success(f"📸 {len(lista_file_batch)} foto inviate a Google Drive!")
+                                        else:
+                                            st.warning(f"⚠️ Errore invio foto a Google Drive: {resp.status_code}")
+                                    except Exception as e:
+                                        st.warning(f"⚠️ Errore invio foto a Google Drive: {e}")
+                                else:
+                                    st.warning("⚠️ Webhook Google Drive non configurato per le foto")
 
                             # Foto panoramica
                             msg_macro_info = ""
@@ -3783,6 +3818,24 @@ def main():
                                 path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
                                 with open(path_macro_dest, "wb") as f_macro:
                                     f_macro.write(uploaded_macro_phone.getbuffer())
+                                
+                                # 🔥 INVIA ANCHE LA FOTO PANORAMICA A GOOGLE DRIVE
+                                try:
+                                    with open(path_macro_dest, "rb") as img_file:
+                                        img_bytes = img_file.read()
+                                        ok_drive, msg_drive = invia_file_a_google_drive(
+                                            img_bytes,
+                                            nome_file_macro,
+                                            cliente_selezionato,
+                                            mime_type="image/jpeg"
+                                        )
+                                        if ok_drive:
+                                            st.success(f"📸 Foto panoramica inviata a Google Drive!")
+                                        else:
+                                            st.warning(f"⚠️ {msg_drive}")
+                                except Exception as e:
+                                    st.warning(f"⚠️ Errore invio foto panoramica: {e}")
+                                
                                 msg_macro_info = f" + Foto Panoramica '{nome_file_macro}'"
 
                             st.success(f"✅ Dati salvati e file archiviati in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/** ({nome_cartella_foto}{msg_macro_info})")
@@ -3824,8 +3877,32 @@ def main():
                                         template_path=template_path,
                                     )
                                     if success and os.path.exists(pdf_path):
+                                        # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
                                         with open(pdf_path, "rb") as pdf_file:
-                                            st.download_button("📥 Scarica Report PDF", pdf_file, pdf_filename, "application/pdf", use_container_width=True)
+                                            pdf_bytes_data = pdf_file.read()
+                                            
+                                            # Invia a Google Drive tramite webhook
+                                            ok_drive, msg_drive = invia_file_a_google_drive(
+                                                pdf_bytes_data,
+                                                pdf_filename,
+                                                cliente_selezionato,
+                                                mime_type="application/pdf"
+                                            )
+                                            if ok_drive:
+                                                st.success(msg_drive)
+                                            else:
+                                                st.warning(msg_drive)
+                                        
+                                        # Pulsante di download (come backup)
+                                        with open(pdf_path, "rb") as pdf_file:
+                                            st.download_button(
+                                                "📥 Scarica Report PDF",
+                                                pdf_file,
+                                                pdf_filename,
+                                                "application/pdf",
+                                                use_container_width=True
+                                            )
+                                        
                                         st.success(f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
                                 except Exception as e:
                                     st.error(f"❌ Errore durante la creazione del PDF: {e}")
@@ -4138,30 +4215,54 @@ def main():
                         st.error(f"❌ Errore: {e}")
             
             
-            if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
-                if prodotti_assegnati:
-                    cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                    prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
-                    pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
-                    pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
+              if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
+                    if prodotti_assegnati:
+                        cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                        prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
+                        pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
+                        pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                    confronto_dati = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
-                    proto_da_stampare = st.session_state.get(proto_key, testo_protocollo_inserito)
+                        confronto_dati = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
+                        proto_da_stampare = st.session_state.get(proto_key, testo_protocollo_inserito)
 
-                    success = genera_pdf_cura_domiciliare(
-                        cliente_selezionato,
-                        prodotti_assegnati,
-                        pdf_path,
-                        dati_confronto=confronto_dati,
-                        protocollo_testo=proto_da_stampare,
-                    )
-                    if success and os.path.exists(pdf_path):
-                        with open(pdf_path, "rb") as pdf_file:
-                            st.download_button("📥 Scarica Scheda Cura PDF", pdf_file, pdf_filename, "application/pdf", use_container_width=True)
-                        st.success(f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
-                else:
-                    st.warning("⚠️ Assegna almeno un prodotto al cliente.")
-
+                        success = genera_pdf_cura_domiciliare(
+                            cliente_selezionato,
+                            prodotti_assegnati,
+                            pdf_path,
+                            dati_confronto=confronto_dati,
+                            protocollo_testo=proto_da_stampare,
+                        )
+                        if success and os.path.exists(pdf_path):
+                            # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
+                            with open(pdf_path, "rb") as pdf_file:
+                                pdf_bytes_data = pdf_file.read()
+                                
+                                # Invia a Google Drive tramite webhook
+                                ok_drive, msg_drive = invia_file_a_google_drive(
+                                    pdf_bytes_data,
+                                    pdf_filename,
+                                    cliente_selezionato,
+                                    mime_type="application/pdf"
+                                )
+                                if ok_drive:
+                                    st.success(msg_drive)
+                                else:
+                                    st.warning(msg_drive)
+                            
+                            # Pulsante di download (come backup)
+                            with open(pdf_path, "rb") as pdf_file:
+                                st.download_button(
+                                    "📥 Scarica Scheda Cura PDF",
+                                    pdf_file,
+                                    pdf_filename,
+                                    "application/pdf",
+                                    use_container_width=True
+                                )
+                            
+                            st.success(f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                    else:
+                        st.warning("⚠️ Assegna almeno un prodotto al cliente.")
+                        
     # =========================================================================
     # TAB 3: DASHBOARD GRAFICI
     # =========================================================================
