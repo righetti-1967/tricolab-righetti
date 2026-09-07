@@ -2504,11 +2504,13 @@ def get_prodotti_cliente(cliente_uuid):
     try:
         print(f"🔍 get_prodotti_cliente: Cerco prodotti per UUID: {cliente_uuid}")
         
+        # 🔧 USO CORRETTO: cliente_id (con underscore)
         res = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("data_assegnazione", desc=True).execute()
         
         print(f"📊 get_prodotti_cliente: Trovati {len(res.data) if res.data else 0} record")
         
         if not res.data:
+            print("⚠️ get_prodotti_cliente: Nessun record trovato")
             return pd.DataFrame()
         
         lista = []
@@ -2531,15 +2533,13 @@ def get_prodotti_cliente(cliente_uuid):
                         "dosi": row.get("dosi") or p.get("dosi", ""),
                         "tempi_posa": row.get("tempi_posa") or p.get("tempi_posa", ""),
                         "durata_utilizzo": row.get("durata_utilizzo") or p.get("durata_utilizzo", ""),
-                        "note_utilizzo": row.get("note_utilizzo") or p.get("note", ""),
+                        "note_utilizzo": row.get("note") or p.get("note", ""),
                         "nome": p.get("nome", ""),
                         "categoria": p.get("categoria", ""),
                         "modalita_default": p.get("modalita", ""),
                         "frequenza_default": p.get("frequenza", ""),
                         "orario_default": p.get("orario", ""),
                     })
-                else:
-                    print(f"⚠️ get_prodotti_cliente: Prodotto {prod_id} non trovato nel catalogo")
         
         print(f"✅ get_prodotti_cliente: Restituiti {len(lista)} prodotti")
         return pd.DataFrame(lista)
@@ -3717,6 +3717,10 @@ def main():
     # TAB 2: PRODOTTI & SCHEDA CURA
     # =========================================================================
     with tab2:
+        # 🔍 DEBUG: verifica UUID
+        st.write(f"🔍 UUID cliente (da df_clienti): {cliente_uuid}")
+        st.write(f"🔍 Tipo UUID: {type(cliente_uuid)}")
+        
         st.header("📦 Prodotti & Cura Domiciliare")
         if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
             st.info("⚠️ Seleziona un cliente dalla barra laterale")
