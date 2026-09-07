@@ -3747,7 +3747,7 @@ def main():
             # ============================================================
             try:
                 # 1. Legge i prodotti assegnati
-                res_prodotti = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("data_assegnazione", desc=True).execute()
+                res_prodotti = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("created_at", desc=True).execute()
                 
                 # 2. Costruisce la lista dei prodotti
                 prodotti_assegnati = []
