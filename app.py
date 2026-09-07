@@ -1657,10 +1657,11 @@ def trova_o_crea_cartella_cliente(nome_cliente):
     # La cartella condivisa su iCloud Drive
     cartella_master = os.path.expanduser("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/PERCORSI CLIENTI")
     
-    # Se non funziona, prova con il percorso alternativo
+    # Se non esiste, prova con il percorso alternativo
     if not os.path.exists(os.path.dirname(cartella_master)):
-        # Fallback: usa la cartella del progetto
+        # Fallback: usa la cartella del progetto (solo per test)
         cartella_master = os.path.join(os.getcwd(), "PERCORSI CLIENTI")
+        print(f"⚠️ iCloud Drive non trovato, uso fallback: {cartella_master}")
     
     try:
         os.makedirs(cartella_master, exist_ok=True)
@@ -1695,7 +1696,6 @@ def trova_o_crea_cartella_cliente(nome_cliente):
     nuova_cartella = os.path.join(cartella_master, str(nome_cliente).strip())
     os.makedirs(nuova_cartella, exist_ok=True)
     return nuova_cartella
-
 
 # ============================================================================
 # MOTORE COMPARATIVO AI: VALUTAZIONE PRIMA / DOPO
