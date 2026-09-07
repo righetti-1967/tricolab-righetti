@@ -3883,24 +3883,41 @@ def main():
 
             st.markdown("---")
 
-            # --- PROTOCOLLO ---
+                        # --- PROTOCOLLO (AUTOMATICO + PULSANTE RIGENERA) ---
             st.subheader("📝 Protocollo di Utilizzo Sequenziale")
             proto_key = f"proto_testo_{cliente_selezionato}"
             prodotti_list_dict = prodotti_assegnati if prodotti_assegnati else []
 
-            def bozza_proto_callback():
-                st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
+            # 🔥 GENERA AUTOMATICAMENTE IL PROTOCOLLO (SE NON ESISTE GIÀ)
+            if proto_key not in st.session_state or not st.session_state[proto_key]:
+                if prodotti_list_dict:
+                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
+                else:
+                    st.session_state[proto_key] = "Nessun prodotto assegnato."
 
-            if proto_key not in st.session_state:
-                st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
+            def bozza_proto_callback():
+                if prodotti_list_dict:
+                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
+                else:
+                    st.session_state[proto_key] = "Nessun prodotto assegnato."
 
             col_pr1, col_pr2 = st.columns([4, 1])
             with col_pr1:
-                testo_protocollo_inserito = st.text_area("Istruzioni Sequenziali di Utilizzo (modificabili):", key=proto_key, height=160)
+                testo_protocollo_inserito = st.text_area(
+                    "Istruzioni Sequenziali di Utilizzo (modificabili):",
+                    key=proto_key,
+                    height=160,
+                )
             with col_pr2:
                 st.write("")
                 st.write("")
-                st.button("✨ Bozza Automatica AI", key=f"btn_bozza_proto_{cliente_selezionato}", on_click=bozza_proto_callback, use_container_width=True)
+                st.button(
+                    "✨ Bozza Automatica AI",
+                    key=f"btn_bozza_proto_{cliente_selezionato}",
+                    on_click=bozza_proto_callback,
+                    use_container_width=True,
+                    help="Rigenera il protocollo in base ai prodotti attualmente assegnati",
+                )
 
             st.markdown("---")
 
