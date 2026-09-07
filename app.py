@@ -3383,7 +3383,7 @@ def main():
             def reset_testo_callback(chiave_da_aggiornare, nuovo_testo):
                 st.session_state[chiave_da_aggiornare] = nuovo_testo
 
-            # -------------------------------------------------------------
+                        # -------------------------------------------------------------
             # SEZIONE CONFRONTO PREGRESSO (DATABASE O PDF)
             # -------------------------------------------------------------
             with st.expander(
@@ -3406,10 +3406,19 @@ def main():
 
                 if modalita_confronto == "📊 Confronto Automatico da Storico Database":
                     c = conn.cursor()
-                    cl_id_tmp = c.execute(
+                    
+                    # 🔧 RECUPERA L'ID DEL CLIENTE CON CONTROLLO
+                    cl_id_row_tmp = c.execute(
                         "SELECT id FROM clienti WHERE codice_cliente = ?",
                         (cliente_selezionato,),
                     ).fetchone()
+                    
+                    if cl_id_row_tmp:
+                        cl_id_tmp = cl_id_row_tmp[0]
+                    else:
+                        st.warning("⚠️ Cliente non trovato nel database locale. Sincronizza prima da Supabase.")
+                        st.stop()
+                    
                     analisi_precedenti = pd.read_sql_query(
                         "SELECT * FROM analisi WHERE cliente_id = ? ORDER BY data DESC",
                         conn,
