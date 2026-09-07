@@ -1651,14 +1651,22 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
 # GESTIONE CARTELLA MASTER "PERCORSI CLIENTI" - VERSIONE PER STREAMLIT CLOUD
 # ============================================================================
 def trova_o_crea_cartella_cliente(nome_cliente):
-    """Trova o crea la cartella del cliente - ADATTATA PER STREAMLIT CLOUD"""
+    """Trova o crea la cartella del cliente - USA iCLOUD DRIVE"""
     
-    # USA LA CARTELLA DEL PROGETTO (dove hai i permessi di scrittura)
-    cartella_master = os.path.join(os.getcwd(), "PERCORSI CLIENTI")
+    # 🎯 USA iCLOUD DRIVE PER LA SINCRONIZZAZIONE
+    # La cartella condivisa su iCloud Drive
+    cartella_master = os.path.expanduser("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/PERCORSI CLIENTI")
+    
+    # Se non funziona, prova con il percorso alternativo
+    if not os.path.exists(os.path.dirname(cartella_master)):
+        # Fallback: usa la cartella del progetto
+        cartella_master = os.path.join(os.getcwd(), "PERCORSI CLIENTI")
     
     try:
         os.makedirs(cartella_master, exist_ok=True)
-    except Exception:
+        print(f"✅ Cartella iCloud: {cartella_master}")
+    except Exception as e:
+        print(f"⚠️ Errore creazione cartella: {e}")
         # Fallback: usa una cartella temporanea
         import tempfile
         cartella_master = os.path.join(tempfile.gettempdir(), "PERCORSI_CLIENTI")
