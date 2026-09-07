@@ -282,6 +282,37 @@ def init_db():
         print(f"⚠️ Errore caricamento prodotti: {e}")
 
 # ============================================================================
+# CONFIGURAZIONI SU SUPABASE
+# ============================================================================
+
+def get_config(chiave):
+    """Legge una configurazione da Supabase"""
+    if supabase is None:
+        return ""
+    try:
+        res = supabase.table("configurazione").select("valore").eq("chiave", chiave).execute()
+        if res.data:
+            return res.data[0].get("valore", "")
+        return ""
+    except Exception as e:
+        print(f"⚠️ Errore lettura config {chiave}: {e}")
+        return ""
+
+def set_config(chiave, valore):
+    """Salva una configurazione su Supabase"""
+    if supabase is None:
+        return False
+    try:
+        supabase.table("configurazione").upsert({
+            "chiave": chiave,
+            "valore": valore
+        }, on_conflict="chiave").execute()
+        return True
+    except Exception as e:
+        print(f"⚠️ Errore salvataggio config {chiave}: {e}")
+        return False
+
+# ============================================================================
 # PARSER ESTRATTORE PER VECCHI REPORT PDF
 # ============================================================================
 def estrai_dati_da_pdf_report(pdf_bytes):
@@ -2752,17 +2783,11 @@ def invia_file_a_google_drive(
 ):
     """Invia file a Google Drive tramite webhook"""
     
-    webhook_url = st.session_state.get("gdrive_webhook_url", "") or os.getenv("GDRIVE_WEBHOOK_URL", "")
-    
-    if not webhook_url and os.path.exists("gdrive_webhook.txt"):
-        try:
-            with open("gdrive_webhook.txt", "r") as f:
-                webhook_url = f.read().strip()
-        except Exception:
-            pass
+    # 1. Legge il webhook da Supabase
+    webhook_url = st.session_state.get("gdrive_webhook_url", "") or get_config("gdrive_webhook_url")
     
     if not webhook_url:
-        return False, "Webhook Google Drive non configurato."
+        return False, "Webhook Google Drive non configurato. Inserisci l'URL nella sidebar."
     
     try:
         b64_file = base64.b64encode(file_bytes).decode("utf-8")
@@ -2788,37 +2813,6 @@ def invia_file_a_google_drive(
             return False, f"❌ Errore HTTP {resp.status_code}"
     except Exception as e:
         return False, f"❌ Errore invio: {str(e)}"
-
-# ============================================================================
-# CONFIGURAZIONI SU SUPABASE
-# ============================================================================
-
-def get_config(chiave):
-    """Legge una configurazione da Supabase"""
-    if supabase is None:
-        return ""
-    try:
-        res = supabase.table("configurazione").select("valore").eq("chiave", chiave).execute()
-        if res.data:
-            return res.data[0].get("valore", "")
-        return ""
-    except Exception as e:
-        print(f"⚠️ Errore lettura config {chiave}: {e}")
-        return ""
-
-def set_config(chiave, valore):
-    """Salva una configurazione su Supabase"""
-    if supabase is None:
-        return False
-    try:
-        supabase.table("configurazione").upsert({
-            "chiave": chiave,
-            "valore": valore
-        }, on_conflict="chiave").execute()
-        return True
-    except Exception as e:
-        print(f"⚠️ Errore salvataggio config {chiave}: {e}")
-        return False
 
 # ============================================================================
 # MAIN APPLICATION - SUPABASE ONLY
@@ -2850,20 +2844,10 @@ def main():
     with st.sidebar:
         st.header("👤 Gestione Cliente")
 
-        # --- RECUPERO CONFIGURAZIONI SALVATE ---
-        config_file_sheet = "google_sheet_url.txt"
-        link_salvato = ""
-        if os.path.exists(config_file_sheet):
-            with open(config_file_sheet, "r") as f:
-                link_salvato = f.read().strip()
-
-        webhook_saved = ""
-        if os.path.exists("gdrive_webhook.txt"):
-            try:
-                with open("gdrive_webhook.txt", "r") as f:
-                    webhook_saved = f.read().strip()
-            except Exception:
-                pass
+                # --- RECUPERO CONFIGURAZIONI DA SUPABASE ---
+        link_salvato = get_config("google_sheet_url")
+        webhook_saved = get_config("gdrive_webhook_url")
+        saved_ai_key = get_config("groq_api_key")  # o "openai_api_key"
 
         # --- 1. EXPANDER COLLEGAMENTO GOOGLE ---
         with st.expander("🔄 Collegamento Google Sheets", expanded=False):
@@ -2881,19 +2865,28 @@ def main():
                 key="input_gdrive_webhook",
             )
 
-            if link_webhook_input.strip() and link_webhook_input != webhook_saved:
-                with open("gdrive_webhook.txt", "w") as f_w:
-                    f_w.write(link_webhook_input.strip())
-                st.session_state["gdrive_webhook_url"] = link_webhook_input.strip()
+            if (
+                link_webhook_input.strip()
+                and link_webhook_input != webhook_saved
+            ):
+                if set_config("gdrive_webhook_url", link_webhook_input.strip()):
+                    st.session_state["gdrive_webhook_url"] = link_webhook_input.strip()
+                    st.success("Webhook salvato su Supabase!")
+                    st.rerun()
 
             col_s1, col_s2 = st.columns(2)
             with col_s1:
-                if st.button("💾 Salva Link", key="btn_save_url", use_container_width=True):
-                    with open(config_file_sheet, "w") as f:
-                        f.write(link_foglio.strip())
-                    st.cache_data.clear()
-                    st.success("Link salvato!")
-                    st.rerun()
+                if st.button(
+                        "💾 Salva Link",
+                        key="btn_save_url",
+                        use_container_width=True,
+                    ):
+                        if set_config("google_sheet_url", link_foglio.strip()):
+                            st.cache_data.clear()
+                            st.success("Link salvato su Supabase!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Errore salvataggio su Supabase")
 
             with col_s2:
                 if st.button("🔄 Sincronizza Ora", key="btn_sync_manuale", use_container_width=True):
@@ -3003,11 +2996,7 @@ def main():
         st.markdown("---")
 
         # --- 4. CONFIGURAZIONE AI ---
-        ai_key_file = "ai_api_key.txt"
-        saved_ai_key = ""
-        if os.path.exists(ai_key_file):
-            with open(ai_key_file, "r") as f:
-                saved_ai_key = f.read().strip()
+        saved_ai_key = get_config("groq_api_key")
 
         with st.expander("🤖 Configurazione AI Avanzata", expanded=False):
             ai_provider = st.selectbox(
@@ -3025,11 +3014,17 @@ def main():
                 )
                 col_k1, col_k2 = st.columns([1, 1])
                 with col_k1:
-                    if st.button("💾 Salva Chiave", key="btn_save_ai_k", use_container_width=True):
-                        with open(ai_key_file, "w") as f:
-                            f.write(ai_api_key.strip())
-                        st.success("✅ Chiave memorizzata!")
-                        st.rerun()
+                    if st.button(
+                        "💾 Salva Chiave",
+                        key="btn_save_ai_k",
+                        use_container_width=True,
+                    ):
+                        if set_config("groq_api_key", ai_api_key.strip()):
+                            st.success("✅ Chiave memorizzata su Supabase!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Errore salvataggio chiave")
+                        
                 with col_k2:
                     if st.button("🗑️ Rimuovi", key="btn_del_ai_k", use_container_width=True):
                         if os.path.exists(ai_key_file):
