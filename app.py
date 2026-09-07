@@ -4215,7 +4215,7 @@ def main():
                         st.error(f"❌ Errore: {e}")
             
             
-              if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
+                if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
                     if prodotti_assegnati:
                         cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                         prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
