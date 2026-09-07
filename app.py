@@ -1567,6 +1567,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
             or "lozione" in p["nome"].lower()
         )
         and "liquet" not in p["nome"].lower()
+        and "r-gocce" not in p["nome"].lower()  # 🔥 ESCLUDI R-GOCCE
     ]
     for t in topici_post:
         fasi.append(
