@@ -3445,6 +3445,7 @@ def main():
                         "sintesi_ai": comparativa["testo"].replace("📊 RELAZIONE COMPARATIVA DI CONTROLLO:", "").strip(),
                     }
 
+                        
                         col_c1, col_c2, col_c3, col_c4 = st.columns(4)
 
                         with col_c1:
