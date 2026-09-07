@@ -1998,7 +1998,7 @@ def sincronizza_google_sheets(sheet_url, conn):
 
             res = c.execute(
                 "SELECT id FROM clienti WHERE codice_cliente = ?", (nome_val,)
-            ).fetchone()
+            ).fetchone()[0]
             if res:
                 c.execute(
                     "UPDATE clienti SET cellulare = ?, email = ? WHERE id = ?",
@@ -2495,7 +2495,7 @@ def auto_assegna_trattamento_righetti(cl_id, conn, sintomi_dict):
         FROM analisi WHERE cliente_id = ? ORDER BY id DESC LIMIT 1
     """,
         (cl_id,),
-    ).fetchone()
+    ).fetchone()[0]
 
     if an_rec:
         cal_m = float(an_rec[0] or 75.0)
@@ -2591,7 +2591,7 @@ def auto_assegna_trattamento_righetti(cl_id, conn, sintomi_dict):
             FROM prodotti WHERE nome LIKE ?
         """,
             (f"%{p_target.strip()}%",),
-        ).fetchone()
+        ).fetchone()[0]
 
         if res_prod:
             (
@@ -3317,7 +3317,7 @@ def main():
 
         # Calcolo del numero progressivo a partire da 679
         c = conn.cursor()
-        conteggio_analisi = c.execute("SELECT COUNT(*) FROM analisi").fetchone()
+        conteggio_analisi = c.execute("SELECT COUNT(*) FROM analisi").fetchone()[0]
         numero_checkup_automatico = 679 + int(conteggio_analisi or 0)
 
         checkup_num = st.number_input(
@@ -3437,7 +3437,7 @@ def main():
                     cl_id_tmp = c.execute(
                         "SELECT id FROM clienti WHERE codice_cliente = ?",
                         (cliente_selezionato,),
-                    ).fetchone()
+                    ).fetchone()[0]
                     analisi_precedenti = pd.read_sql_query(
                         "SELECT * FROM analisi WHERE cliente_id = ? ORDER BY data DESC",
                         conn,
