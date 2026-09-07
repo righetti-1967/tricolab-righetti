@@ -3456,6 +3456,41 @@ def main():
                     "steli_nuovi": tot_nuovi_oggi,
                 }
 
+                # 🔥 AGGIORNA LA RELAZIONE GLOBALE AUTOMATICAMENTE
+                if immagini_con_etichette:
+                    # Forza la rigenerazione della sintesi
+                    if ai_api_key.strip():
+                        img_sample_bgr = cv2.cvtColor(immagini_con_etichette[0]["immagine"], cv2.COLOR_RGB2BGR)
+                        sintesi_globale_calcolata = esegui_perizia_vision_ai(
+                            img_sample_bgr,
+                            ai_api_key,
+                            ai_provider,
+                            ai_modello_scelto,
+                            {
+                                "calibro": media_cal_oggi,
+                                "anisotropia": media_ani_oggi,
+                                "densita": media_den_oggi,
+                                "tappi": tot_tappi_oggi,
+                                "eritemi": tot_eritemi_oggi,
+                            },
+                            sesso_cliente,
+                            scala_selezionata,
+                            "Multi-zona",
+                            "Mista",
+                            "Mista",
+                            [k for k, v in sintomi_dict.items() if v is True],
+                        )
+                    else:
+                        sintesi_globale_calcolata = genera_sintesi_globale_operatore(
+                            dati_sessione_globale,
+                            sintomi_dict,
+                            dati_confronto=confronto_per_sintesi,
+                        )
+                    
+                    # Aggiorna session_state con la nuova sintesi
+                    note_glob_key = f"note_operatore_gen_{cliente_selezionato}"
+                    st.session_state[note_glob_key] = sintesi_globale_calcolata
+
                 # --- CONFRONTO EVOLUTIVO ---
                 comparativa = None
                 if dati_visita_precedente and immagini_con_etichette:
