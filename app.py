@@ -19,12 +19,6 @@ import fitz  # PyMuPDF
 import warnings
 from supabase import create_client, Client
 
-import os
-# 🔧 FORZA ELIMINAZIONE DEL DATABASE PER RICREARLO CORRETTAMENTE
-if os.path.exists("trico_database.db"):
-    os.remove("trico_database.db")
-    print("🗑️ Database eliminato! Verrà ricreato al prossimo avvio.")
-
 # IMPOSTAZIONI PER EVITARE CANCELLAZIONI CLIENTI
 os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
 
