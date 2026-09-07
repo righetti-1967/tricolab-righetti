@@ -3445,11 +3445,73 @@ def main():
                         "sintesi_ai": comparativa["testo"].replace("📊 RELAZIONE COMPARATIVA DI CONTROLLO:", "").strip(),
                     }
 
-                    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-                    col_c1.metric("Variazione Densità", f"{media_den_oggi} cap/cm²", delta=f"{'+' if d_den > 0 else ''}{d_den} cap/cm² ({'+' if p_den > 0 else ''}{p_den}%)")
-                    col_c2.metric("Variazione Calibro", f"{media_cal_oggi} µm", delta=f"{comparativa['delta_cal']} µm ({'+' if perc_cal > 0 else ''}{perc_cal}%)")
-                    col_c3.metric("Variazione Anisotropia", f"{media_ani_oggi} %", delta=f"{comparativa['delta_ani']} %", delta_color="inverse")
-                    col_c4.metric("Tappi Sebacei", f"{tot_tappi_oggi}", delta=f"{comparativa['delta_tap']}", delta_color="inverse")
+                                            col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+
+                        with col_c1:
+                            st.markdown("**Variazione Densità**")
+                            nuova_densita = st.number_input(
+                                "Densità (cap/cm²)",
+                                value=media_den_oggi,
+                                min_value=0,
+                                max_value=300,
+                                step=1,
+                                key=f"edit_densita_{cliente_selezionato}",
+                                label_visibility="collapsed",
+                            )
+                            st.caption(f"Delta: {d_den} cap/cm² ({p_den}%)")
+
+                        with col_c2:
+                            st.markdown("**Variazione Calibro**")
+                            nuovo_calibro = st.number_input(
+                                "Calibro (µm)",
+                                value=media_cal_oggi,
+                                min_value=0.0,
+                                max_value=150.0,
+                                step=0.1,
+                                key=f"edit_calibro_{cliente_selezionato}",
+                                label_visibility="collapsed",
+                            )
+                            st.caption(f"Delta: {comparativa['delta_cal']} µm ({perc_cal}%)")
+
+                        with col_c3:
+                            st.markdown("**Variazione Anisotropia**")
+                            nuova_anisotropia = st.number_input(
+                                "Anisotropia (%)",
+                                value=media_ani_oggi,
+                                min_value=0.0,
+                                max_value=60.0,
+                                step=0.1,
+                                key=f"edit_anisotropia_{cliente_selezionato}",
+                                label_visibility="collapsed",
+                            )
+                            st.caption(f"Delta: {comparativa['delta_ani']} %")
+
+                        with col_c4:
+                            st.markdown("**Tappi Sebacei**")
+                            nuovi_tappi = st.number_input(
+                                "Tappi Sebacei",
+                                value=tot_tappi_oggi,
+                                min_value=0,
+                                max_value=100,
+                                step=1,
+                                key=f"edit_tappi_{cliente_selezionato}",
+                                label_visibility="collapsed",
+                            )
+                            st.caption(f"Delta: {comparativa['delta_tap']}")
+
+                        # 🔧 Se i valori sono stati modificati, aggiorna la variabile
+                        if media_den_oggi != nuova_densita or media_cal_oggi != nuovo_calibro or media_ani_oggi != nuova_anisotropia or tot_tappi_oggi != nuovi_tappi:
+                            media_den_oggi = nuova_densita
+                            media_cal_oggi = nuovo_calibro
+                            media_ani_oggi = nuova_anisotropia
+                            tot_tappi_oggi = nuovi_tappi
+                            # 🔧 Salva i valori modificati in session_state
+                            st.session_state[f"edit_vals_{cliente_selezionato}"] = {
+                                "densita": nuova_densita,
+                                "calibro": nuovo_calibro,
+                                "anisotropia": nuova_anisotropia,
+                                "tappi": nuovi_tappi,
+                            }
 
                     st.info(comparativa["testo"])
 
