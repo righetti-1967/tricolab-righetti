@@ -4279,38 +4279,60 @@ def main():
             st.info("⚠️ Seleziona un cliente dalla barra laterale")
         else:
             c = conn.cursor()
-            res_cl = c.execute(
+            
+            # 🔧 PROVA PRIMA IN SQLITE
+            res_cl_row = c.execute(
                 "SELECT id FROM clienti WHERE codice_cliente = ?",
                 (cliente_selezionato,),
             ).fetchone()
-
-            if not res_cl:
-                st.error("Cliente non trovato.")
+            
+            if res_cl_row:
+                cl_id = res_cl_row[0]
+                st.write(f"✅ Cliente trovato in SQLite: {cl_id}")
             else:
-                cl_id = int(res_cl[0])
+                # Se non c'è in SQLite, prendi da Supabase
+                if supabase:
+                    st.write("🔍 Cliente non trovato in SQLite, cerco in Supabase...")
+                    res_sup = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
+                    if res_sup.data:
+                        cl_id = res_sup.data[0]["id"]
+                        st.write(f"✅ Cliente trovato in Supabase: {cl_id}")
+                        # Sincronizza in SQLite
+                        c.execute(
+                            "INSERT INTO clienti (id, codice_cliente) VALUES (?, ?)",
+                            (cl_id, cliente_selezionato)
+                        )
+                        conn.commit()
+                        st.success("✅ Cliente sincronizzato in SQLite!")
+                    else:
+                        st.error("❌ Cliente non trovato in Supabase!")
+                        st.stop()
+                else:
+                    st.error("❌ Cliente non trovato e Supabase non disponibile!")
+                    st.stop()
 
-                prodotti_assegnati = pd.read_sql_query(
-                    """
-                    SELECT pc.id AS assegnazione_id, pc.prodotto_id,
-                           COALESCE(pc.modalita, p.modalita) AS modalita,
-                           COALESCE(pc.frequenza, p.frequenza) AS frequenza,
-                           COALESCE(pc.orario, p.orario) AS orario,
-                           COALESCE(pc.dosi, p.dosi) AS dosi,
-                           COALESCE(pc.tempi_posa, p.tempi_posa) AS tempi_posa,
-                           COALESCE(pc.durata_utilizzo, p.durata_utilizzo) AS durata_utilizzo,
-                           COALESCE(pc.note_utilizzo, p.note) AS note_utilizzo,
-                           p.nome, p.categoria,
-                           p.modalita AS modalita_default,
-                           p.frequenza AS frequenza_default,
-                           p.orario AS orario_default
-                    FROM prodotti_cliente pc
-                    INNER JOIN prodotti p ON pc.prodotto_id = p.id
-                    WHERE pc.cliente_id = ?
-                    ORDER BY pc.data_assegnazione DESC
-                    """,
-                    conn,
-                    params=(cl_id,),
-                )
+            prodotti_assegnati = pd.read_sql_query(
+                """
+                SELECT pc.id AS assegnazione_id, pc.prodotto_id,
+                       COALESCE(pc.modalita, p.modalita) AS modalita,
+                       COALESCE(pc.frequenza, p.frequenza) AS frequenza,
+                       COALESCE(pc.orario, p.orario) AS orario,
+                       COALESCE(pc.dosi, p.dosi) AS dosi,
+                       COALESCE(pc.tempi_posa, p.tempi_posa) AS tempi_posa,
+                       COALESCE(pc.durata_utilizzo, p.durata_utilizzo) AS durata_utilizzo,
+                       COALESCE(pc.note_utilizzo, p.note) AS note_utilizzo,
+                       p.nome, p.categoria,
+                       p.modalita AS modalita_default,
+                       p.frequenza AS frequenza_default,
+                       p.orario AS orario_default
+                FROM prodotti_cliente pc
+                INNER JOIN prodotti p ON pc.prodotto_id = p.id
+                WHERE pc.cliente_id = ?
+                ORDER BY pc.data_assegnazione DESC
+                """,
+                conn,
+                params=(cl_id,),
+            )
 
                 # ---------------------------------------------------------
                 # SEZIONE 1: ASSEGNAZIONE PRODOTTI (CON TASTO SVUOTA LISTA)
