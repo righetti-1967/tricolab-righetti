@@ -1481,8 +1481,27 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
     ]
     for s in scrub_list:
         fasi.append(
-            f"• Fase {fase_num} (Esfoliazione Pre-Shampoo): Applicare '{s['nome']}' sul cuoio capelluto prima dello shampoo, massaggiare delicatamente emulsionando, quindi procedere al risciacquo."
+            f"• Fase {fase_num} (Esfoliazione Pre-Shampoo): Applicare '{s['nome']}' sul cuoio capelluto prima dello shampoo, massaggiare delicatamente, posa e risciacquo."
         )
+        fase_num += 1
+
+    # 1.5 OLI ESSENZIALI (R-1 e R-2) - 🔥 AGGIUNTO
+    oli_essenziali_list = [
+        p
+        for p in prodotti_assegnati
+        if "oli essenziali" in p["nome"].lower()
+        or "r-1" in p["nome"].lower()
+        or "r-2" in p["nome"].lower()
+    ]
+    for oe in oli_essenziali_list:
+        if "r-1" in oe["nome"].lower():
+            fasi.append(
+                f"• Fase {fase_num} (Oli Essenziali PRE-Shampoo): Applicare '{oe['nome']}' sul cuoio capelluto prima dello shampoo, lasciare agire e applicare il Detergente."
+            )
+        else:
+            fasi.append(
+                f"• Fase {fase_num} (Oli Essenziali POST-Shampoo): Dopo la detersione, applicare '{oe['nome']}' sul cuoio capelluto e massaggiare delicatamente. NON risciacquare."
+            )
         fase_num += 1
 
     # 2. Detersione con Alternanza Shampoo
@@ -1498,7 +1517,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
         nomi_sh = ", ".join([f"'{sh['nome']}'" for sh in shampoo_list[:-1]])
         nomi_sh += f" e '{shampoo_list[-1]['nome']}'"
         fasi.append(
-            f"• Fase {fase_num} (Detersione in Alternanza): Alternare ad ogni lavaggio {nomi_sh}, massaggiando delicatamente la cute con i polpastrelli prima del risciacquo con abbondante acqua tiepida."
+            f"• Fase {fase_num} (Detersione in Alternanza): Alternare ad ogni lavaggio {nomi_sh}, massaggiando delicatamente prima del risciacquo."
         )
         fase_num += 1
     elif len(shampoo_list) == 1:
@@ -1511,7 +1530,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
     lutum_list = [p for p in prodotti_assegnati if "lutum" in p["nome"].lower()]
     for m in lutum_list:
         fasi.append(
-            f"• Fase {fase_num} (Argilla Dermolenitiva): Dopo lo shampoo distribuire '{m['nome']}' sul cuoio capelluto con il pennello, massaggiare leggermente, lasciare agire prima del risciacquo con acqua tiepida."
+            f"• Fase {fase_num} (Argilla Dermolenitiva): Dopo lo shampoo distribuire '{m['nome']}' sul cuoio capelluto con il pennello, massaggiare, lasciare agire prima del risciacquo."
         )
         fase_num += 1
 
@@ -1524,7 +1543,18 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
     ]
     for u in unguentum_list:
         fasi.append(
-            f"• fase (Ricostruzione Cellulare): Dopo la detersione applicare '{u['nome']}' sul cuoio capelluto e massaggiare leggermente, lasciare agire prima di risciacquare accuratamente con acqua tiepida."
+            f"• fase (Ricostruzione Cellulare): Dopo la detersione applicare '{u['nome']}' sul cuoio capelluto e massaggiare, lasciare agire prima di risciacquare."
+        )
+
+    # 4.5 R-GOCCE - 🔥 AGGIUNTO
+    gocce_list = [
+        p
+        for p in prodotti_assegnati
+        if "r-gocce" in p["nome"].lower() or "gocce" in p["nome"].lower()
+    ]
+    for g in gocce_list:
+        fasi.append(
+            f"• Fase (Gocce Lenitive Post-Lavaggio): Dopo lo shampoo, applicare '{g['nome']}' sul cuoio capelluto e lasciare agire, NO risciacquo."
         )
 
     # 5. Trattamento Cute Leave-In (SPRAY / GOCCE POST-LAVAGGIO)
@@ -1540,7 +1570,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
     ]
     for t in topici_post:
         fasi.append(
-            f"• Fase Leave-in (Senza Risciacquo): A capelli lavati e ben tamponati (o a cute asciutta), distribuire uniformemente '{t['nome']}' massaggiando leggermente, prima dell'asciugatura attendere 5 minuti."
+            f"• Fase finale (Senza Risciacquo): A capelli lavati e ben tamponati (o a cute asciutta), distribuire '{t['nome']}', lasciare agire, NO risciacquo."
         )
 
     # 6. Supporto Transdermico (CEROTTI POTENTIA)
@@ -1560,11 +1590,18 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
         for p in prodotti_assegnati
         if "integratore" in str(p.get("categoria", "")).lower()
         or "capsul" in p["nome"].lower()
+        or "probiotico" in p["nome"].lower()  # 🔥 AGGIUNTO PER IL PROBIOTICO
+        or "microbiota" in p["nome"].lower()  # 🔥 AGGIUNTO PER IL PROBIOTICO
     ]
     for integ in integratori_list:
-        fasi.append(
-            f"• Fase Integrazione Nutrizionale: Assumere '{integ['nome']}' al mattino con un bicchiere d'acqua."
-        )
+        if "probiotico" in integ["nome"].lower() or "microbiota" in integ["nome"].lower():
+            fasi.append(
+                f"• Fase Integrazione Microbiota: Assumere '{integ['nome']}' durante il giorno, sciogliendo il contenuto della bustina in un bicchiere d'acqua."
+            )
+        else:
+            fasi.append(
+                f"• Fase Integrazione Nutrizionale: Assumere '{integ['nome']}' al mattino con un bicchiere d'acqua."
+            )
 
     # 8. Durata Ciclo (staccata)
     fasi.append(
