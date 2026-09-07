@@ -3461,7 +3461,7 @@ def main():
                             )
                             st.caption(f"Delta: {d_den} cap/cm² ({p_den}%)")
 
-                        with col_c2:
+                    with col_c2:
                             st.markdown("**Variazione Calibro**")
                             nuovo_calibro = st.number_input(
                                 "Calibro (µm)",
@@ -3474,7 +3474,7 @@ def main():
                             )
                             st.caption(f"Delta: {comparativa['delta_cal']} µm ({perc_cal}%)")
 
-                        with col_c3:
+                    with col_c3:
                             st.markdown("**Variazione Anisotropia**")
                             nuova_anisotropia = st.number_input(
                                 "Anisotropia (%)",
@@ -3487,7 +3487,7 @@ def main():
                             )
                             st.caption(f"Delta: {comparativa['delta_ani']} %")
 
-                        with col_c4:
+                    with col_c4:
                             st.markdown("**Tappi Sebacei**")
                             nuovi_tappi = st.number_input(
                                 "Tappi Sebacei",
