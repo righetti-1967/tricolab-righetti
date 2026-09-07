@@ -4182,8 +4182,8 @@ def main():
 
             # --- GENERA SCHEDA CURA ---
             st.markdown("---")
-                if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
-                    if prodotti_assegnati:
+            if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
+                if prodotti_assegnati:
                         cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                         prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
                         pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
