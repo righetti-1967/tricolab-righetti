@@ -3501,7 +3501,7 @@ def main():
                             st.caption(f"Delta: {comparativa['delta_tap']}")
 
                         # 🔧 Se i valori sono stati modificati, aggiorna la variabile
-                        if media_den_oggi != nuova_densita or media_cal_oggi != nuovo_calibro or media_ani_oggi != nuova_anisotropia or tot_tappi_oggi != nuovi_tappi:
+                    if media_den_oggi != nuova_densita or media_cal_oggi != nuovo_calibro or media_ani_oggi != nuova_anisotropia or tot_tappi_oggi != nuovi_tappi:
                             media_den_oggi = nuova_densita
                             media_cal_oggi = nuovo_calibro
                             media_ani_oggi = nuova_anisotropia
