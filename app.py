@@ -2779,8 +2779,6 @@ def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto
 # INVIO FILE A GOOGLE DRIVE
 # ============================================================================
 def invia_file_a_google_drive(
-    # Subito dopo webhook_url
-    st.write(f"🔍 Webhook URL: {webhook_url}")
     file_bytes, nome_file, nome_cliente, mime_type="application/pdf"
 ):
     """Invia file a Google Drive tramite webhook"""
