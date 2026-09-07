@@ -4020,7 +4020,7 @@ def main():
                         use_container_width=True,
                     )
 
-                  if st.button(
+                    if st.button(
                         "💾 Salva Sessione di Analisi",
                         key="btn_salva_analisi_completa",
                         use_container_width=True,
