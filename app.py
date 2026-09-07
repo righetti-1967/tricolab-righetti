@@ -3718,6 +3718,8 @@ def main():
                     n_ass, msg = auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict)
                     if n_ass > 0:
                         st.success(msg)
+                        # 🔧 FORZA IL RICARICAMENTO DEI PRODOTTI
+                        st.cache_data.clear()
                         st.rerun()
                     else:
                         st.warning(msg)
