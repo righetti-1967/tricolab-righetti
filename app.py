@@ -4020,24 +4020,41 @@ def main():
                         use_container_width=True,
                     )
 
-                # -------------------------------------------------------------
-                # SALVA SESSIONE (DATABASE + SUPABASE + CARTELLA CLIENTE)
-                # -------------------------------------------------------------
-                st.markdown("---")
-                col_b1, col_b2 = st.columns(2)
-
-                with col_b1:
-                    if st.button(
+                                    if st.button(
                         "💾 Salva Sessione di Analisi",
                         key="btn_salva_analisi_completa",
                         use_container_width=True,
                     ):
                         try:
                             c = conn.cursor()
-                            cl_id = c.execute(
+                            
+                            # 🔧 RECUPERA IL CLIENTE (SQLITE + SUPABASE)
+                            cl_id_row = c.execute(
                                 "SELECT id FROM clienti WHERE codice_cliente = ?",
                                 (cliente_selezionato,),
-                            ).fetchone()[0]
+                            ).fetchone()
+                            
+                            if cl_id_row:
+                                cl_id = cl_id_row[0]
+                            else:
+                                # Se non c'è in SQLite, prendi da Supabase
+                                if supabase:
+                                    res = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
+                                    if res.data:
+                                        cl_id = res.data[0]["id"]
+                                        # Sincronizza in SQLite
+                                        c.execute(
+                                            "INSERT INTO clienti (id, codice_cliente) VALUES (?, ?)",
+                                            (cl_id, cliente_selezionato)
+                                        )
+                                        conn.commit()
+                                    else:
+                                        st.error("❌ Cliente non trovato in Supabase!")
+                                        raise Exception("Cliente non trovato")
+                                else:
+                                    st.error("❌ Cliente non trovato!")
+                                    raise Exception("Cliente non trovato")
+                            
                             data_oggi = datetime.now().strftime("%d/%m/%Y %H:%M")
                             data_cartella_foto = datetime.now().strftime("%d-%m-%Y")
 
@@ -4093,7 +4110,7 @@ def main():
                             conn.commit()
                             
                             # ============================================================
-                            # 5. SALVATAGGIO IN SUPABASE (CLOUD) - CON UUID
+                            # 2. SALVATAGGIO IN SUPABASE (CLOUD) - CON UUID
                             # ============================================================
                             cliente_uuid = None
                             if supabase and cliente_selezionato:
@@ -4133,7 +4150,7 @@ def main():
                                     st.error(f"❌ Errore salvataggio Supabase: {e}")
                             
                             # ============================================================
-                            # 6. SALVATAGGIO FOTO IN SUPABASE STORAGE (CLOUD)
+                            # 3. SALVATAGGIO FOTO IN SUPABASE STORAGE (CLOUD)
                             # ============================================================
                             if supabase and cliente_uuid:
                                 try:
@@ -4150,7 +4167,7 @@ def main():
                                     st.warning(f"⚠️ Errore salvataggio foto in cloud: {e}")
                             
                             # ============================================================
-                            # 7. SALVATAGGIO CARTELLA CLIENTE (LOCALE - BACKUP)
+                            # 4. SALVATAGGIO CARTELLA CLIENTE (LOCALE - BACKUP)
                             # ============================================================
                             cartella_cliente_dest = trova_o_crea_cartella_cliente(
                                 cliente_selezionato
