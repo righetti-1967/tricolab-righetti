@@ -3409,7 +3409,7 @@ def main():
                     cl_id_tmp = c.execute(
                         "SELECT id FROM clienti WHERE codice_cliente = ?",
                         (cliente_selezionato,),
-                    ).fetchone()[0]
+                    ).fetchone()
                     analisi_precedenti = pd.read_sql_query(
                         "SELECT * FROM analisi WHERE cliente_id = ? ORDER BY data DESC",
                         conn,
