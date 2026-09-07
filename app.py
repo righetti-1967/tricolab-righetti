@@ -3446,7 +3446,7 @@ def main():
                     }
 
                         
-                        col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+                    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
 
                         with col_c1:
                             st.markdown("**Variazione Densità**")
