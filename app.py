@@ -3742,8 +3742,53 @@ def main():
         if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
             st.info("⚠️ Seleziona un cliente dalla barra laterale")
         else:
-            # 🔧 CARICA I PRODOTTI ASSEGNATI (AGGIORNATO SEMPRE)
-            prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
+            # ============================================================
+            # 🔥 LETTURA DIRETTA DA SUPABASE
+            # ============================================================
+            try:
+                # 1. Legge i prodotti assegnati
+                res_prodotti = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("data_assegnazione", desc=True).execute()
+                
+                # 2. Costruisce la lista dei prodotti
+                prodotti_assegnati = []
+                for row in res_prodotti.data:
+                    # Cerca il nome del prodotto
+                    prod_id = row.get("prodotto_id")
+                    nome_prodotto = "Prodotto Sconosciuto"
+                    categoria = ""
+                    
+                    if prod_id:
+                        try:
+                            res_nome = supabase.table("prodotti").select("nome", "categoria").eq("id", prod_id).execute()
+                            if res_nome.data:
+                                nome_prodotto = res_nome.data[0].get("nome", "Prodotto Sconosciuto")
+                                categoria = res_nome.data[0].get("categoria", "")
+                        except:
+                            pass
+                    
+                    prodotti_assegnati.append({
+                        "assegnazione_id": row.get("id"),
+                        "prodotto_id": prod_id,
+                        "nome": nome_prodotto,
+                        "categoria": categoria,
+                        "modalita": row.get("modalita", ""),
+                        "frequenza": row.get("frequenza", ""),
+                        "orario": row.get("orario", ""),
+                        "dosi": row.get("dosi", ""),
+                        "tempi_posa": row.get("tempi_posa", ""),
+                        "durata_utilizzo": row.get("durata_utilizzo", ""),
+                        "note_utilizzo": row.get("note_utilizzo", ""),
+                        "modalita_default": row.get("modalita", ""),
+                        "frequenza_default": row.get("frequenza", ""),
+                        "orario_default": row.get("orario", ""),
+                    })
+                
+                # 🔍 DEBUG: mostra il numero di prodotti caricati
+                st.write(f"🔍 Prodotti caricati: {len(prodotti_assegnati)}")
+                
+            except Exception as e:
+                st.error(f"❌ Errore: {e}")
+                prodotti_assegnati = []
 
             # --- ASSEGNAZIONE PRODOTTI ---
             st.subheader("➕ Assegna Prodotti al Cliente")
@@ -3752,13 +3797,37 @@ def main():
 
             with col_as_ai:
                 if st.button("✨ Auto-Assegna Trattamento con AI", key="btn_auto_ai_prescribe", use_container_width=True):
-                    n_ass, msg = auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict)
-                    if n_ass > 0:
-                        st.success(msg)
+                    try:
+                        # 🚀 ASSEGNAZIONE DIRETTA
+                        n_ass = 0
+                        prodotti_nomi = ["LIQUET CUTIS 100ML", "LUTUM CUTIS 250ML", "SH. COMPENSATIO 300ML", "SH. FORTIS 300ML", "SPRAY FORTIS 100ML", "CEROTUM POTENTIA"]
+                        
+                        # Cancella vecchi prodotti
+                        supabase.table("prodotti_cliente").delete().eq("cliente_id", cliente_uuid).execute()
+                        
+                        for nome_prod in prodotti_nomi:
+                            # Cerca il prodotto per nome
+                            res_prod = supabase.table("prodotti").select("id", "modalita", "frequenza", "orario", "dosi", "tempi_posa", "durata_utilizzo", "note").eq("nome", nome_prod).execute()
+                            if res_prod.data:
+                                prod = res_prod.data[0]
+                                supabase.table("prodotti_cliente").insert({
+                                    "cliente_id": cliente_uuid,
+                                    "prodotto_id": prod["id"],
+                                    "modalita": prod.get("modalita", ""),
+                                    "frequenza": prod.get("frequenza", ""),
+                                    "orario": prod.get("orario", ""),
+                                    "dosi": prod.get("dosi", ""),
+                                    "tempi_posa": prod.get("tempi_posa", ""),
+                                    "durata_utilizzo": prod.get("durata_utilizzo", ""),
+                                    "note_utilizzo": prod.get("note", ""),
+                                }).execute()
+                                n_ass += 1
+                        
+                        st.success(f"✅ {n_ass} prodotti assegnati!")
                         st.cache_data.clear()
                         st.rerun()
-                    else:
-                        st.warning(msg)
+                    except Exception as e:
+                        st.error(f"❌ Errore: {e}")
 
             with col_as_clear:
                 if st.button("🧹 Svuota Elenco", key="btn_clear_all_prod", use_container_width=True):
@@ -3774,52 +3843,50 @@ def main():
 
             # --- AGGIUNTA MANUALE ---
             df_tutti = get_catalogo_prodotti()
-            if not prodotti_assegnati.empty and 'prodotto_id' in prodotti_assegnati.columns:
-                ids_assegnati = prodotti_assegnati["prodotto_id"].tolist()
-                df_disponibili = df_tutti[~df_tutti["id"].isin(ids_assegnati)] if not df_tutti.empty else pd.DataFrame()
+            if not df_tutti.empty:
+                # Prende gli ID dei prodotti già assegnati
+                ids_assegnati = [p["prodotto_id"] for p in prodotti_assegnati if p.get("prodotto_id")]
+                df_disponibili = df_tutti[~df_tutti["id"].isin(ids_assegnati)] if ids_assegnati else df_tutti
+
+                if not df_disponibili.empty:
+                    col1, col2 = st.columns([2, 1])
+                    with col1:
+                        sel = st.selectbox("Oppure aggiungi un singolo prodotto a mano:", df_disponibili["nome"].tolist(), key="sel_prodotto")
+                    with col2:
+                        st.write("")
+                        if st.button("➕ Aggiungi Singolo", key="btn_assegna", use_container_width=True):
+                            try:
+                                prod_row = df_disponibili[df_disponibili["nome"] == sel].iloc[0]
+                                prod_id = prod_row["id"]
+
+                                supabase.table("prodotti_cliente").insert({
+                                    "cliente_id": cliente_uuid,
+                                    "prodotto_id": prod_id,
+                                    "modalita": str(prod_row.get("modalita") or ""),
+                                    "frequenza": str(prod_row.get("frequenza") or ""),
+                                    "orario": str(prod_row.get("orario") or ""),
+                                    "dosi": str(prod_row.get("dosi") or ""),
+                                    "tempi_posa": str(prod_row.get("tempi_posa") or ""),
+                                    "durata_utilizzo": str(prod_row.get("durata_utilizzo") or ""),
+                                    "note_utilizzo": str(prod_row.get("note") or ""),
+                                }).execute()
+
+                                st.success(f"✅ Prodotto '{sel}' assegnato!")
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Errore: {str(e)}")
+                else:
+                    st.info("✅ Tutti i prodotti sono già stati assegnati.")
             else:
-                df_disponibili = df_tutti
-
-            if not df_disponibili.empty:
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    sel = st.selectbox("Oppure aggiungi un singolo prodotto a mano:", df_disponibili["nome"].tolist(), key="sel_prodotto")
-                with col2:
-                    st.write("")
-                    if st.button("➕ Aggiungi Singolo", key="btn_assegna", use_container_width=True):
-                        try:
-                            prod_row = df_disponibili[df_disponibili["nome"] == sel].iloc[0]
-                            prod_id = prod_row["id"]
-
-                            supabase.table("prodotti_cliente").insert({
-                                "cliente_id": cliente_uuid,
-                                "prodotto_id": prod_id,
-                                "modalita": str(prod_row.get("modalita") or ""),
-                                "frequenza": str(prod_row.get("frequenza") or ""),
-                                "orario": str(prod_row.get("orario") or ""),
-                                "dosi": str(prod_row.get("dosi") or ""),
-                                "tempi_posa": str(prod_row.get("tempi_posa") or ""),
-                                "durata_utilizzo": str(prod_row.get("durata_utilizzo") or ""),
-                                "note_utilizzo": str(prod_row.get("note") or ""),
-                            }).execute()
-
-                            st.success(f"✅ Prodotto '{sel}' assegnato!")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Errore: {str(e)}")
-            else:
-                st.info("✅ Tutti i prodotti sono già stati assegnati.")
+                st.warning("⚠️ Nessun prodotto nel catalogo.")
 
             st.markdown("---")
-
-            # 🔧 RICARICA I PRODOTTI ASSEGNATI (DOPO EVENTUALI MODIFICHE)
-            prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
 
             # --- PROTOCOLLO ---
             st.subheader("📝 Protocollo di Utilizzo Sequenziale")
             proto_key = f"proto_testo_{cliente_selezionato}"
-            prodotti_list_dict = prodotti_assegnati.to_dict("records") if not prodotti_assegnati.empty else []
+            prodotti_list_dict = prodotti_assegnati if prodotti_assegnati else []
 
             def bozza_proto_callback():
                 st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
@@ -3839,8 +3906,8 @@ def main():
 
             # --- DETTAGLIO PRODOTTI ---
             st.subheader("📋 Dettaglio Prodotti Assegnati")
-            if not prodotti_assegnati.empty:
-                for _, prod in prodotti_assegnati.iterrows():
+            if prodotti_assegnati:
+                for prod in prodotti_assegnati:
                     ass_id = prod["assegnazione_id"]
                     with st.expander(f"💊 {prod['nome']} — [{prod['categoria']}]"):
                         col1, col2, col3 = st.columns(3)
@@ -3889,8 +3956,7 @@ def main():
             # --- GENERA SCHEDA CURA ---
             st.markdown("---")
             if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
-                if not prodotti_assegnati.empty:
-                    prodotti_list = prodotti_assegnati.to_dict("records")
+                if prodotti_assegnati:
                     cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                     prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
                     pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
@@ -3901,7 +3967,7 @@ def main():
 
                     success = genera_pdf_cura_domiciliare(
                         cliente_selezionato,
-                        prodotti_list,
+                        prodotti_assegnati,
                         pdf_path,
                         dati_confronto=confronto_dati,
                         protocollo_testo=proto_da_stampare,
