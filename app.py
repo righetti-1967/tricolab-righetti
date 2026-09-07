@@ -3883,21 +3883,57 @@ def main():
 
             st.markdown("---")
 
-                        # --- PROTOCOLLO (AUTOMATICO + PULSANTE RIGENERA) ---
+                                    # --- PROTOCOLLO (AUTOMATICO + PULSANTE RIGENERA) ---
             st.subheader("📝 Protocollo di Utilizzo Sequenziale")
             proto_key = f"proto_testo_{cliente_selezionato}"
-            prodotti_list_dict = prodotti_assegnati if prodotti_assegnati else []
 
-            # 🔥 GENERA AUTOMATICAMENTE IL PROTOCOLLO (SE NON ESISTE GIÀ)
-            if proto_key not in st.session_state or not st.session_state[proto_key]:
-                if prodotti_list_dict:
-                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
+            # 🔥 FUNZIONE CHE RIGENERA IL PROTOCOLLO (RICARICA I PRODOTTI DA SUPABASE)
+            def bozza_proto_callback():
+                # 🔧 RICARICA I PRODOTTI DA SUPABASE
+                try:
+                    res_prodotti = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("created_at", desc=True).execute()
+                    prodotti_ricaricati = []
+                    for row in res_prodotti.data:
+                        prod_id = row.get("prodotto_id")
+                        nome_prodotto = "Prodotto Sconosciuto"
+                        categoria = ""
+                        if prod_id:
+                            try:
+                                res_nome = supabase.table("prodotti").select("nome", "categoria").eq("id", prod_id).execute()
+                                if res_nome.data:
+                                    nome_prodotto = res_nome.data[0].get("nome", "Prodotto Sconosciuto")
+                                    categoria = res_nome.data[0].get("categoria", "")
+                            except:
+                                pass
+                        prodotti_ricaricati.append({
+                            "assegnazione_id": row.get("id"),
+                            "prodotto_id": prod_id,
+                            "nome": nome_prodotto,
+                            "categoria": categoria,
+                            "modalita": row.get("modalita", ""),
+                            "frequenza": row.get("frequenza", ""),
+                            "orario": row.get("orario", ""),
+                            "dosi": row.get("dosi", ""),
+                            "tempi_posa": row.get("tempi_posa", ""),
+                            "durata_utilizzo": row.get("durata_utilizzo", ""),
+                            "note_utilizzo": row.get("note_utilizzo", ""),
+                            "modalita_default": row.get("modalita", ""),
+                            "frequenza_default": row.get("frequenza", ""),
+                            "orario_default": row.get("orario", ""),
+                        })
+                except Exception as e:
+                    print(f"❌ Errore ricarica prodotti: {e}")
+                    prodotti_ricaricati = []
+
+                if prodotti_ricaricati:
+                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_ricaricati)
                 else:
                     st.session_state[proto_key] = "Nessun prodotto assegnato."
 
-            def bozza_proto_callback():
-                if prodotti_list_dict:
-                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_list_dict)
+            # 🔥 GENERA AUTOMATICAMENTE IL PROTOCOLLO ALL'AVVIO
+            if proto_key not in st.session_state or not st.session_state[proto_key]:
+                if prodotti_assegnati:
+                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_assegnati)
                 else:
                     st.session_state[proto_key] = "Nessun prodotto assegnato."
 
@@ -3920,7 +3956,6 @@ def main():
                 )
 
             st.markdown("---")
-
             # --- DETTAGLIO PRODOTTI ---
             st.subheader("📋 Dettaglio Prodotti Assegnati")
             if prodotti_assegnati:
