@@ -56,7 +56,7 @@ def init_db():
         {
             "nome": "R-GOCCCE",
             "categoria": "Topico Cosmetico",
-            "modalita": "Dopo lo Shampoo applicare le gocce sul cuoio capelluto e massaggiare.",
+            "modalita": "Dopo lo Shampoo applicare le gocce sul cuoio capelluto e massaggiare, NO risciacquo",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "Forfora-prurito-dermatite",
