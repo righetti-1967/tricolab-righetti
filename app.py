@@ -4270,7 +4270,7 @@ def main():
                                 f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**"
                             )
 
-    # ============================================================
+        # ============================================================
     # TAB 2: PRODOTTI, PROTOCOLLO SEQUENZIALE & CURA DOMICILIARE
     # ============================================================
     with tab2:
@@ -4334,10 +4334,10 @@ def main():
                 params=(cl_id,),
             )
 
-                # ---------------------------------------------------------
-                # SEZIONE 1: ASSEGNAZIONE PRODOTTI (CON TASTO SVUOTA LISTA)
-                # ---------------------------------------------------------
-                st.subheader("➕ Assegna Prodotti al Cliente")
+        # ---------------------------------------------------------
+        # SEZIONE 1: ASSEGNAZIONE PRODOTTI (CON TASTO SVUOTA LISTA)
+        # ---------------------------------------------------------
+           st.subheader("➕ Assegna Prodotti al Cliente")
 
                 col_as_ai, col_as_clear = st.columns([3, 1])
 
