@@ -359,7 +359,7 @@ def init_db():
 
     # Popola SQLite locale
     c.execute("SELECT COUNT(*) FROM prodotti")
-    if c.fetchone()[0] < 18:
+    if c.fetchone() < 18:
         for p in prodotti_completi_righetti:
             c.execute(
                 """INSERT OR IGNORE INTO prodotti 
@@ -3317,7 +3317,7 @@ def main():
 
         # Calcolo del numero progressivo a partire da 679
         c = conn.cursor()
-        conteggio_analisi = c.execute("SELECT COUNT(*) FROM analisi").fetchone()[0]
+        conteggio_analisi = c.execute("SELECT COUNT(*) FROM analisi").fetchone()
         numero_checkup_automatico = 679 + int(conteggio_analisi or 0)
 
         checkup_num = st.number_input(
@@ -3437,7 +3437,7 @@ def main():
                     cl_id_tmp = c.execute(
                         "SELECT id FROM clienti WHERE codice_cliente = ?",
                         (cliente_selezionato,),
-                    ).fetchone()[0]
+                    ).fetchone()
                     analisi_precedenti = pd.read_sql_query(
                         "SELECT * FROM analisi WHERE cliente_id = ? ORDER BY data DESC",
                         conn,
@@ -4659,7 +4659,7 @@ def main():
             cl_id = c.execute(
                 "SELECT id FROM clienti WHERE codice_cliente = ?",
                 (cliente_selezionato,),
-            ).fetchone()[0]
+            ).fetchone()
 
             # Recupera lo storico cronologico (dal più vecchio al più recente per i grafici)
             df_trend = pd.read_sql_query(
@@ -4927,7 +4927,7 @@ def main():
             cl_id = c.execute(
                 "SELECT id FROM clienti WHERE codice_cliente = ?",
                 (cliente_selezionato,),
-            ).fetchone()[0]
+            ).fetchone()
 
             # Recupera tutte le visite salvate per il cliente selezionato
             df_analisi = pd.read_sql_query(
