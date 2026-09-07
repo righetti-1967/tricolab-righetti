@@ -94,6 +94,20 @@ def init_db():
         FOREIGN KEY (cliente_id) REFERENCES clienti(id)
     )""")
 
+    # Aggiunge colonne mancanti alla tabella analisi (se non esistono)
+    colonne_analisi = [
+        "zona", "ingrandimento", "luce", "foto_caricate",
+        "steli_totale", "steli_anagen", "steli_vellus", "steli_nuovi",
+        "calibro_medio", "densita_f", "anisotropia", "perc_vellus",
+        "eritemi", "dermatite_seborroica", "forfora_secca",
+        "osti_intasati", "prurito", "routine_consigliata"
+    ]
+    for col in colonne_analisi:
+        try:
+            c.execute(f"ALTER TABLE analisi ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass
+
     c.execute("""CREATE TABLE IF NOT EXISTS categorie (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT UNIQUE NOT NULL
