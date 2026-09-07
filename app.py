@@ -2501,7 +2501,7 @@ def get_prodotti_cliente(cliente_uuid):
         return pd.DataFrame()
     
     try:
-        # Prende tutti i record dalla tabella prodotti_cliente per questo cliente
+        # 🔧 LEGGE DIRETTAMENTE DA SUPABASE
         res = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).order("data_assegnazione", desc=True).execute()
         
         if not res.data:
@@ -2509,24 +2509,25 @@ def get_prodotti_cliente(cliente_uuid):
         
         lista = []
         for row in res.data:
-            # 🔧 RICAVO IL NOME DEL PRODOTTO DALLA TABELLA PRODOTTI
             prod_id = row.get("prodotto_id")
             nome_prodotto = "Prodotto Sconosciuto"
             categoria = ""
             
+            # 🔧 CERCA IL NOME DEL PRODOTTO
             if prod_id:
                 try:
-                    # Cerca il prodotto nella tabella prodotti
                     prod_res = supabase.table("prodotti").select("nome", "categoria").eq("id", prod_id).execute()
                     if prod_res.data:
                         nome_prodotto = prod_res.data[0].get("nome", "Prodotto Sconosciuto")
                         categoria = prod_res.data[0].get("categoria", "")
                 except Exception as e:
-                    print(f"⚠️ Errore recupero prodotto {prod_id}: {e}")
+                    print(f"⚠️ Errore recupero prodotto: {e}")
             
             lista.append({
-                "assegnazione_id": row.get("id"),  # ID DELL'ASSEGNAZIONE
-                "prodotto_id": prod_id,            # ID DEL PRODOTTO
+                "assegnazione_id": row.get("id"),
+                "prodotto_id": prod_id,
+                "nome": nome_prodotto,
+                "categoria": categoria,
                 "modalita": row.get("modalita", ""),
                 "frequenza": row.get("frequenza", ""),
                 "orario": row.get("orario", ""),
@@ -2534,8 +2535,6 @@ def get_prodotti_cliente(cliente_uuid):
                 "tempi_posa": row.get("tempi_posa", ""),
                 "durata_utilizzo": row.get("durata_utilizzo", ""),
                 "note_utilizzo": row.get("note_utilizzo", ""),
-                "nome": nome_prodotto,              # NOME DEL PRODOTTO
-                "categoria": categoria,             # CATEGORIA DEL PRODOTTO
                 "modalita_default": row.get("modalita", ""),
                 "frequenza_default": row.get("frequenza", ""),
                 "orario_default": row.get("orario", ""),
@@ -3714,28 +3713,12 @@ def main():
     # TAB 2: PRODOTTI & SCHEDA CURA
     # =========================================================================
     with tab2:
-        # 🔍 DEBUG: verifica UUID
-        st.write(f"🔍 UUID cliente (da df_clienti): {cliente_uuid}")
-        st.write(f"🔍 Tipo UUID: {type(cliente_uuid)}")
-        
         st.header("📦 Prodotti & Cura Domiciliare")
         if cliente_selezionato == "-- Seleziona --" or cliente_uuid is None:
             st.info("⚠️ Seleziona un cliente dalla barra laterale")
         else:
             # 🔧 CARICA I PRODOTTI ASSEGNATI (AGGIORNATO SEMPRE)
             prodotti_assegnati = get_prodotti_cliente(cliente_uuid)
-
-            # ============================================================
-            # 🔍 TEST DIRETTO SUPABASE
-            # ============================================================
-            if cliente_uuid:
-                try:
-                    test = supabase.table("prodotti_cliente").select("*").eq("cliente_id", cliente_uuid).execute()
-                    st.write(f"🔍 TEST: Trovati {len(test.data) if test.data else 0} record")
-                    if test.data:
-                        st.write("🔍 TEST: Primo record:", test.data[0])
-                except Exception as e:
-                    st.error(f"❌ TEST ERRORE: {e}")
 
             # --- ASSEGNAZIONE PRODOTTI ---
             st.subheader("➕ Assegna Prodotti al Cliente")
