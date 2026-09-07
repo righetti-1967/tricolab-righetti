@@ -69,6 +69,12 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
+    # 🔧 DROP E RICREA LA TABELLA ANALISI CON LA STRUTTURA CORRETTA
+    try:
+        c.execute("DROP TABLE IF EXISTS analisi")
+    except Exception:
+        pass
+
     c.execute("""CREATE TABLE IF NOT EXISTS analisi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cliente_id INTEGER,
