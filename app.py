@@ -2790,6 +2790,37 @@ def invia_file_a_google_drive(
         return False, f"❌ Errore invio: {str(e)}"
 
 # ============================================================================
+# CONFIGURAZIONI SU SUPABASE
+# ============================================================================
+
+def get_config(chiave):
+    """Legge una configurazione da Supabase"""
+    if supabase is None:
+        return ""
+    try:
+        res = supabase.table("configurazione").select("valore").eq("chiave", chiave).execute()
+        if res.data:
+            return res.data[0].get("valore", "")
+        return ""
+    except Exception as e:
+        print(f"⚠️ Errore lettura config {chiave}: {e}")
+        return ""
+
+def set_config(chiave, valore):
+    """Salva una configurazione su Supabase"""
+    if supabase is None:
+        return False
+    try:
+        supabase.table("configurazione").upsert({
+            "chiave": chiave,
+            "valore": valore
+        }, on_conflict="chiave").execute()
+        return True
+    except Exception as e:
+        print(f"⚠️ Errore salvataggio config {chiave}: {e}")
+        return False
+
+# ============================================================================
 # MAIN APPLICATION - SUPABASE ONLY
 # ============================================================================
 def main():
