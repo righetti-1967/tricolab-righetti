@@ -4295,15 +4295,15 @@ def main():
                     st.write("🔍 Cliente non trovato in SQLite, cerco in Supabase...")
                     res_sup = supabase.table("clienti").select("id").eq("codice_cliente", cliente_selezionato).execute()
                     if res_sup.data:
-                        cl_id = res_sup.data[0]["id"]
-                        st.write(f"✅ Cliente trovato in Supabase: {cl_id}")
-                        # Sincronizza in SQLite
+                        # 🔧 NON INSERIRE L'UUID IN SQLITE!
+                        # Invece, crea un nuovo record in SQLite con il suo ID autoincrement
                         c.execute(
-                            "INSERT INTO clienti (id, codice_cliente) VALUES (?, ?)",
-                            (cl_id, cliente_selezionato)
+                            "INSERT INTO clienti (codice_cliente, sesso) VALUES (?, ?)",
+                            (cliente_selezionato, "Uomo")  # Usa il sesso predefinito
                         )
                         conn.commit()
-                        st.success("✅ Cliente sincronizzato in SQLite!")
+                        cl_id = c.lastrowid  # Prende l'ID generato da SQLite
+                        st.write(f"✅ Cliente sincronizzato in SQLite con ID: {cl_id}")
                     else:
                         st.error("❌ Cliente non trovato in Supabase!")
                         st.stop()
