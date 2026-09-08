@@ -3335,18 +3335,54 @@ def main():
 
                             st.success(f"✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**")
 
-            # --- CARICAMENTO FOTO DAL CLOUD ---
+                        # --- CARICAMENTO FOTO DAL CLOUD CON SELEZIONE DATA ---
             foto_da_cloud = []
             if cliente_uuid:
                 with st.spinner("📸 Caricamento foto dal cloud..."):
                     foto_da_cloud = carica_foto_supabase(cliente_uuid)
 
                 if foto_da_cloud:
-                    with st.expander(f"📸 {len(foto_da_cloud)} foto dal cloud (già caricate)", expanded=False):
-                        cols = st.columns(3)
-                        for idx, img_data in enumerate(foto_da_cloud):
-                            with cols[idx % 3]:
-                                st.image(img_data["immagine"], caption=f"{img_data['nome']} ({img_data.get('data', '')})", use_container_width=True)
+                    # 🔥 RACCOGLI LE DATE DISPONIBILI
+                    date_disponibili = sorted(set([img.get("data", "") for img in foto_da_cloud if img.get("data")]), reverse=True)
+                    
+                    st.subheader("📅 Seleziona la data delle foto da visualizzare")
+                    
+                    col_date1, col_date2 = st.columns([2, 1])
+                    with col_date1:
+                        opzioni_date = ["📂 Tutte le foto"] + [f"📅 {d}" for d in date_disponibili if d]
+                        data_selezionata_str = st.selectbox(
+                            "Scegli una data:",
+                            opzioni_date,
+                            key=f"select_foto_data_{cliente_selezionato}",
+                            help="Seleziona una data per visualizzare solo le foto di quel giorno, o 'Tutte le foto' per vederle tutte."
+                        )
+                    
+                    with col_date2:
+                        if st.button("🔄 Ricarica", key=f"refresh_foto_{cliente_selezionato}"):
+                            st.rerun()
+                    
+                    # 🔥 FILTRA LE FOTO IN BASE ALLA DATA SELEZIONATA
+                    if data_selezionata_str == "📂 Tutte le foto":
+                        foto_filtrate = foto_da_cloud
+                        titolo_expander = f"📸 {len(foto_filtrate)} foto dal cloud (tutte)"
+                    else:
+                        data_scelta = data_selezionata_str.replace("📅 ", "")
+                        foto_filtrate = [img for img in foto_da_cloud if img.get("data") == data_scelta]
+                        titolo_expander = f"📸 {len(foto_filtrate)} foto dal cloud ({data_scelta})"
+                    
+                    # 🔥 MOSTRA LE FOTO FILTRATE
+                    if foto_filtrate:
+                        with st.expander(titolo_expander, expanded=True):
+                            cols = st.columns(3)
+                            for idx, img_data in enumerate(foto_filtrate):
+                                with cols[idx % 3]:
+                                    st.image(
+                                        img_data["immagine"],
+                                        caption=f"{img_data['nome']} ({img_data.get('data', '')})",
+                                        use_container_width=True,
+                                    )
+                    else:
+                        st.info(f"📭 Nessuna foto trovata per {data_selezionata_str}")
                 else:
                     st.info("📭 Nessuna foto trovata da sincronizzare per il cliente.")
 
