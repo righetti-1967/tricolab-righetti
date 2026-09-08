@@ -1694,7 +1694,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
         '• PER LE DOSI, TEMPI DI POSA e altro, fare riferimento alla tabella sotto riportata: "DETTAGLIO UTILIZZO PRODOTTI".'
     )
 
-    return "\n".join(fasi))
+    return "\n".join(fasi)
 
 # ============================================================================
 # GESTIONE CARTELLA MASTER "PERCORSI CLIENTI" - VERSIONE PER STREAMLIT CLOUD
