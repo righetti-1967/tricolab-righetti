@@ -4323,10 +4323,15 @@ def main():
                                 st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
                             else:
                                 # 🔥 MOSTRA MESSAGGIO INIZIALE
-                                msg_placeholder = st.empty()
-                                msg_placeholder.info("📄 Generazione Report in corso...")
+                                msg_placeholder = st.info("📄 Generazione Report in corso...")
                                 
-                                # 🔥 FUNZIONE BACKGROUND
+                                # 🔥 ESEGUI LA GENERAZIONE IN BACKGROUND
+                                import threading
+                                import time
+                                
+                                # Variabile per il risultato
+                                risultato = {"success": False, "msg": "", "path": None}
+                                
                                 def genera_report_background():
                                     try:
                                         success = genera_pdf_righetti_completo(
@@ -4342,10 +4347,9 @@ def main():
                                             template_path=template_path,
                                         )
                                         if success and os.path.exists(pdf_path):
-                                            # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
+                                            # 🔥 INVIA A GOOGLE DRIVE
                                             with open(pdf_path, "rb") as pdf_file:
                                                 pdf_bytes_data = pdf_file.read()
-                                                
                                                 ok_drive, msg_drive = invia_file_a_google_drive(
                                                     pdf_bytes_data,
                                                     pdf_filename,
@@ -4353,53 +4357,41 @@ def main():
                                                     mime_type="application/pdf"
                                                 )
                                                 if ok_drive:
-                                                    st.session_state[f"report_msg_{cliente_selezionato}"] = ("success", msg_drive)
+                                                    risultato["msg"] = msg_drive
                                                 else:
-                                                    st.session_state[f"report_msg_{cliente_selezionato}"] = ("warning", msg_drive)
+                                                    risultato["msg"] = f"⚠️ {msg_drive}"
                                             
-                                            # 🔥 SALVA IL PERCORSO PER IL DOWNLOAD
-                                            st.session_state[f"report_path_{cliente_selezionato}"] = pdf_path
-                                            st.session_state[f"report_filename_{cliente_selezionato}"] = pdf_filename
-                                            st.session_state[f"report_msg_{cliente_selezionato}"] = ("success", f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                                            risultato["success"] = True
+                                            risultato["path"] = pdf_path
+                                            risultato["filename"] = pdf_filename
+                                            risultato["msg"] = f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**"
                                         else:
-                                            st.session_state[f"report_msg_{cliente_selezionato}"] = ("error", "❌ Errore durante la generazione del Report")
+                                            risultato["msg"] = "❌ Errore durante la generazione del Report"
                                     except Exception as e:
-                                        st.session_state[f"report_msg_{cliente_selezionato}"] = ("error", f"❌ Errore durante la creazione del PDF: {e}")
-                                    finally:
-                                        st.session_state[f"report_finito_{cliente_selezionato}"] = True
+                                        risultato["msg"] = f"❌ Errore durante la creazione del PDF: {e}"
                                 
                                 # 🔥 AVVIA IL THREAD
-                                import threading
                                 thread = threading.Thread(target=genera_report_background, daemon=True)
                                 thread.start()
                                 
-                                # 🔥 MOSTRA IL MESSAGGIO DI CONFERMA (SE IL THREAD È FINITO)
-                                if st.session_state.get(f"report_finito_{cliente_selezionato}", False):
-                                    msg_type, msg_text = st.session_state.get(f"report_msg_{cliente_selezionato}", ("info", ""))
-                                    if msg_type == "success":
-                                        msg_placeholder.success(msg_text)
-                                    elif msg_type == "warning":
-                                        msg_placeholder.warning(msg_text)
-                                    elif msg_type == "error":
-                                        msg_placeholder.error(msg_text)
-                                    else:
-                                        msg_placeholder.info(msg_text)
-                                    
-                                    # 🔥 MOSTRA IL PULSANTE DI DOWNLOAD
-                                    pdf_path_saved = st.session_state.get(f"report_path_{cliente_selezionato}")
-                                    pdf_filename_saved = st.session_state.get(f"report_filename_{cliente_selezionato}")
-                                    if pdf_path_saved and os.path.exists(pdf_path_saved):
-                                        with open(pdf_path_saved, "rb") as pdf_file:
+                                # 🔥 ASPETTA CHE IL THREAD FINISCA (CON UN MAX DI 60 SECONDI)
+                                with st.spinner("📄 Generazione Report in corso..."):
+                                    thread.join(timeout=60)
+                                
+                                # 🔥 MOSTRA IL RISULTATO
+                                if risultato["success"]:
+                                    st.success(risultato["msg"])
+                                    if risultato["path"] and os.path.exists(risultato["path"]):
+                                        with open(risultato["path"], "rb") as pdf_file:
                                             st.download_button(
                                                 "📥 Scarica Report PDF",
                                                 pdf_file,
-                                                pdf_filename_saved,
+                                                risultato["filename"],
                                                 "application/pdf",
                                                 use_container_width=True
                                             )
-                                    
-                                    # 🔥 RESETTA IL FLAG
-                                    st.session_state[f"report_finito_{cliente_selezionato}"] = False
+                                else:
+                                    st.error(risultato["msg"])
                         else:
                             st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
 
