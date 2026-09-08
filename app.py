@@ -2877,6 +2877,13 @@ def ordina_fasi(testo_protocollo):
     
     return "\n".join(risultato)
 
+
+
+def pulisci_cache_file():
+    """Pulisce la cache dei file mostrati nel Tab 4"""
+    st.cache_data.clear()
+    st.rerun()
+
 # ============================================================================
 # MAIN APPLICATION - SUPABASE ONLY
 # ============================================================================
@@ -4705,6 +4712,12 @@ def main():
 
                     st.markdown("---")
                     st.markdown("##### 📁 File e Foto Archiviati sul Desktop:")
+                    # 🔥 PULSANTE PER AGGIORNARE LA LISTA
+                    col_refresh1, col_refresh2 = st.columns([4, 1])
+                    with col_refresh2:
+                        if st.button("🔄 Aggiorna", key=f"refresh_files_{cliente_selezionato}", use_container_width=True):
+                            st.cache_data.clear()
+                            st.rerun()
                     cartella_cl = trova_o_crea_cartella_cliente(cliente_selezionato)
                     if os.path.exists(cartella_cl):
                         files_presenti = os.listdir(cartella_cl)
