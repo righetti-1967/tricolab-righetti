@@ -1493,56 +1493,6 @@ def genera_pdf_righetti_completo(
         return False
 
 # ============================================================================
-# ORDINATORE FASI PROTOCOLLO (CON SUPPORTO 1, 1A, 1B, 2, 2A, 2B...)
-# ============================================================================
-def ordina_fasi(testo_protocollo):
-    """Ordina le fasi del protocollo in base al numero (1, 1A, 1B, 2, 2A, 2B, 3...)"""
-    import re
-    
-    if not testo_protocollo:
-        return testo_protocollo
-    
-    righe = testo_protocollo.split("\n")
-    fasi_ordinate = []
-    fasi_senza_numero = []
-    altre_righe = []
-    
-    # 🔥 ESPRESSIONE REGOLARE PER CATTURARE: 1, 1A, 1B, 2, 2A, 2B, 3...
-    pattern = re.compile(r"Fase\s*(\d+)([A-Z]?)", re.IGNORECASE)
-    
-    for riga in righe:
-        if "Fase" in riga and ":" in riga:
-            match = pattern.search(riga)
-            if match:
-                num = int(match.group(1))      # Numero base (1, 2, 3...)
-                lettera = match.group(2).upper() if match.group(2) else ""  # A, B, C... o ""
-                fasi_ordinate.append((num, lettera, riga))
-            else:
-                fasi_senza_numero.append(riga)
-        else:
-            altre_righe.append(riga)
-    
-    # 🔥 ORDINA PER NUMERO, POI PER LETTERA (1, 1A, 1B, 2, 2A, 2B, 3...)
-    fasi_ordinate.sort(key=lambda x: (x[0], x[1]))
-    
-    # Ricostruisce il testo
-    risultato = []
-    
-    # Aggiunge le fasi ordinate
-    for _, _, riga in fasi_ordinate:
-        risultato.append(riga)
-    
-    # Aggiunge le fasi senza numero (se ci sono)
-    if fasi_senza_numero:
-        risultato.extend(fasi_senza_numero)
-    
-    # Aggiunge le altre righe (Durata, Nota, ecc.)
-    if altre_righe:
-        risultato.extend(altre_righe)
-    
-    return "\n".join(risultato)
-
-# ============================================================================
 # GENERATORE BOZZA PROTOCOLLO (CON RINVIO ALLA TABELLA IN CALCE)
 # ============================================================================
 def genera_bozza_protocollo_automatico(prodotti_assegnati):
@@ -2861,6 +2811,56 @@ def invia_file_a_google_drive(
             return False, f"❌ Errore HTTP {resp.status_code}"
     except Exception as e:
         return False, f"❌ Errore invio: {str(e)}"
+
+# ============================================================================
+# ORDINATORE FASI PROTOCOLLO (CON SUPPORTO 1, 1A, 1B, 2, 2A, 2B...)
+# ============================================================================
+def ordina_fasi(testo_protocollo):
+    """Ordina le fasi del protocollo in base al numero (1, 1A, 1B, 2, 2A, 2B, 3...)"""
+    import re
+    
+    if not testo_protocollo:
+        return testo_protocollo
+    
+    righe = testo_protocollo.split("\n")
+    fasi_ordinate = []
+    fasi_senza_numero = []
+    altre_righe = []
+    
+    # 🔥 ESPRESSIONE REGOLARE PER CATTURARE: 1, 1A, 1B, 2, 2A, 2B, 3...
+    pattern = re.compile(r"Fase\s*(\d+)([A-Z]?)", re.IGNORECASE)
+    
+    for riga in righe:
+        if "Fase" in riga and ":" in riga:
+            match = pattern.search(riga)
+            if match:
+                num = int(match.group(1))      # Numero base (1, 2, 3...)
+                lettera = match.group(2).upper() if match.group(2) else ""  # A, B, C... o ""
+                fasi_ordinate.append((num, lettera, riga))
+            else:
+                fasi_senza_numero.append(riga)
+        else:
+            altre_righe.append(riga)
+    
+    # 🔥 ORDINA PER NUMERO, POI PER LETTERA (1, 1A, 1B, 2, 2A, 2B, 3...)
+    fasi_ordinate.sort(key=lambda x: (x[0], x[1]))
+    
+    # Ricostruisce il testo
+    risultato = []
+    
+    # Aggiunge le fasi ordinate
+    for _, _, riga in fasi_ordinate:
+        risultato.append(riga)
+    
+    # Aggiunge le fasi senza numero (se ci sono)
+    if fasi_senza_numero:
+        risultato.extend(fasi_senza_numero)
+    
+    # Aggiunge le altre righe (Durata, Nota, ecc.)
+    if altre_righe:
+        risultato.extend(altre_righe)
+    
+    return "\n".join(risultato)
 
 # ============================================================================
 # MAIN APPLICATION - SUPABASE ONLY
@@ -4191,7 +4191,7 @@ def main():
 
             st.markdown("---")
 
-                                                # --- PROTOCOLLO (AUTOMATICO + PULSANTE RIGENERA) ---
+                                        # --- PROTOCOLLO (AUTOMATICO + ORDINAMENTO IN TEMPO REALE) ---
             st.subheader("📝 Protocollo di Utilizzo Sequenziale")
             proto_key = f"proto_testo_{cliente_selezionato}"
 
@@ -4234,7 +4234,6 @@ def main():
                     prodotti_ricaricati = []
 
                 if prodotti_ricaricati:
-                    # 🔥 GENERA IL TESTO E POI LO ORDINA
                     testo_generato = genera_bozza_protocollo_automatico(prodotti_ricaricati)
                     st.session_state[proto_key] = ordina_fasi(testo_generato)
                 else:
@@ -4248,12 +4247,24 @@ def main():
                 else:
                     st.session_state[proto_key] = "Nessun prodotto assegnato."
 
+            # 🔥 FUNZIONE PER ORDINARE AUTOMATICAMENTE QUANDO IL TESTO CAMBIA
+            def on_text_change():
+                testo_corrente = st.session_state.get(proto_key, "")
+                if testo_corrente and testo_corrente != "Nessun prodotto assegnato.":
+                    # 🔥 ORDINA AUTOMATICAMENTE SE IL TESTO È CAMBIATO
+                    testo_ordinato = ordina_fasi(testo_corrente)
+                    if testo_ordinato != testo_corrente:
+                        st.session_state[proto_key] = testo_ordinato
+
             col_pr1, col_pr2 = st.columns([4, 1])
             with col_pr1:
+                # 🔥 text_area con callback automatico
                 testo_protocollo_inserito = st.text_area(
                     "Istruzioni Sequenziali di Utilizzo (modificabili):",
                     key=proto_key,
                     height=160,
+                    on_change=on_text_change,
+                    help="Modifica il testo. Le fasi verranno riordinate automaticamente quando cambi il numero di una fase."
                 )
             with col_pr2:
                 st.write("")
