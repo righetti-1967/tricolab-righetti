@@ -3350,7 +3350,7 @@ def main():
                         dati_visita_precedente = estrai_dati_da_pdf_report(pdf_bytes)
                         st.success(f"✅ PDF caricato! Data rilevata: **{dati_visita_precedente['data']}**")
 
-                        # --- FOTO PANORAMICA ---
+            # --- FOTO PANORAMICA ---
             with st.expander("📱 Foto Panoramica Globale da PC | Smartphone", expanded=False):
                 st.caption("Tocca 'Upload' e scegli 'Scatta foto' dal tuo Smartphone per fotografare la testa dall'alto ad altissima risoluzione.")
                 uploaded_macro_phone = st.file_uploader(
@@ -3373,33 +3373,41 @@ def main():
                             nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_macro_str}.jpg"
                             path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
 
-                            # Salva localmente
-                            with open(path_macro_dest, "wb") as f_macro:
-                                f_macro.write(uploaded_macro_phone.getbuffer())
+                            # 🔥 MOSTRA MESSAGGIO INIZIALE
+                            st.info("📸 Salvataggio foto panoramica in corso (background)...")
+                            
+                            # 🔥 FUNZIONE BACKGROUND
+                            def salva_panoramica_background():
+                                try:
+                                    # Salva localmente
+                                    with open(path_macro_dest, "wb") as f_macro:
+                                        f_macro.write(uploaded_macro_phone.getbuffer())
 
-                            # 🔥 INVIA A GOOGLE DRIVE
-                            try:
-                                # Leggi il file appena salvato
-                                with open(path_macro_dest, "rb") as img_file:
-                                    img_bytes = img_file.read()
+                                    # Leggi il file appena salvato e invia a Google Drive
+                                    with open(path_macro_dest, "rb") as img_file:
+                                        img_bytes = img_file.read()
+                                        
+                                        ok_drive, msg_drive = invia_file_a_google_drive(
+                                            img_bytes,
+                                            nome_file_macro,
+                                            cliente_selezionato,
+                                            mime_type="image/jpeg"
+                                        )
+                                        if ok_drive:
+                                            st.success(f"📸 Foto panoramica inviata a Google Drive!")
+                                        else:
+                                            st.warning(f"⚠️ {msg_drive}")
                                     
-                                    # Invia a Google Drive tramite webhook
-                                    ok_drive, msg_drive = invia_file_a_google_drive(
-                                        img_bytes,
-                                        nome_file_macro,
-                                        cliente_selezionato,
-                                        mime_type="image/jpeg"
-                                    )
-                                    if ok_drive:
-                                        st.success(f"📸 Foto panoramica inviata a Google Drive!")
-                                    else:
-                                        st.warning(f"⚠️ {msg_drive}")
-                            except Exception as e:
-                                st.warning(f"⚠️ Errore invio foto panoramica a Google Drive: {e}")
+                                    st.success(f"✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**")
+                                except Exception as e:
+                                    st.warning(f"⚠️ Errore invio foto panoramica a Google Drive: {e}")
+                            
+                            # 🔥 AVVIA IL THREAD
+                            import threading
+                            thread = threading.Thread(target=salva_panoramica_background, daemon=True)
+                            thread.start()
 
-                            st.success(f"✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**")
-
-                                    # --- CARICAMENTO FOTO DAL CLOUD CON SELEZIONE DATA ---
+            # --- CARICAMENTO FOTO DAL CLOUD CON SELEZIONE DATA ---
             # 🔥 OPZIONE PER MOSTRARE/NASCONDERE LE FOTO ARCHIVIATE
             mostra_foto_archiviate = st.checkbox(
                 "📸 Mostra foto archiviate dal cloud",
@@ -4032,69 +4040,80 @@ def main():
 
                 with col_b2:
                     if st.button("📄 Genera Report TricoCamera PDF", key="btn_gen_pdf_pro", use_container_width=True):
-                        if immagini_con_etichette:
-                            cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                            prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report")
-                            pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico.pdf"
-                            pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
+                            if immagini_con_etichette:
+                                cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                                prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report")
+                                pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico.pdf"
+                                pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                            nota_da_stampare = st.session_state.get(note_glob_key, "")
-                            if not nota_da_stampare and "nota_globale_finale" in locals():
-                                nota_da_stampare = nota_globale_finale
+                                nota_da_stampare = st.session_state.get(note_glob_key, "")
+                                if not nota_da_stampare and "nota_globale_finale" in locals():
+                                    nota_da_stampare = nota_globale_finale
 
-                            note_extra_str = str(nota_operatore_extra).strip() if ("nota_operatore_extra" in locals() and nota_operatore_extra) else ""
-                            if note_extra_str:
-                                nota_da_stampare += f"\n\nNote Aggiuntive: {note_extra_str}"
+                                note_extra_str = str(nota_operatore_extra).strip() if ("nota_operatore_extra" in locals() and nota_operatore_extra) else ""
+                                if note_extra_str:
+                                    nota_da_stampare += f"\n\nNote Aggiuntive: {note_extra_str}"
 
-                            template_path = "Report TricoCamera.pdf"
-                            if not os.path.exists(template_path):
-                                st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
-                            else:
-                                try:
-                                    success = genera_pdf_righetti_completo(
-                                        nome_cliente=cliente_selezionato,
-                                        eta=eta_cliente,
-                                        cellulare=cell_cliente,
-                                        email=email_cliente,
-                                        nota_operatore=nota_da_stampare,
-                                        checkup_num=checkup_num,
-                                        num_immagini=len(immagini_con_etichette),
-                                        immagini_con_etichette=immagini_con_etichette,
-                                        path_salvataggio=pdf_path,
-                                        template_path=template_path,
-                                    )
-                                    if success and os.path.exists(pdf_path):
-                                        # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
-                                        with open(pdf_path, "rb") as pdf_file:
-                                            pdf_bytes_data = pdf_file.read()
-                                            
-                                            # Invia a Google Drive tramite webhook
-                                            ok_drive, msg_drive = invia_file_a_google_drive(
-                                                pdf_bytes_data,
-                                                pdf_filename,
-                                                cliente_selezionato,
-                                                mime_type="application/pdf"
+                                template_path = "Report TricoCamera.pdf"
+                                if not os.path.exists(template_path):
+                                    st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
+                                else:
+                                    # 🔥 MOSTRA MESSAGGIO INIZIALE
+                                    st.info("📄 Generazione Report in corso (background)...")
+                                    
+                                    # 🔥 FUNZIONE BACKGROUND
+                                    def genera_report_background():
+                                        try:
+                                            success = genera_pdf_righetti_completo(
+                                                nome_cliente=cliente_selezionato,
+                                                eta=eta_cliente,
+                                                cellulare=cell_cliente,
+                                                email=email_cliente,
+                                                nota_operatore=nota_da_stampare,
+                                                checkup_num=checkup_num,
+                                                num_immagini=len(immagini_con_etichette),
+                                                immagini_con_etichette=immagini_con_etichette,
+                                                path_salvataggio=pdf_path,
+                                                template_path=template_path,
                                             )
-                                            if ok_drive:
-                                                st.success(msg_drive)
+                                            if success and os.path.exists(pdf_path):
+                                                # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
+                                                with open(pdf_path, "rb") as pdf_file:
+                                                    pdf_bytes_data = pdf_file.read()
+                                                    
+                                                    ok_drive, msg_drive = invia_file_a_google_drive(
+                                                        pdf_bytes_data,
+                                                        pdf_filename,
+                                                        cliente_selezionato,
+                                                        mime_type="application/pdf"
+                                                    )
+                                                    if ok_drive:
+                                                        st.success(msg_drive)
+                                                    else:
+                                                        st.warning(msg_drive)
+                                                
+                                                # Pulsante di download (come backup)
+                                                with open(pdf_path, "rb") as pdf_file:
+                                                    st.download_button(
+                                                        "📥 Scarica Report PDF",
+                                                        pdf_file,
+                                                        pdf_filename,
+                                                        "application/pdf",
+                                                        use_container_width=True
+                                                    )
+                                                
+                                                st.success(f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
                                             else:
-                                                st.warning(msg_drive)
-                                        
-                                        # Pulsante di download (come backup)
-                                        with open(pdf_path, "rb") as pdf_file:
-                                            st.download_button(
-                                                "📥 Scarica Report PDF",
-                                                pdf_file,
-                                                pdf_filename,
-                                                "application/pdf",
-                                                use_container_width=True
-                                            )
-                                        
-                                        st.success(f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
-                                except Exception as e:
-                                    st.error(f"❌ Errore durante la creazione del PDF: {e}")
-                        else:
-                            st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
+                                                st.error("❌ Errore durante la generazione del Report")
+                                        except Exception as e:
+                                            st.error(f"❌ Errore durante la creazione del PDF: {e}")
+                                    
+                                    # 🔥 AVVIA IL THREAD
+                                    import threading
+                                    thread = threading.Thread(target=genera_report_background, daemon=True)
+                                    thread.start()
+                            else:
+                                st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
 
     # =========================================================================
     # TAB 2: PRODOTTI & SCHEDA CURA
@@ -4385,49 +4404,63 @@ def main():
             st.markdown("---")
             if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
                 if prodotti_assegnati:
-                        cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                        prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
-                        pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
-                        pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
+                    cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                    prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
+                    pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
+                    pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                        confronto_dati = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
-                        proto_da_stampare = st.session_state.get(proto_key, testo_protocollo_inserito)
+                    confronto_dati = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
+                    proto_da_stampare = st.session_state.get(proto_key, testo_protocollo_inserito)
 
-                        success = genera_pdf_cura_domiciliare(
-                            cliente_selezionato,
-                            prodotti_assegnati,
-                            pdf_path,
-                            dati_confronto=confronto_dati,
-                            protocollo_testo=proto_da_stampare,
-                        )
-                        if success and os.path.exists(pdf_path):
-                            # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
-                            with open(pdf_path, "rb") as pdf_file:
-                                pdf_bytes_data = pdf_file.read()
+                    # 🔥 MOSTRA MESSAGGIO INIZIALE
+                    st.info("📄 Generazione Scheda Cura in corso (background)...")
+                    
+                    # 🔥 FUNZIONE BACKGROUND
+                    def genera_scheda_background():
+                        try:
+                            success = genera_pdf_cura_domiciliare(
+                                cliente_selezionato,
+                                prodotti_assegnati,
+                                pdf_path,
+                                dati_confronto=confronto_dati,
+                                protocollo_testo=proto_da_stampare,
+                            )
+                            if success and os.path.exists(pdf_path):
+                                # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
+                                with open(pdf_path, "rb") as pdf_file:
+                                    pdf_bytes_data = pdf_file.read()
+                                    
+                                    ok_drive, msg_drive = invia_file_a_google_drive(
+                                        pdf_bytes_data,
+                                        pdf_filename,
+                                        cliente_selezionato,
+                                        mime_type="application/pdf"
+                                    )
+                                    if ok_drive:
+                                        st.success(msg_drive)
+                                    else:
+                                        st.warning(msg_drive)
                                 
-                                # Invia a Google Drive tramite webhook
-                                ok_drive, msg_drive = invia_file_a_google_drive(
-                                    pdf_bytes_data,
-                                    pdf_filename,
-                                    cliente_selezionato,
-                                    mime_type="application/pdf"
-                                )
-                                if ok_drive:
-                                    st.success(msg_drive)
-                                else:
-                                    st.warning(msg_drive)
-                            
-                            # Pulsante di download (come backup)
-                            with open(pdf_path, "rb") as pdf_file:
-                                st.download_button(
-                                    "📥 Scarica Scheda Cura PDF",
-                                    pdf_file,
-                                    pdf_filename,
-                                    "application/pdf",
-                                    use_container_width=True
-                                )
-                            
-                            st.success(f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                                # Pulsante di download (come backup)
+                                with open(pdf_path, "rb") as pdf_file:
+                                    st.download_button(
+                                        "📥 Scarica Scheda Cura PDF",
+                                        pdf_file,
+                                        pdf_filename,
+                                        "application/pdf",
+                                        use_container_width=True
+                                    )
+                                
+                                st.success(f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                            else:
+                                st.error("❌ Errore durante la generazione della Scheda Cura")
+                        except Exception as e:
+                            st.error(f"❌ Errore durante la creazione della Scheda Cura: {e}")
+                    
+                    # 🔥 AVVIA IL THREAD
+                    import threading
+                    thread = threading.Thread(target=genera_scheda_background, daemon=True)
+                    thread.start()
                 else:
                     st.warning("⚠️ Assegna almeno un prodotto al cliente.")
                         
@@ -4462,36 +4495,55 @@ def main():
                             pdf_filename = f"{cliente_selezionato} | {prefisso_dash}Dashboard Grafici.pdf"
                             pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                            success = genera_pdf_dashboard_grafici(cliente_selezionato, df_trend, ultima_visita, pdf_path)
+                            # 🔥 MOSTRA MESSAGGIO INIZIALE
+                            st.info("📄 Generazione Dashboard in corso (background)...")
                             
-                            if success and os.path.exists(pdf_path):
-                                # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
-                                with open(pdf_path, "rb") as pdf_file:
-                                    pdf_bytes = pdf_file.read()
-                                    
-                                    # Invia a Google Drive tramite webhook
-                                    ok_drive, msg_drive = invia_file_a_google_drive(
-                                        pdf_bytes,
-                                        pdf_filename,
+                            # 🔥 FUNZIONE BACKGROUND
+                            def genera_dashboard_background():
+                                try:
+                                    success = genera_pdf_dashboard_grafici(
                                         cliente_selezionato,
-                                        mime_type="application/pdf"
+                                        df_trend,
+                                        ultima_visita,
+                                        pdf_path
                                     )
-                                    if ok_drive:
-                                        st.success(msg_drive)
+                                    
+                                    if success and os.path.exists(pdf_path):
+                                        # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
+                                        with open(pdf_path, "rb") as pdf_file:
+                                            pdf_bytes = pdf_file.read()
+                                            
+                                            ok_drive, msg_drive = invia_file_a_google_drive(
+                                                pdf_bytes,
+                                                pdf_filename,
+                                                cliente_selezionato,
+                                                mime_type="application/pdf"
+                                            )
+                                            if ok_drive:
+                                                st.success(msg_drive)
+                                            else:
+                                                st.warning(msg_drive)
+                                        
+                                        # Pulsante di download (come backup)
+                                        with open(pdf_path, "rb") as pdf_file:
+                                            st.download_button(
+                                                "📥 Scarica Dashboard PDF",
+                                                pdf_file,
+                                                pdf_filename,
+                                                "application/pdf",
+                                                use_container_width=True
+                                            )
+                                        
+                                        st.success(f"✅ Dashboard salvata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
                                     else:
-                                        st.warning(msg_drive)
-                                
-                                # Pulsante di download (come backup)
-                                with open(pdf_path, "rb") as pdf_file:
-                                    st.download_button(
-                                        "📥 Scarica Dashboard PDF",
-                                        pdf_file,
-                                        pdf_filename,
-                                        "application/pdf",
-                                        use_container_width=True
-                                    )
-                                
-                                st.success(f"✅ Dashboard salvata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                                        st.error("❌ Errore durante la generazione della Dashboard")
+                                except Exception as e:
+                                    st.error(f"❌ Errore durante la creazione della Dashboard: {e}")
+                            
+                            # 🔥 AVVIA IL THREAD
+                            import threading
+                            thread = threading.Thread(target=genera_dashboard_background, daemon=True)
+                            thread.start()
 
                 # Metriche
                 c_m1, c_m2, c_m3, c_m4 = st.columns(4)
