@@ -3546,18 +3546,21 @@ def main():
                                 col_p5.metric("Eritemi", tot_eritemi)
                                 col_p6.metric("Germogli Anagen", tot_nuovi)
                                 
-                                # Calcola media steli vellus e anagen
-                                media_vellus = round(
-                                    float(np.mean([p["steli_vellus"] for p in parametri_estratti])),
-                                    1
-                                ) if parametri_estratti else 0
-                                media_anagen = round(
-                                    float(np.mean([p["steli_anagen"] for p in parametri_estratti])),
-                                    1
-                                ) if parametri_estratti else 0
-                                
-                                col_p7.metric("Steli Vellus", f"{media_vellus}")
-                                col_p8.metric("Steli Anagen", f"{media_anagen}")
+                                # 🔥 CALCOLA MEDIE DI VELLUS E ANAGEN (CON CONTROLLO)
+                                    media_vellus = 0
+                                    media_anagen = 0
+                                    
+                                    if parametri_estratti:
+                                        vellus_values = [p.get("steli_vellus", 0) for p in parametri_estratti if "steli_vellus" in p]
+                                        anagen_values = [p.get("steli_anagen", 0) for p in parametri_estratti if "steli_anagen" in p]
+                                        
+                                        if vellus_values:
+                                            media_vellus = round(float(np.mean(vellus_values)), 1)
+                                        if anagen_values:
+                                            media_anagen = round(float(np.mean(anagen_values)), 1)
+                                    
+                                    col_p7.metric("Steli Vellus", f"{media_vellus}")
+                                    col_p8.metric("Steli Anagen", f"{media_anagen}")
                                 
                                 # 🔥 MOSTRA LA DATA ESTRATTA
                                 st.info(f"📅 Data visita precedente: **{dati_visita_precedente.get('data', 'Data non rilevata')}**")
