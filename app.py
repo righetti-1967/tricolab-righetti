@@ -3474,20 +3474,59 @@ def main():
                                         caption=f"{img_data['campo']} (Pagina {img_data.get('pagina', '?')})",
                                         use_container_width=True,
                                     )
+
+                            # 🔧 FUNZIONE PER RIMUOVERE IL BORDO BIANCO
+                            def ritaglia_immagine(img_rgb):
+                                # Converti in scala di grigi
+                                gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+                                # Soglia per trovare il contenuto (non bianco)
+                                _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+                                # Trova i contorni
+                                contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                                if contours:
+                                    # Prende il contorno più grande
+                                    c = max(contours, key=cv2.contourArea)
+                                    x, y, w, h = cv2.boundingRect(c)
+                                    # Ritaglia l'immagine originale
+                                    return img_rgb[y:y+h, x:x+w]
+                                return img_rgb
                             
                             # 🔥 ANALIZZA LE IMMAGINI CON IL MOTORE TRICOSCOPICO
                             analisi_status = st.info("🔬 Analisi delle immagini in corso...")
                             parametri_estratti = []
                             
                             for idx, img_data in enumerate(immagini_estratti):
+                                # 1. Prendi l'immagine RGB
+                                img_rgb = img_data["immagine"]
+                                
+                                # 2. Rimuovi il bordo bianco
+                                img_ritagliata = ritaglia_immagine(img_rgb)
+                                
+                                # 3. Riduci la dimensione per velocizzare (max 1200px)
+                                h, w = img_ritagliata.shape[:2]
+                                if max(h, w) > 1200:
+                                    scale = 1200 / max(h, w)
+                                    new_w = int(w * scale)
+                                    new_h = int(h * scale)
+                                    img_ritagliata = cv2.resize(img_ritagliata, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                                
+                                # 4. Converti in JPEG in memoria (senza salvarlo su disco)
+                                _, img_encoded = cv2.imencode('.jpg', cv2.cvtColor(img_ritagliata, cv2.COLOR_RGB2BGR), [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                                img_bytes = img_encoded.tobytes()
+                                img_array = np.frombuffer(img_bytes, dtype=np.uint8)
+                                img_jpeg = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                                img_rgb_finale = cv2.cvtColor(img_jpeg, cv2.COLOR_BGR2RGB)
+                                
+                                # 5. Analizza l'immagine con il motore tricoscopico
                                 risultato = analizza_immagine_tricoscopica_pro(
-                                    img_data["immagine"],
+                                    img_rgb_finale,
                                     lente="50x",
                                     luce="Bianca",
                                     zona="Multi-zona",
                                     parametri_cliente=sintomi_dict,
                                 )
                                 
+                                # 6. Salva i parametri
                                 parametri_estratti.append({
                                     "calibro_medio": risultato["calibro_medio"],
                                     "anisotropia": risultato["anisotropia"],
@@ -3495,9 +3534,11 @@ def main():
                                     "tappi_sebacei": risultato["tappi_sebacei"],
                                     "eritemi": risultato["eritema_diffuso"],
                                     "steli_nuovi": risultato["steli_nuovi"],
+                                    "steli_vellus": risultato["steli_vellus"],
+                                    "steli_anagen": risultato["steli_anagen"],
                                     "immagine": risultato["immagine_annotata"],
                                 })
-
+                            
                             # 🔥 RIMUOVI IL MESSAGGIO "IN CORSO"
                             analisi_status.empty()
                             
