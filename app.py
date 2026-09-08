@@ -1493,10 +1493,10 @@ def genera_pdf_righetti_completo(
         return False
 
 # ============================================================================
-# ORDINATORE FASI PROTOCOLLO
+# ORDINATORE FASI PROTOCOLLO (CON SUPPORTO 1, 1A, 1B, 2, 2A, 2B...)
 # ============================================================================
 def ordina_fasi(testo_protocollo):
-    """Ordina le fasi del protocollo in base al numero (Fase 1, Fase 2, Fase 3...)"""
+    """Ordina le fasi del protocollo in base al numero (1, 1A, 1B, 2, 2A, 2B, 3...)"""
     import re
     
     if not testo_protocollo:
@@ -1507,25 +1507,29 @@ def ordina_fasi(testo_protocollo):
     fasi_senza_numero = []
     altre_righe = []
     
+    # 🔥 ESPRESSIONE REGOLARE PER CATTURARE: 1, 1A, 1B, 2, 2A, 2B, 3...
+    pattern = re.compile(r"Fase\s*(\d+)([A-Z]?)", re.IGNORECASE)
+    
     for riga in righe:
         if "Fase" in riga and ":" in riga:
-            match = re.search(r"Fase\s*(\d+)", riga)
+            match = pattern.search(riga)
             if match:
-                num = int(match.group(1))
-                fasi_ordinate.append((num, riga))
+                num = int(match.group(1))      # Numero base (1, 2, 3...)
+                lettera = match.group(2).upper() if match.group(2) else ""  # A, B, C... o ""
+                fasi_ordinate.append((num, lettera, riga))
             else:
                 fasi_senza_numero.append(riga)
         else:
             altre_righe.append(riga)
     
-    # Ordina le fasi per numero
-    fasi_ordinate.sort(key=lambda x: x[0])
+    # 🔥 ORDINA PER NUMERO, POI PER LETTERA (1, 1A, 1B, 2, 2A, 2B, 3...)
+    fasi_ordinate.sort(key=lambda x: (x[0], x[1]))
     
     # Ricostruisce il testo
     risultato = []
     
     # Aggiunge le fasi ordinate
-    for _, riga in fasi_ordinate:
+    for _, _, riga in fasi_ordinate:
         risultato.append(riga)
     
     # Aggiunge le fasi senza numero (se ci sono)
@@ -1690,7 +1694,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
         '• PER LE DOSI, TEMPI DI POSA e altro, fare riferimento alla tabella sotto riportata: "DETTAGLIO UTILIZZO PRODOTTI".'
     )
 
-    return ordina_fasi("\n".join(fasi))
+    return "\n".join(fasi))
 
 # ============================================================================
 # GESTIONE CARTELLA MASTER "PERCORSI CLIENTI" - VERSIONE PER STREAMLIT CLOUD
@@ -4187,7 +4191,7 @@ def main():
 
             st.markdown("---")
 
-                                    # --- PROTOCOLLO (AUTOMATICO + PULSANTE RIGENERA) ---
+                                                # --- PROTOCOLLO (AUTOMATICO + PULSANTE RIGENERA) ---
             st.subheader("📝 Protocollo di Utilizzo Sequenziale")
             proto_key = f"proto_testo_{cliente_selezionato}"
 
@@ -4230,14 +4234,17 @@ def main():
                     prodotti_ricaricati = []
 
                 if prodotti_ricaricati:
-                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_ricaricati)
+                    # 🔥 GENERA IL TESTO E POI LO ORDINA
+                    testo_generato = genera_bozza_protocollo_automatico(prodotti_ricaricati)
+                    st.session_state[proto_key] = ordina_fasi(testo_generato)
                 else:
                     st.session_state[proto_key] = "Nessun prodotto assegnato."
 
-            # 🔥 GENERA AUTOMATICAMENTE IL PROTOCOLLO ALL'AVVIO
+            # 🔥 GENERA AUTOMATICAMENTE IL PROTOCOLLO ALL'AVVIO (CON ORDINAMENTO)
             if proto_key not in st.session_state or not st.session_state[proto_key]:
                 if prodotti_assegnati:
-                    st.session_state[proto_key] = genera_bozza_protocollo_automatico(prodotti_assegnati)
+                    testo_generato = genera_bozza_protocollo_automatico(prodotti_assegnati)
+                    st.session_state[proto_key] = ordina_fasi(testo_generato)
                 else:
                     st.session_state[proto_key] = "Nessun prodotto assegnato."
 
