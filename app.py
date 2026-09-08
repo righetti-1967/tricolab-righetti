@@ -3335,9 +3335,17 @@ def main():
 
                             st.success(f"✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**")
 
-                        # --- CARICAMENTO FOTO DAL CLOUD CON SELEZIONE DATA ---
+                                    # --- CARICAMENTO FOTO DAL CLOUD CON SELEZIONE DATA ---
+            # 🔥 OPZIONE PER MOSTRARE/NASCONDERE LE FOTO ARCHIVIATE
+            mostra_foto_archiviate = st.checkbox(
+                "📸 Mostra foto archiviate dal cloud",
+                value=True,
+                key=f"mostra_foto_archiviate_{cliente_selezionato}",
+                help="Se attivo, mostra le foto già caricate su Supabase. Se disattivo, le nasconde."
+            )
+            
             foto_da_cloud = []
-            if cliente_uuid:
+            if mostra_foto_archiviate and cliente_uuid:
                 with st.spinner("📸 Caricamento foto dal cloud..."):
                     foto_da_cloud = carica_foto_supabase(cliente_uuid)
 
@@ -3385,7 +3393,7 @@ def main():
                         st.info(f"📭 Nessuna foto trovata per {data_selezionata_str}")
                 else:
                     st.info("📭 Nessuna foto trovata da sincronizzare per il cliente.")
-
+                    
             # --- CARICAMENTO NUOVE IMMAGINI ---
             uploaded_files = st.file_uploader(
                 "📤 Carica immagini tricoscopiche della seduta odierna",
