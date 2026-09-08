@@ -3476,7 +3476,7 @@ def main():
                                     )
                             
                             # 🔥 ANALIZZA LE IMMAGINI CON IL MOTORE TRICOSCOPICO
-                            st.info("🔬 Analisi delle immagini in corso...")
+                            analisi_status = st.info("🔬 Analisi delle immagini in corso...")
                             parametri_estratti = []
                             
                             for idx, img_data in enumerate(immagini_estratti):
@@ -3497,6 +3497,9 @@ def main():
                                     "steli_nuovi": risultato["steli_nuovi"],
                                     "immagine": risultato["immagine_annotata"],
                                 })
+
+                            # 🔥 RIMUOVI IL MESSAGGIO "IN CORSO"
+                            analisi_status.empty()
                             
                             # 🔥 CALCOLA LE MEDIE DEI PARAMETRI ESTRATTI
                             if parametri_estratti:
