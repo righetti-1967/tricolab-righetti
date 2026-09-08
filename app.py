@@ -3863,7 +3863,7 @@ def main():
                 st.markdown("---")
                 col_b1, col_b2 = st.columns(2)
 
-                                    with col_b1:
+                with col_b1:
                         if st.button("💾 Salva Sessione di Analisi", key="btn_salva_analisi_completa", use_container_width=True):
                             try:
                                 data_oggi = datetime.now().strftime("%d/%m/%Y %H:%M")
