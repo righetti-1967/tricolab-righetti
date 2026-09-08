@@ -1492,6 +1492,51 @@ def genera_pdf_righetti_completo(
         st.error(f"Errore nella generazione PDF: {str(e)}")
         return False
 
+# ============================================================================
+# ORDINATORE FASI PROTOCOLLO
+# ============================================================================
+def ordina_fasi(testo_protocollo):
+    """Ordina le fasi del protocollo in base al numero (Fase 1, Fase 2, Fase 3...)"""
+    import re
+    
+    if not testo_protocollo:
+        return testo_protocollo
+    
+    righe = testo_protocollo.split("\n")
+    fasi_ordinate = []
+    fasi_senza_numero = []
+    altre_righe = []
+    
+    for riga in righe:
+        if "Fase" in riga and ":" in riga:
+            match = re.search(r"Fase\s*(\d+)", riga)
+            if match:
+                num = int(match.group(1))
+                fasi_ordinate.append((num, riga))
+            else:
+                fasi_senza_numero.append(riga)
+        else:
+            altre_righe.append(riga)
+    
+    # Ordina le fasi per numero
+    fasi_ordinate.sort(key=lambda x: x[0])
+    
+    # Ricostruisce il testo
+    risultato = []
+    
+    # Aggiunge le fasi ordinate
+    for _, riga in fasi_ordinate:
+        risultato.append(riga)
+    
+    # Aggiunge le fasi senza numero (se ci sono)
+    if fasi_senza_numero:
+        risultato.extend(fasi_senza_numero)
+    
+    # Aggiunge le altre righe (Durata, Nota, ecc.)
+    if altre_righe:
+        risultato.extend(altre_righe)
+    
+    return "\n".join(risultato)
 
 # ============================================================================
 # GENERATORE BOZZA PROTOCOLLO (CON RINVIO ALLA TABELLA IN CALCE)
@@ -1645,7 +1690,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
         '• PER LE DOSI, TEMPI DI POSA e altro, fare riferimento alla tabella sotto riportata: "DETTAGLIO UTILIZZO PRODOTTI".'
     )
 
-    return "\n".join(fasi)
+    return ordina_fasi("\n".join(fasi))
 
 # ============================================================================
 # GESTIONE CARTELLA MASTER "PERCORSI CLIENTI" - VERSIONE PER STREAMLIT CLOUD
@@ -4213,43 +4258,6 @@ def main():
                     use_container_width=True,
                     help="Rigenera il protocollo in base ai prodotti attualmente assegnati",
                 )
-
-                st.write("")
-                # 🔥 NUOVO PULSANTE PER ORDINARE LE FASI
-                if st.button(
-                    "🔢 Ordina Fasi",
-                    key=f"btn_ordina_fasi_{cliente_selezionato}",
-                    use_container_width=True,
-                    help="Riordina le fasi in base al numero (Fase 1, Fase 2, Fase 3...)"
-                ):
-                    # Ordina le fasi in base al numero
-                    righe = st.session_state[proto_key].split("\n")
-                    fasi_ordinate = []
-                    fasi_senza_numero = []
-                    
-                    for riga in righe:
-                        if "Fase" in riga and ":" in riga:
-                            # Estrae il numero della fase
-                            import re
-                            match = re.search(r"Fase\s*(\d+)", riga)
-                            if match:
-                                num = int(match.group(1))
-                                fasi_ordinate.append((num, riga))
-                            else:
-                                fasi_senza_numero.append(riga)
-                        else:
-                            fasi_senza_numero.append(riga)
-                    
-                    # Ordina le fasi per numero
-                    fasi_ordinate.sort(key=lambda x: x[0])
-                    
-                    # Ricostruisce il testo
-                    testo_ordinato = "\n".join([riga for _, riga in fasi_ordinate])
-                    if fasi_senza_numero:
-                        testo_ordinato += "\n" + "\n".join(fasi_senza_numero)
-                    
-                    st.session_state[proto_key] = testo_ordinato
-                    st.rerun()
 
             st.markdown("---")
             # --- DETTAGLIO PRODOTTI ---
