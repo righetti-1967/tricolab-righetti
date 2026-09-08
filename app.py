@@ -346,7 +346,7 @@ def estrai_dati_da_pdf_report(pdf_bytes):
                         if w.field_name and w.field_name.startswith("Image") and w.field_name.endswith("_af_image"):
                             try:
                                 # Estrai l'immagine dal widget
-                                pix = page.get_pixmap(clip=w.rect, dpi=300)  # 🔥 AUMENTATO DA 150 A 300
+                                pix = page.get_pixmap(clip=w.rect, dpi=500)  # 🔥 AUMENTATO DA 150 A 500
                                 if pix:
                                     img_bytes = pix.tobytes("png") 
                                     img_array = np.frombuffer(img_bytes, dtype=np.uint8)
