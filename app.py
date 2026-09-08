@@ -3547,17 +3547,17 @@ def main():
                                 col_p6.metric("Germogli Anagen", tot_nuovi)
                                 
                                 # 🔥 CALCOLA MEDIE DI VELLUS E ANAGEN (CON CONTROLLO)
-                                    media_vellus = 0
-                                    media_anagen = 0
+                                media_vellus = 0
+                                media_anagen = 0
                                     
-                                    if parametri_estratti:
-                                        vellus_values = [p.get("steli_vellus", 0) for p in parametri_estratti if "steli_vellus" in p]
-                                        anagen_values = [p.get("steli_anagen", 0) for p in parametri_estratti if "steli_anagen" in p]
+                                if parametri_estratti:
+                                    vellus_values = [p.get("steli_vellus", 0) for p in parametri_estratti if "steli_vellus" in p]
+                                    anagen_values = [p.get("steli_anagen", 0) for p in parametri_estratti if "steli_anagen" in p]
                                         
-                                        if vellus_values:
-                                            media_vellus = round(float(np.mean(vellus_values)), 1)
-                                        if anagen_values:
-                                            media_anagen = round(float(np.mean(anagen_values)), 1)
+                                    if vellus_values:
+                                        media_vellus = round(float(np.mean(vellus_values)), 1)
+                                    if anagen_values:
+                                        media_anagen = round(float(np.mean(anagen_values)), 1)
                                     
                                     col_p7.metric("Steli Vellus", f"{media_vellus}")
                                     col_p8.metric("Steli Anagen", f"{media_anagen}")
