@@ -3919,7 +3919,6 @@ def main():
                                 # 🔥 SALVATAGGIO FOTO IN BACKGROUND (THREADING)
                                 # ============================================================
                                 if immagini_con_etichette:
-                                    # 🔥 SALVA LE FOTO IN BACKGROUND (NON BLOCCA L'APP)
                                     import threading
                                     
                                     def salva_foto_background():
@@ -4018,9 +4017,19 @@ def main():
                                     progress_bar.progress(50)
 
                                 progress_bar.progress(90)
+                                progress_bar.progress(100)
+                                status_text.text("✅ Salvataggio completato!")
+
+                                # 🔥 RIMUOVI TUTTI I RIFERIMENTI A cartella_cliente_dest QUI!
+                                # Il messaggio di successo ora viene mostrato dal thread
+                                st.success(f"✅ Sessione salvata! Le foto vengono elaborate in background.")
+
+                                # Pulisce la barra di progresso dopo 3 secondi
+                                import time
+                                time.sleep(2)
+                                progress_bar.empty()
+                                status_text.empty()
                                 
-                                # 🔥 IL MESSAGGIO DI SUCCESSO FINALE VIENE MOSTRATO DAL THREAD
-                                # Non serve più il messaggio qui perché viene mostrato dal thread
                                 # Foto panoramica
                                 msg_macro_info = ""
                                 if "uploaded_macro_phone" in locals() and uploaded_macro_phone is not None:
