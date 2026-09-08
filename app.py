@@ -329,7 +329,7 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         "tappi_sebacei": 0,
         "steli_nuovi": 0,
         "prodotti": "",
-        "immagini": [],  # 🔥 LISTA DI IMMAGINI ESTRATTE
+        "immagini": [],
     }
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -339,17 +339,14 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         for page_num, page in enumerate(doc):
             # 1. Estrai TUTTE le immagini dalla pagina
             try:
-                # 🔥 METODO PER ESTRARRE TUTTE LE IMMAGINI DALLA PAGINA
                 image_list = page.get_images(full=True)
                 for img_index, img in enumerate(image_list):
                     try:
-                        # Estrai l'immagine
                         xref = img[0]
                         base_image = doc.extract_image(xref)
                         image_bytes = base_image["image"]
                         image_ext = base_image["ext"]
                         
-                        # Converti in OpenCV
                         img_array = np.frombuffer(image_bytes, dtype=np.uint8)
                         img_cv = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                         
@@ -383,26 +380,47 @@ def estrai_dati_da_pdf_report(pdf_bytes):
             testo_completo += page.get_text() + "\n"
 
         # 4. Parser dei dati dal testo
+        # 🔥 CERCA LA DATA NEL TESTO
+        data_match = re.search(r"(\d{1,2})[-/](\w{3,4})[-/](\d{4})", testo_completo, re.IGNORECASE)
+        if data_match:
+            mesi = {
+                'gen': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mag': '05', 'giu': '06',
+                'lug': '07', 'ago': '08', 'set': '09', 'ott': '10', 'nov': '11', 'dic': '12',
+                'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
+                'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+            }
+            giorno = data_match.group(1)
+            mese_text = data_match.group(2).lower()[:3]
+            anno = data_match.group(3)
+            mese = mesi.get(mese_text, '01')
+            dati_estratti["data"] = f"{giorno}/{mese}/{anno}"
+
+        # Calibro
         calibro_match = re.search(r"(\d+[\.,]?\d*)\s*µm", testo_completo, re.IGNORECASE)
         if calibro_match:
             dati_estratti["calibro_medio"] = float(calibro_match.group(1).replace(",", "."))
 
+        # Anisotropia
         aniso_match = re.search(r"anisotropia\s*(?:del)?\s*(\d+[\.,]?\d*)\s*%", testo_completo, re.IGNORECASE)
         if aniso_match:
             dati_estratti["anisotropia"] = float(aniso_match.group(1).replace(",", "."))
 
+        # Densità
         den_match = re.search(r"(\d+)\s*capelli/cm[2²]", testo_completo, re.IGNORECASE)
         if den_match:
             dati_estratti["densita_f"] = int(den_match.group(1))
 
+        # Eritemi
         eritemi_match = re.search(r"eritemi?\s*[:]?\s*(\d+)", testo_completo, re.IGNORECASE)
         if eritemi_match:
             dati_estratti["eritemi"] = int(eritemi_match.group(1))
 
+        # Tappi sebacei
         tappi_match = re.search(r"(?:tappi|osti)\s*[:]?\s*(\d+)", testo_completo, re.IGNORECASE)
         if tappi_match:
             dati_estratti["tappi_sebacei"] = int(tappi_match.group(1))
 
+        # Salva le immagini estratte
         dati_estratti["immagini"] = immagini_estratte
         doc.close()
     except Exception as e:
