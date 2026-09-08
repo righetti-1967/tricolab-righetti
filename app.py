@@ -3383,20 +3383,26 @@ def main():
                     if uploaded_pdf is not None:
                         pdf_bytes = uploaded_pdf.read()
                         dati_visita_precedente = estrai_dati_da_pdf_report(pdf_bytes)
-                        st.success(f"✅ PDF caricato! Data rilevata: **{dati_visita_precedente['data']}**")
+                        
+                        # Mostra la data rilevata
+                        data_rilevata = dati_visita_precedente.get('data', 'Data non rilevata')
+                        st.success(f"✅ PDF caricato! Data rilevata: **{data_rilevata}**")
                         
                         # 🔥 MOSTRA LE IMMAGINI ESTRATTE DAL PDF
-                        if dati_visita_precedente.get("immagini"):
+                        immagini_estratti = dati_visita_precedente.get("immagini", [])
+                        if immagini_estratti:
                             st.subheader("📸 Immagini estratte dal PDF")
                             cols = st.columns(3)
-                            for idx, img_data in enumerate(dati_visita_precedente["immagini"]):
+                            for idx, img_data in enumerate(immagini_estratti):
                                 with cols[idx % 3]:
                                     st.image(
                                         img_data["immagine"],
                                         caption=f"{img_data['nome']} (Pagina {img_data.get('pagina', '?')})",
                                         use_container_width=True,
                                     )
-
+                        else:
+                            st.info("ℹ️ Nessuna immagine trovata nel PDF.")
+                            
             # --- FOTO PANORAMICA ---
             with st.expander("📱 Foto Panoramica Globale da PC | Smartphone", expanded=False):
                 st.caption("Tocca 'Upload' e scegli 'Scatta foto' dal tuo Smartphone per fotografare la testa dall'alto ad altissima risoluzione.")
