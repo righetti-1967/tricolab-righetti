@@ -317,6 +317,7 @@ def set_config(chiave, valore):
 # PARSER ESTRATTORE PER VECCHI REPORT PDF
 # ============================================================================
 def estrai_dati_da_pdf_report(pdf_bytes):
+    """Estrae dati e immagini dal PDF del report"""
     dati_estratti = {
         "checkup_num": "Precedente",
         "data": "Data non rilevata",
@@ -328,50 +329,87 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         "tappi_sebacei": 0,
         "steli_nuovi": 0,
         "prodotti": "",
+        "immagini": [],  # 🔥 NUOVO: lista di immagini estratte
     }
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         testo_completo = ""
+        immagini_estratte = []
 
-        for page in doc:
+        # 🔥 SCANSIONE PAGINE PER IMMAGINI E TESTO
+        for page_num, page in enumerate(doc):
+            # 1. Estrai widget (campi modulo PDF)
             widgets = page.widgets()
             if widgets:
                 for w in widgets:
                     if w.field_name == "Text2" and w.field_value:
                         dati_estratti["checkup_num"] = str(w.field_value)
-                    elif (
-                        w.field_name in ["Date_af_date", "Date1_af_date"]
-                        and w.field_value
-                    ):
+                    elif w.field_name in ["Date_af_date", "Date1_af_date"] and w.field_value:
                         dati_estratti["data"] = str(w.field_value)
                     elif w.field_name == "Text4" and w.field_value:
                         dati_estratti["note_precedenti"] = str(w.field_value)
+                    elif w.field_name and w.field_name.startswith("Image") and w.field_type == fitz.Widget.TYPE_IMAGE:
+                        # 🔥 ESTRAI L'IMMAGINE DAL CAMPO
+                        try:
+                            # Ottieni il rect del widget (area dell'immagine)
+                            rect = w.rect
+                            # Estrai l'immagine dalla pagina
+                            pix = page.get_pixmap(clip=rect, dpi=150)
+                            if pix:
+                                # Converti in OpenCV
+                                img_bytes = pix.tobytes("png")
+                                img_array = np.frombuffer(img_bytes, dtype=np.uint8)
+                                img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                                if img is not None:
+                                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                                    immagini_estratte.append({
+                                        "immagine": img_rgb,
+                                        "nome": f"Image_{page_num}_{w.field_name}.png",
+                                        "pagina": page_num + 1
+                                    })
+                        except Exception as e:
+                            print(f"⚠️ Errore estrazione immagine da {w.field_name}: {e}")
+
+            # 2. Estrai testo dalla pagina (fallback per dati non nei widget)
             testo_completo += page.get_text() + "\n"
 
+        # 3. Parser dei dati dal testo
+        # Calibro
         calibro_match = re.search(r"(\d+[\.,]?\d*)\s*µm", testo_completo, re.IGNORECASE)
         if calibro_match:
-            dati_estratti["calibro_medio"] = float(
-                calibro_match.group(1).replace(",", ".")
-            )
+            dati_estratti["calibro_medio"] = float(calibro_match.group(1).replace(",", "."))
 
-        aniso_match = re.search(
-            r"anisotropia\s*(?:del)?\s*(\d+[\.,]?\d*)\s*%",
-            testo_completo,
-            re.IGNORECASE,
-        )
+        # Anisotropia
+        aniso_match = re.search(r"anisotropia\s*(?:del)?\s*(\d+[\.,]?\d*)\s*%", testo_completo, re.IGNORECASE)
         if aniso_match:
             dati_estratti["anisotropia"] = float(aniso_match.group(1).replace(",", "."))
 
+        # Densità
         den_match = re.search(r"(\d+)\s*capelli/cm[2²]", testo_completo, re.IGNORECASE)
         if den_match:
             dati_estratti["densita_f"] = int(den_match.group(1))
 
+        # Eritemi
+        eritemi_match = re.search(r"eritemi?\s*[:]?\s*(\d+)", testo_completo, re.IGNORECASE)
+        if eritemi_match:
+            dati_estratti["eritemi"] = int(eritemi_match.group(1))
+
+        # Tappi sebacei
+        tappi_match = re.search(r"(?:tappi|osti)\s*[:]?\s*(\d+)", testo_completo, re.IGNORECASE)
+        if tappi_match:
+            dati_estratti["tappi_sebacei"] = int(tappi_match.group(1))
+
+        # Salva le immagini estratte
+        dati_estratti["immagini"] = immagini_estratte
+
         doc.close()
     except Exception as e:
         st.warning(f"Lettura parziale del PDF: {e}")
+    
     return dati_estratti
 
 
+# REFERTO DERMOCOSMETICO PDF
 def genera_referto_dermocosmetico(dati, lente, luce, zona, parametri_cliente):
     punti_cute = []
     punti_osti = []
@@ -3356,6 +3394,18 @@ def main():
                         pdf_bytes = uploaded_pdf.read()
                         dati_visita_precedente = estrai_dati_da_pdf_report(pdf_bytes)
                         st.success(f"✅ PDF caricato! Data rilevata: **{dati_visita_precedente['data']}**")
+                        
+                        # 🔥 MOSTRA LE IMMAGINI ESTRATTE DAL PDF
+                        if dati_visita_precedente.get("immagini"):
+                            st.subheader("📸 Immagini estratte dal PDF")
+                            cols = st.columns(3)
+                            for idx, img_data in enumerate(dati_visita_precedente["immagini"]):
+                                with cols[idx % 3]:
+                                    st.image(
+                                        img_data["immagine"],
+                                        caption=f"{img_data['nome']} (Pagina {img_data.get('pagina', '?')})",
+                                        use_container_width=True,
+                                    )
 
             # --- FOTO PANORAMICA ---
             with st.expander("📱 Foto Panoramica Globale da PC | Smartphone", expanded=False):
