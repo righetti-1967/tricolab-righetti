@@ -3339,7 +3339,7 @@ def main():
             # 🔥 OPZIONE PER MOSTRARE/NASCONDERE LE FOTO ARCHIVIATE
             mostra_foto_archiviate = st.checkbox(
                 "📸 Mostra foto archiviate dal cloud",
-                value=True,
+                value=False,
                 key=f"mostra_foto_archiviate_{cliente_selezionato}",
                 help="Se attivo, mostra le foto già caricate su Supabase. Se disattivo, le nasconde."
             )
