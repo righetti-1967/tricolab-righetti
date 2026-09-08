@@ -4323,7 +4323,7 @@ def main():
                                 st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
                             else:
                                 # 🔥 MOSTRA MESSAGGIO INIZIALE
-                                st.info("📄 Generazione Report in corso (background)...")
+                                #st.info("📄 Generazione Report in corso (background)...")
                                 
                                 # 🔥 FUNZIONE BACKGROUND
                                 def genera_report_background():
