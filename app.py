@@ -4214,6 +4214,43 @@ def main():
                     help="Rigenera il protocollo in base ai prodotti attualmente assegnati",
                 )
 
+                st.write("")
+                # 🔥 NUOVO PULSANTE PER ORDINARE LE FASI
+                if st.button(
+                    "🔢 Ordina Fasi",
+                    key=f"btn_ordina_fasi_{cliente_selezionato}",
+                    use_container_width=True,
+                    help="Riordina le fasi in base al numero (Fase 1, Fase 2, Fase 3...)"
+                ):
+                    # Ordina le fasi in base al numero
+                    righe = st.session_state[proto_key].split("\n")
+                    fasi_ordinate = []
+                    fasi_senza_numero = []
+                    
+                    for riga in righe:
+                        if "Fase" in riga and ":" in riga:
+                            # Estrae il numero della fase
+                            import re
+                            match = re.search(r"Fase\s*(\d+)", riga)
+                            if match:
+                                num = int(match.group(1))
+                                fasi_ordinate.append((num, riga))
+                            else:
+                                fasi_senza_numero.append(riga)
+                        else:
+                            fasi_senza_numero.append(riga)
+                    
+                    # Ordina le fasi per numero
+                    fasi_ordinate.sort(key=lambda x: x[0])
+                    
+                    # Ricostruisce il testo
+                    testo_ordinato = "\n".join([riga for _, riga in fasi_ordinate])
+                    if fasi_senza_numero:
+                        testo_ordinato += "\n" + "\n".join(fasi_senza_numero)
+                    
+                    st.session_state[proto_key] = testo_ordinato
+                    st.rerun()
+
             st.markdown("---")
             # --- DETTAGLIO PRODOTTI ---
             st.subheader("📋 Dettaglio Prodotti Assegnati")
