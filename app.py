@@ -1974,7 +1974,7 @@ def calcola_prefisso_da_file_esistenti(cartella_cliente_path, tipo_documento):
 
         # Identifica esattamente il tipo di file cercato
         if "report" in t_low:
-            parola_chiave = "Report Tricologico"
+            parola_chiave = "Report Tricologico Righetti"
         elif "rituale" in t_low or "cura" in t_low:
             parola_chiave = "Rituale di Cura"
         elif "dashboard" in t_low or "grafic" in t_low:
@@ -4042,8 +4042,8 @@ def main():
                     if st.button("📄 Genera Report TricoCamera PDF", key="btn_gen_pdf_pro", use_container_width=True):
                             if immagini_con_etichette:
                                 cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                                prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report")
-                                pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico.pdf"
+                                prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report Tricologico")
+                                pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico Righetti.pdf"
                                 pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
                                 nota_da_stampare = st.session_state.get(note_glob_key, "")
