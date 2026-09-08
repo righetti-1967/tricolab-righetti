@@ -3451,23 +3451,94 @@ def main():
                     if uploaded_pdf is not None:
                         pdf_bytes = uploaded_pdf.read()
                         dati_visita_precedente = estrai_dati_da_pdf_report(pdf_bytes)
+
+                        # 🔥 AGGIUNGI IL FLAG PER INDICARE CHE È UN PDF ESTERNO
+                        dati_visita_precedente["da_pdf"] = True
+                        dati_visita_precedente["sorgente"] = "PDF esterno caricato"
                         
-                        # Mostra la data rilevata
+                        # 🔥 MOSTRA LA DATA RILEVATA
                         data_rilevata = dati_visita_precedente.get('data', 'Data non rilevata')
                         st.success(f"✅ PDF caricato! Data rilevata: **{data_rilevata}**")
                         
-                        # 🔥 MOSTRA LE IMMAGINI ESTRATTE DAL PDF
+                        # 🔥 ANALIZZA LE IMMAGINI ESTRATTE DAL PDF
                         immagini_estratti = dati_visita_precedente.get("immagini", [])
                         if immagini_estratti:
-                            st.subheader("📸 Immagini estratte dal PDF")
+                            st.subheader("📸 Analisi delle immagini estratte dal PDF")
+                            
+                            # Mostra le immagini in una griglia
                             cols = st.columns(3)
                             for idx, img_data in enumerate(immagini_estratti):
                                 with cols[idx % 3]:
                                     st.image(
                                         img_data["immagine"],
-                                        caption=f"{img_data['nome']} (Pagina {img_data.get('pagina', '?')})",
+                                        caption=f"{img_data['campo']} (Pagina {img_data.get('pagina', '?')})",
                                         use_container_width=True,
                                     )
+                            
+                            # 🔥 ANALIZZA LE IMMAGINI CON IL MOTORE TRICOSCOPICO
+                            st.info("🔬 Analisi delle immagini in corso...")
+                            parametri_estratti = []
+                            
+                            for idx, img_data in enumerate(immagini_estratti):
+                                risultato = analizza_immagine_tricoscopica_pro(
+                                    img_data["immagine"],
+                                    lente="50x",
+                                    luce="Bianca",
+                                    zona="Multi-zona",
+                                    parametri_cliente=sintomi_dict,
+                                )
+                                
+                                parametri_estratti.append({
+                                    "calibro_medio": risultato["calibro_medio"],
+                                    "anisotropia": risultato["anisotropia"],
+                                    "densita_stimata": risultato["densita_stimata"],
+                                    "tappi_sebacei": risultato["tappi_sebacei"],
+                                    "eritemi": risultato["eritema_diffuso"],
+                                    "steli_nuovi": risultato["steli_nuovi"],
+                                    "immagine": risultato["immagine_annotata"],
+                                })
+                            
+                            # 🔥 CALCOLA LE MEDIE DEI PARAMETRI ESTRATTI
+                            if parametri_estratti:
+                                media_calibro = round(
+                                    float(np.mean([p["calibro_medio"] for p in parametri_estratti if p["calibro_medio"] > 0])),
+                                    1
+                                ) if parametri_estratti else 0.0
+                                
+                                media_anisotropia = round(
+                                    float(np.mean([p["anisotropia"] for p in parametri_estratti if p["anisotropia"] > 0])),
+                                    1
+                                ) if parametri_estratti else 0.0
+                                
+                                media_densita = int(
+                                    round(np.mean([p["densita_stimata"] for p in parametri_estratti if p["densita_stimata"] > 0]))
+                                ) if parametri_estratti else 0
+                                
+                                tot_tappi = sum([p["tappi_sebacei"] for p in parametri_estratti])
+                                tot_eritemi = sum([p["eritemi"] for p in parametri_estratti])
+                                tot_nuovi = sum([p["steli_nuovi"] for p in parametri_estratti])
+                                
+                                # 🔥 AGGIORNA I DATI DELLA VISITA PRECEDENTE (MANTENENDO LA DATA)
+                                dati_visita_precedente["calibro_medio"] = media_calibro
+                                dati_visita_precedente["anisotropia"] = media_anisotropia
+                                dati_visita_precedente["densita_f"] = media_densita
+                                dati_visita_precedente["tappi_sebacei"] = tot_tappi
+                                dati_visita_precedente["eritemi"] = tot_eritemi
+                                dati_visita_precedente["steli_nuovi"] = tot_nuovi
+                                # 🔥 LA DATA È GIÀ STATA ESTRATTA E MANTENUTA
+                                
+                                st.success(f"✅ Analisi completata! Calibro: {media_calibro} µm, Densità: {media_densita} cap/cm²")
+                                
+                                # Mostra i parametri
+                                st.subheader("📊 Parametri estratti dal PDF")
+                                col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+                                col_p1.metric("Calibro Medio", f"{media_calibro} µm")
+                                col_p2.metric("Anisotropia", f"{media_anisotropia} %")
+                                col_p3.metric("Densità", f"{media_densita} cap/cm²")
+                                col_p4.metric("Tappi Sebacei", tot_tappi)
+                                
+                                # 🔥 MOSTRA LA DATA ESTRATTA
+                                st.info(f"📅 Data visita precedente: **{dati_visita_precedente.get('data', 'Data non rilevata')}**")
                         else:
                             st.info("ℹ️ Nessuna immagine trovata nel PDF.")
                             
