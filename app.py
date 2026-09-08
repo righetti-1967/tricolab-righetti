@@ -329,7 +329,7 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         "tappi_sebacei": 0,
         "steli_nuovi": 0,
         "prodotti": "",
-        "immagini": [],
+        "immagini": [],  # 🔥 LISTA DI IMMAGINI ESTRATTE
     }
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -337,40 +337,52 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         immagini_estratte = []
 
         for page_num, page in enumerate(doc):
-            # 1. Estrai widget (campi modulo PDF)
-            widgets = page.widgets()
-            if widgets:
-                for w in widgets:
-                    if w.field_name == "Text2" and w.field_value:
-                        dati_estratti["checkup_num"] = str(w.field_value)
-                    elif w.field_name in ["Date_af_date", "Date1_af_date"] and w.field_value:
-                        dati_estratti["data"] = str(w.field_value)
-                    elif w.field_name == "Text4" and w.field_value:
-                        dati_estratti["note_precedenti"] = str(w.field_value)
-                    elif w.field_name and w.field_name.startswith("Image") and w.field_type == 6:
-                        # 🔥 w.field_type == 6 corrisponde a TYPE_IMAGE
-                        try:
-                            rect = w.rect
-                            # Estrai l'immagine dalla pagina usando il rect
-                            pix = page.get_pixmap(clip=rect, dpi=150)
-                            if pix:
-                                img_bytes = pix.tobytes("png")
-                                img_array = np.frombuffer(img_bytes, dtype=np.uint8)
-                                img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                                if img is not None:
-                                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                                    immagini_estratte.append({
-                                        "immagine": img_rgb,
-                                        "nome": f"Image_{page_num}_{w.field_name}.png",
-                                        "pagina": page_num + 1
-                                    })
-                        except Exception as e:
-                            print(f"⚠️ Errore estrazione immagine da {w.field_name}: {e}")
+            # 1. Estrai TUTTE le immagini dalla pagina
+            try:
+                # 🔥 METODO PER ESTRARRE TUTTE LE IMMAGINI DALLA PAGINA
+                image_list = page.get_images(full=True)
+                for img_index, img in enumerate(image_list):
+                    try:
+                        # Estrai l'immagine
+                        xref = img[0]
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        image_ext = base_image["ext"]
+                        
+                        # Converti in OpenCV
+                        img_array = np.frombuffer(image_bytes, dtype=np.uint8)
+                        img_cv = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                        
+                        if img_cv is not None:
+                            img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+                            immagini_estratte.append({
+                                "immagine": img_rgb,
+                                "nome": f"image_page_{page_num+1}_{img_index+1}.{image_ext}",
+                                "pagina": page_num + 1
+                            })
+                    except Exception as e:
+                        print(f"⚠️ Errore estrazione immagine {img_index} da pagina {page_num+1}: {e}")
+            except Exception as e:
+                print(f"⚠️ Errore lettura immagini pagina {page_num+1}: {e}")
 
-            # 2. Estrai testo dalla pagina
+            # 2. Estrai widget (campi modulo PDF)
+            try:
+                widgets = page.widgets()
+                if widgets:
+                    for w in widgets:
+                        if w.field_name == "Text2" and w.field_value:
+                            dati_estratti["checkup_num"] = str(w.field_value)
+                        elif w.field_name in ["Date_af_date", "Date1_af_date"] and w.field_value:
+                            dati_estratti["data"] = str(w.field_value)
+                        elif w.field_name == "Text4" and w.field_value:
+                            dati_estratti["note_precedenti"] = str(w.field_value)
+            except Exception as e:
+                print(f"⚠️ Errore lettura widget pagina {page_num+1}: {e}")
+
+            # 3. Estrai testo dalla pagina
             testo_completo += page.get_text() + "\n"
 
-        # 3. Parser dei dati dal testo
+        # 4. Parser dei dati dal testo
         calibro_match = re.search(r"(\d+[\.,]?\d*)\s*µm", testo_completo, re.IGNORECASE)
         if calibro_match:
             dati_estratti["calibro_medio"] = float(calibro_match.group(1).replace(",", "."))
