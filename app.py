@@ -4322,8 +4322,8 @@ def main():
                             if not os.path.exists(template_path):
                                 st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
                             else:
-                                # 🔥 MOSTRA MESSAGGIO INIZIALE (CON PLACEHOLDER)
-                                report_status = st.info("📄 Generazione Report in corso (background)...")
+                                # 🔥 MOSTRA MESSAGGIO INIZIALE
+                                st.info("📄 Generazione Report in corso (background)...")
                                 
                                 # 🔥 FUNZIONE BACKGROUND
                                 def genera_report_background():
@@ -4367,18 +4367,20 @@ def main():
                                                 )
                                             
                                             st.success(f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                                            # 🔥 SETTA IL FLAG DI COMPLETAMENTO
+                                            st.session_state[f"report_completato_{cliente_selezionato}"] = True
                                         else:
                                             st.error("❌ Errore durante la generazione del Report")
                                     except Exception as e:
                                         st.error(f"❌ Errore durante la creazione del PDF: {e}")
-                                    finally:
-                                        # 🔥 RIMUOVI IL MESSAGGIO "IN CORSO"
-                                        report_status.empty()
                                 
                                 # 🔥 AVVIA IL THREAD
                                 import threading
                                 thread = threading.Thread(target=genera_report_background, daemon=True)
                                 thread.start()
+                                
+                                # 🔥 AGGIORNA LO STATO PER FAR SPARIRE IL MESSAGGIO
+                                # (il thread imposterà il flag quando finisce)
                         else:
                             st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
 
