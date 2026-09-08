@@ -380,20 +380,61 @@ def estrai_dati_da_pdf_report(pdf_bytes):
             testo_completo += page.get_text() + "\n"
 
         # 4. Parser dei dati dal testo
-        # 🔥 CERCA LA DATA NEL TESTO
-        data_match = re.search(r"(\d{1,2})[-/](\w{3,4})[-/](\d{4})", testo_completo, re.IGNORECASE)
-        if data_match:
-            mesi = {
-                'gen': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mag': '05', 'giu': '06',
-                'lug': '07', 'ago': '08', 'set': '09', 'ott': '10', 'nov': '11', 'dic': '12',
-                'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
-                'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-            }
-            giorno = data_match.group(1)
-            mese_text = data_match.group(2).lower()[:3]
-            anno = data_match.group(3)
-            mese = mesi.get(mese_text, '01')
-            dati_estratti["data"] = f"{giorno}/{mese}/{anno}"
+        # 🔥 CERCA TUTTE LE DATE IN FORMATO ITALIANO E PRENDI QUELLA PIÙ RECENTE
+        mesi_italiani = {
+            'gen': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mag': '05', 'giu': '06',
+            'lug': '07', 'ago': '08', 'set': '09', 'ott': '10', 'nov': '11', 'dic': '12',
+            'genn': '01', 'febb': '02', 'marz': '03', 'apri': '04', 'magg': '05', 'giug': '06',
+            'lugl': '07', 'agos': '08', 'sett': '09', 'ott': '10', 'nov': '11', 'dic': '12',
+            'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
+            'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+        }
+        
+        # Pattern per trovare date in vari formati
+        date_patterns = [
+            r"(\d{1,2})[-/](\w{3,4})[-/](\d{4})",  # 31-lug-2026, 31/07/2026
+            r"(\d{1,2})\s+(\w{3,4})\s+(\d{4})",    # 31 lug 2026
+            r"(\d{1,2})\.(\w{3,4})\.(\d{4})",      # 31.lug.2026
+            r"(\d{1,2})/(\d{1,2})/(\d{4})",        # 31/07/2026
+            r"(\d{1,2})-(\d{1,2})-(\d{4})",        # 31-07-2026
+            r"(\d{1,2})\s+(\d{1,2})\s+(\d{4})",    # 31 07 2026
+        ]
+        
+        date_matches = []
+        for pattern in date_patterns:
+            matches = re.findall(pattern, testo_completo, re.IGNORECASE)
+            for match in matches:
+                if len(match) == 3:
+                    date_matches.append(match)
+        
+        if date_matches:
+            data_piu_recente = None
+            data_piu_recente_val = 0
+            
+            for parts in date_matches:
+                giorno = parts[0]
+                mese_text = parts[1].lower()[:3] if parts[1].isalpha() else parts[1]
+                anno = parts[2]
+                
+                # Se il mese è in lettere, converti in numero
+                if isinstance(mese_text, str) and mese_text.isalpha():
+                    mese = int(mesi_italiani.get(mese_text, '01'))
+                else:
+                    mese = int(mese_text)
+                
+                anno_int = int(anno)
+                giorno_int = int(giorno)
+                
+                # Valida la data
+                if 1 <= giorno_int <= 31 and 1 <= mese <= 12 and 1900 <= anno_int <= 2100:
+                    valore_data = anno_int * 10000 + mese * 100 + giorno_int
+                    if valore_data > data_piu_recente_val:
+                        data_piu_recente_val = valore_data
+                        data_piu_recente = (giorno_int, mese, anno_int)
+            
+            if data_piu_recente:
+                giorno, mese, anno = data_piu_recente
+                dati_estratti["data"] = f"{giorno:02d}/{mese:02d}/{anno}"
 
         # Calibro
         calibro_match = re.search(r"(\d+[\.,]?\d*)\s*µm", testo_completo, re.IGNORECASE)
@@ -420,7 +461,6 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         if tappi_match:
             dati_estratti["tappi_sebacei"] = int(tappi_match.group(1))
 
-        # Salva le immagini estratte
         dati_estratti["immagini"] = immagini_estratte
         doc.close()
     except Exception as e:
