@@ -4018,6 +4018,9 @@ def main():
                                     progress_bar.progress(50)
 
                                 progress_bar.progress(90)
+                                
+                                # 🔥 IL MESSAGGIO DI SUCCESSO FINALE VIENE MOSTRATO DAL THREAD
+                                # Non serve più il messaggio qui perché viene mostrato dal thread
                                 # Foto panoramica
                                 msg_macro_info = ""
                                 if "uploaded_macro_phone" in locals() and uploaded_macro_phone is not None:
