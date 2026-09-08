@@ -1493,10 +1493,10 @@ def genera_pdf_righetti_completo(
         return False
 
 # ============================================================================
-# ORDINATORE FASI PROTOCOLLO
+# ORDINATORE FASI PROTOCOLLO (CON SUPPORTO 1, 1A, 1B, 2, 2A, 2B...)
 # ============================================================================
 def ordina_fasi(testo_protocollo):
-    """Ordina le fasi del protocollo in base al numero (Fase 1, Fase 2, Fase 3...)"""
+    """Ordina le fasi del protocollo in base al numero (1, 1A, 1B, 2, 2A, 2B, 3...)"""
     import re
     
     if not testo_protocollo:
@@ -1507,25 +1507,29 @@ def ordina_fasi(testo_protocollo):
     fasi_senza_numero = []
     altre_righe = []
     
+    # 🔥 ESPRESSIONE REGOLARE PER CATTURARE: 1, 1A, 1B, 2, 2A, 2B, 3...
+    pattern = re.compile(r"Fase\s*(\d+)([A-Z]?)", re.IGNORECASE)
+    
     for riga in righe:
         if "Fase" in riga and ":" in riga:
-            match = re.search(r"Fase\s*(\d+)", riga)
+            match = pattern.search(riga)
             if match:
-                num = int(match.group(1))
-                fasi_ordinate.append((num, riga))
+                num = int(match.group(1))      # Numero base (1, 2, 3...)
+                lettera = match.group(2).upper() if match.group(2) else ""  # A, B, C... o ""
+                fasi_ordinate.append((num, lettera, riga))
             else:
                 fasi_senza_numero.append(riga)
         else:
             altre_righe.append(riga)
     
-    # Ordina le fasi per numero
-    fasi_ordinate.sort(key=lambda x: x[0])
+    # 🔥 ORDINA PER NUMERO, POI PER LETTERA (1, 1A, 1B, 2, 2A, 2B, 3...)
+    fasi_ordinate.sort(key=lambda x: (x[0], x[1]))
     
     # Ricostruisce il testo
     risultato = []
     
     # Aggiunge le fasi ordinate
-    for _, riga in fasi_ordinate:
+    for _, _, riga in fasi_ordinate:
         risultato.append(riga)
     
     # Aggiunge le fasi senza numero (se ci sono)
