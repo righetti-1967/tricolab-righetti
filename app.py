@@ -733,7 +733,7 @@ def analizza_immagine_tricoscopica_pro(
                             osti_rilevati.append((rx, ry))
                             spessori.append(spessore_um)
 
-                            if spessore_um < 35.0:
+                            if spessore_um < 50.0:
                                 steli_vellus += 1
                             else:
                                 steli_anagen += 1
