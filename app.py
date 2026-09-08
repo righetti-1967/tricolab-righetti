@@ -3537,7 +3537,7 @@ def main():
                     note_glob_key = f"note_operatore_gen_{cliente_selezionato}"
                     st.session_state[note_glob_key] = sintesi_globale_calcolata
 
-                # --- CONFRONTO EVOLUTIVO ---
+                                # --- CONFRONTO EVOLUTIVO ---
                 comparativa = None
                 if dati_visita_precedente and immagini_con_etichette:
                     st.markdown("---")
@@ -3656,7 +3656,7 @@ def main():
                             )
                             st.caption(f"Delta: {comparativa['delta_tap']}")
 
-                        # 🔧 Se i valori sono stati modificati, aggiorna la variabile
+                    # 🔧 Se i valori sono stati modificati, aggiorna la variabile
                     if media_den_oggi != nuova_densita or media_cal_oggi != nuovo_calibro or media_ani_oggi != nuova_anisotropia or tot_tappi_oggi != nuovi_tappi:
                             media_den_oggi = nuova_densita
                             media_cal_oggi = nuovo_calibro
@@ -3670,7 +3670,26 @@ def main():
                                 "tappi": nuovi_tappi,
                             }
 
-                    st.info(comparativa["testo"])
+                    # 🔥 RENDE IL TESTO COMPARATIVO MODIFICABILE
+                    comparativa_key = f"comparativa_testo_{cliente_selezionato}"
+                    
+                    # Se non esiste in session_state, usa il testo generato
+                    if comparativa_key not in st.session_state:
+                        st.session_state[comparativa_key] = comparativa["testo"]
+                    
+                    # Mostra il testo modificabile
+                    nuovo_testo = st.text_area(
+                        "📝 Modifica la relazione comparativa:",
+                        value=st.session_state[comparativa_key],
+                        key=comparativa_key,
+                        height=150,
+                        help="Modifica il testo della relazione comparativa. Le modifiche vengono salvate automaticamente."
+                    )
+                    
+                    # Aggiorna il testo in comparativa se modificato
+                    if nuovo_testo != st.session_state[comparativa_key]:
+                        st.session_state[comparativa_key] = nuovo_testo
+                        comparativa["testo"] = nuovo_testo
 
                 # --- RELAZIONE GLOBALE ---
                 st.markdown("---")
