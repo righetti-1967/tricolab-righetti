@@ -4304,80 +4304,83 @@ def main():
 
                 with col_b2:
                     if st.button("📄 Genera Report TricoCamera PDF", key="btn_gen_pdf_pro", use_container_width=True):
-                            if immagini_con_etichette:
-                                cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                                prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report Tricologico")
-                                pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico Righetti.pdf"
-                                pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
+                        if immagini_con_etichette:
+                            cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                            prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report")
+                            pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico Righetti.pdf"
+                            pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                                nota_da_stampare = st.session_state.get(note_glob_key, "")
-                                if not nota_da_stampare and "nota_globale_finale" in locals():
-                                    nota_da_stampare = nota_globale_finale
+                            nota_da_stampare = st.session_state.get(note_glob_key, "")
+                            if not nota_da_stampare and "nota_globale_finale" in locals():
+                                nota_da_stampare = nota_globale_finale
 
-                                note_extra_str = str(nota_operatore_extra).strip() if ("nota_operatore_extra" in locals() and nota_operatore_extra) else ""
-                                if note_extra_str:
-                                    nota_da_stampare += f"\n\nNote Aggiuntive: {note_extra_str}"
+                            note_extra_str = str(nota_operatore_extra).strip() if ("nota_operatore_extra" in locals() and nota_operatore_extra) else ""
+                            if note_extra_str:
+                                nota_da_stampare += f"\n\nNote Aggiuntive: {note_extra_str}"
 
-                                template_path = "Report TricoCamera.pdf"
-                                if not os.path.exists(template_path):
-                                    st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
-                                else:
-                                    # 🔥 MOSTRA MESSAGGIO INIZIALE
-                                    st.info("📄 Generazione Report in corso (background)...")
-                                    
-                                    # 🔥 FUNZIONE BACKGROUND
-                                    def genera_report_background():
-                                        try:
-                                            success = genera_pdf_righetti_completo(
-                                                nome_cliente=cliente_selezionato,
-                                                eta=eta_cliente,
-                                                cellulare=cell_cliente,
-                                                email=email_cliente,
-                                                nota_operatore=nota_da_stampare,
-                                                checkup_num=checkup_num,
-                                                num_immagini=len(immagini_con_etichette),
-                                                immagini_con_etichette=immagini_con_etichette,
-                                                path_salvataggio=pdf_path,
-                                                template_path=template_path,
-                                            )
-                                            if success and os.path.exists(pdf_path):
-                                                # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
-                                                with open(pdf_path, "rb") as pdf_file:
-                                                    pdf_bytes_data = pdf_file.read()
-                                                    
-                                                    ok_drive, msg_drive = invia_file_a_google_drive(
-                                                        pdf_bytes_data,
-                                                        pdf_filename,
-                                                        cliente_selezionato,
-                                                        mime_type="application/pdf"
-                                                    )
-                                                    if ok_drive:
-                                                        st.success(msg_drive)
-                                                    else:
-                                                        st.warning(msg_drive)
-                                                
-                                                # Pulsante di download (come backup)
-                                                with open(pdf_path, "rb") as pdf_file:
-                                                    st.download_button(
-                                                        "📥 Scarica Report PDF",
-                                                        pdf_file,
-                                                        pdf_filename,
-                                                        "application/pdf",
-                                                        use_container_width=True
-                                                    )
-                                                
-                                                st.success(f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
-                                            else:
-                                                st.error("❌ Errore durante la generazione del Report")
-                                        except Exception as e:
-                                            st.error(f"❌ Errore durante la creazione del PDF: {e}")
-                                    
-                                    # 🔥 AVVIA IL THREAD
-                                    import threading
-                                    thread = threading.Thread(target=genera_report_background, daemon=True)
-                                    thread.start()
+                            template_path = "Report TricoCamera.pdf"
+                            if not os.path.exists(template_path):
+                                st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
                             else:
-                                st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
+                                # 🔥 MOSTRA MESSAGGIO INIZIALE (CON PLACEHOLDER)
+                                report_status = st.info("📄 Generazione Report in corso (background)...")
+                                
+                                # 🔥 FUNZIONE BACKGROUND
+                                def genera_report_background():
+                                    try:
+                                        success = genera_pdf_righetti_completo(
+                                            nome_cliente=cliente_selezionato,
+                                            eta=eta_cliente,
+                                            cellulare=cell_cliente,
+                                            email=email_cliente,
+                                            nota_operatore=nota_da_stampare,
+                                            checkup_num=checkup_num,
+                                            num_immagini=len(immagini_con_etichette),
+                                            immagini_con_etichette=immagini_con_etichette,
+                                            path_salvataggio=pdf_path,
+                                            template_path=template_path,
+                                        )
+                                        if success and os.path.exists(pdf_path):
+                                            # 🔥 LEGGI IL FILE E INVIA A GOOGLE DRIVE
+                                            with open(pdf_path, "rb") as pdf_file:
+                                                pdf_bytes_data = pdf_file.read()
+                                                
+                                                ok_drive, msg_drive = invia_file_a_google_drive(
+                                                    pdf_bytes_data,
+                                                    pdf_filename,
+                                                    cliente_selezionato,
+                                                    mime_type="application/pdf"
+                                                )
+                                                if ok_drive:
+                                                    st.success(msg_drive)
+                                                else:
+                                                    st.warning(msg_drive)
+                                            
+                                            # Pulsante di download (come backup)
+                                            with open(pdf_path, "rb") as pdf_file:
+                                                st.download_button(
+                                                    "📥 Scarica Report PDF",
+                                                    pdf_file,
+                                                    pdf_filename,
+                                                    "application/pdf",
+                                                    use_container_width=True
+                                                )
+                                            
+                                            st.success(f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
+                                        else:
+                                            st.error("❌ Errore durante la generazione del Report")
+                                    except Exception as e:
+                                        st.error(f"❌ Errore durante la creazione del PDF: {e}")
+                                    finally:
+                                        # 🔥 RIMUOVI IL MESSAGGIO "IN CORSO"
+                                        report_status.empty()
+                                
+                                # 🔥 AVVIA IL THREAD
+                                import threading
+                                thread = threading.Thread(target=genera_report_background, daemon=True)
+                                thread.start()
+                        else:
+                            st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
 
     # =========================================================================
     # TAB 2: PRODOTTI & SCHEDA CURA
