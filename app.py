@@ -317,7 +317,7 @@ def set_config(chiave, valore):
 # PARSER ESTRATTORE PER VECCHI REPORT PDF
 # ============================================================================
 def estrai_dati_da_pdf_report(pdf_bytes):
-    """Estrae dati e immagini dal PDF del report (solo .jpg dalla pagina 3 in poi)"""
+    """Estrae dati e immagini dal PDF del report (solo immagini grandi)"""
     dati_estratti = {
         "checkup_num": "Precedente",
         "data": "Data non rilevata",
@@ -339,7 +339,7 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         for page_num, page in enumerate(doc):
             # 🔥 SOLO DALLA PAGINA 3 IN POI
             if page_num >= 2:
-                # 1. Estrai immagini normali dalla pagina (SOLO .jpg)
+                # 1. Estrai immagini normali dalla pagina
                 try:
                     image_list = page.get_images(full=True)
                     for img_index, img in enumerate(image_list):
@@ -349,24 +349,27 @@ def estrai_dati_da_pdf_report(pdf_bytes):
                             image_bytes = base_image["image"]
                             image_ext = base_image["ext"].lower()
                             
-                            # 🔥 PRENDI SOLO .jpg (escludi .png)
-                            if image_ext == "jpg" or image_ext == "jpeg":
-                                img_array = np.frombuffer(image_bytes, dtype=np.uint8)
-                                img_cv = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                                
-                                if img_cv is not None:
+                            # 🔥 CONVERTI IN OPENCV PER CONTROLLARE LA DIMENSIONE
+                            img_array = np.frombuffer(image_bytes, dtype=np.uint8)
+                            img_cv = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                            
+                            if img_cv is not None:
+                                h, w = img_cv.shape[:2]
+                                # 🔥 PRENDI SOLO IMMAGINI CON LARGHEZZA > 400 PIXEL (FOTO TRICOSCOPICHE)
+                                if w > 400 and h > 400:
                                     img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
                                     immagini_estratte.append({
                                         "immagine": img_rgb,
                                         "nome": f"image_page_{page_num+1}_{img_index+1}.{image_ext}",
-                                        "pagina": page_num + 1
+                                        "pagina": page_num + 1,
+                                        "dimensione": f"{w}x{h}"
                                     })
                         except Exception as e:
                             print(f"⚠️ Errore estrazione immagine {img_index} da pagina {page_num+1}: {e}")
                 except Exception as e:
                     print(f"⚠️ Errore lettura immagini pagina {page_num+1}: {e}")
 
-                # 1.5. CERCA IMMAGINI ANCHE NEI WIDGET (SOLO .jpg)
+                # 1.5. CERCA IMMAGINI ANCHE NEI WIDGET
                 try:
                     widgets = page.widgets()
                     if widgets:
@@ -379,15 +382,15 @@ def estrai_dati_da_pdf_report(pdf_bytes):
                                         img_array = np.frombuffer(img_bytes, dtype=np.uint8)
                                         img_cv = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                                         if img_cv is not None:
-                                            # I widget spesso sono PNG, quindi li escludiamo
-                                            # e prendiamo solo se sono JPG (non possiamo saperlo a priori)
-                                            # Quindi li prendiamo sempre, ma come backup
-                                            img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
-                                            immagini_estratte.append({
-                                                "immagine": img_rgb,
-                                                "nome": f"widget_{page_num+1}_{w.field_name}.png",
-                                                "pagina": page_num + 1
-                                            })
+                                            h, w = img_cv.shape[:2]
+                                            if w > 400 and h > 400:
+                                                img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+                                                immagini_estratte.append({
+                                                    "immagine": img_rgb,
+                                                    "nome": f"widget_{page_num+1}_{w.field_name}.png",
+                                                    "pagina": page_num + 1,
+                                                    "dimensione": f"{w}x{h}"
+                                                })
                                 except Exception as e:
                                     print(f"⚠️ Errore estrazione widget immagine {page_num+1}: {e}")
                 except Exception as e:
@@ -410,8 +413,7 @@ def estrai_dati_da_pdf_report(pdf_bytes):
             # 3. Estrai testo dalla pagina
             testo_completo += page.get_text() + "\n"
 
-        # 4. Parser dei dati dal testo (date, calibro, anisotropia, ecc.)
-        # (mantieni qui TUTTO il codice che hai già per le date, che funziona)
+        # 4. Parser dei dati dal testo
         # 🔥 CERCA TUTTE LE DATE IN FORMATO ITALIANO E PRENDI QUELLA PIÙ RECENTE
         mesi_italiani = {
             'gen': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mag': '05', 'giu': '06',
@@ -422,13 +424,14 @@ def estrai_dati_da_pdf_report(pdf_bytes):
             'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
         }
         
+        # Pattern per trovare date in vari formati
         date_patterns = [
-            r"(\d{1,2})[-/](\w{3,4})[-/](\d{4})",
-            r"(\d{1,2})\s+(\w{3,4})\s+(\d{4})",
-            r"(\d{1,2})\.(\w{3,4})\.(\d{4})",
-            r"(\d{1,2})/(\d{1,2})/(\d{4})",
-            r"(\d{1,2})-(\d{1,2})-(\d{4})",
-            r"(\d{1,2})\s+(\d{1,2})\s+(\d{4})",
+            r"(\d{1,2})[-/](\w{3,4})[-/](\d{4})",  # 31-lug-2026, 31/07/2026
+            r"(\d{1,2})\s+(\w{3,4})\s+(\d{4})",    # 31 lug 2026
+            r"(\d{1,2})\.(\w{3,4})\.(\d{4})",      # 31.lug.2026
+            r"(\d{1,2})/(\d{1,2})/(\d{4})",        # 31/07/2026
+            r"(\d{1,2})-(\d{1,2})-(\d{4})",        # 31-07-2026
+            r"(\d{1,2})\s+(\d{1,2})\s+(\d{4})",    # 31 07 2026
         ]
         
         date_matches = []
@@ -496,7 +499,6 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         st.warning(f"Lettura parziale del PDF: {e}")
     
     return dati_estratti
-
 
 # REFERTO DERMOCOSMETICO PDF
 def genera_referto_dermocosmetico(dati, lente, luce, zona, parametri_cliente):
