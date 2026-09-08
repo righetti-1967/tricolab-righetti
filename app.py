@@ -337,7 +337,7 @@ def estrai_dati_da_pdf_report(pdf_bytes):
         immagini_estratte = []
 
         for page_num, page in enumerate(doc):
-            # 1. Estrai TUTTE le immagini dalla pagina
+            # 1. Estrai TUTTE le immagini normali dalla pagina
             try:
                 image_list = page.get_images(full=True)
                 for img_index, img in enumerate(image_list):
@@ -362,7 +362,32 @@ def estrai_dati_da_pdf_report(pdf_bytes):
             except Exception as e:
                 print(f"⚠️ Errore lettura immagini pagina {page_num+1}: {e}")
 
-            # 2. Estrai widget (campi modulo PDF)
+            # 1.5. CERCA IMMAGINI ANCHE NEI WIDGET (Campi modulo PDF)
+            try:
+                widgets = page.widgets()
+                if widgets:
+                    for w in widgets:
+                        # field_type == 6 significa che è un campo immagine
+                        if w.field_type == 6:
+                            try:
+                                pix = page.get_pixmap(clip=w.rect, dpi=150)
+                                if pix:
+                                    img_bytes = pix.tobytes("png")
+                                    img_array = np.frombuffer(img_bytes, dtype=np.uint8)
+                                    img_cv = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                                    if img_cv is not None:
+                                        img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+                                        immagini_estratte.append({
+                                            "immagine": img_rgb,
+                                            "nome": f"widget_{page_num+1}_{w.field_name}.png",
+                                            "pagina": page_num + 1
+                                        })
+                            except Exception as e:
+                                print(f"⚠️ Errore estrazione widget immagine {page_num+1}: {e}")
+            except Exception as e:
+                print(f"⚠️ Errore lettura widget immagini pagina {page_num+1}: {e}")
+
+            # 2. Estrai widget di testo (campi modulo PDF)
             try:
                 widgets = page.widgets()
                 if widgets:
@@ -416,7 +441,6 @@ def estrai_dati_da_pdf_report(pdf_bytes):
                 mese_text = parts[1].lower()[:3] if parts[1].isalpha() else parts[1]
                 anno = parts[2]
                 
-                # Se il mese è in lettere, converti in numero
                 if isinstance(mese_text, str) and mese_text.isalpha():
                     mese = int(mesi_italiani.get(mese_text, '01'))
                 else:
@@ -425,7 +449,6 @@ def estrai_dati_da_pdf_report(pdf_bytes):
                 anno_int = int(anno)
                 giorno_int = int(giorno)
                 
-                # Valida la data
                 if 1 <= giorno_int <= 31 and 1 <= mese <= 12 and 1900 <= anno_int <= 2100:
                     valore_data = anno_int * 10000 + mese * 100 + giorno_int
                     if valore_data > data_piu_recente_val:
