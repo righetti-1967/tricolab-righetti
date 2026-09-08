@@ -3532,13 +3532,32 @@ def main():
                                 
                                 st.success(f"✅ Analisi completata! Calibro: {media_calibro} µm, Densità: {media_densita} cap/cm²")
                                 
-                                # Mostra i parametri
+                                # 🔥 MOSTRA TUTTI I PARAMETRI ESTRATTI
                                 st.subheader("📊 Parametri estratti dal PDF")
+                                
                                 col_p1, col_p2, col_p3, col_p4 = st.columns(4)
                                 col_p1.metric("Calibro Medio", f"{media_calibro} µm")
                                 col_p2.metric("Anisotropia", f"{media_anisotropia} %")
                                 col_p3.metric("Densità", f"{media_densita} cap/cm²")
                                 col_p4.metric("Tappi Sebacei", tot_tappi)
+                                
+                                # 🔥 SECONDA RIGA: ALTRI PARAMETRI
+                                col_p5, col_p6, col_p7, col_p8 = st.columns(4)
+                                col_p5.metric("Eritemi", tot_eritemi)
+                                col_p6.metric("Germogli Anagen", tot_nuovi)
+                                
+                                # Calcola media steli vellus e anagen
+                                media_vellus = round(
+                                    float(np.mean([p["steli_vellus"] for p in parametri_estratti])),
+                                    1
+                                ) if parametri_estratti else 0
+                                media_anagen = round(
+                                    float(np.mean([p["steli_anagen"] for p in parametri_estratti])),
+                                    1
+                                ) if parametri_estratti else 0
+                                
+                                col_p7.metric("Steli Vellus", f"{media_vellus}")
+                                col_p8.metric("Steli Anagen", f"{media_anagen}")
                                 
                                 # 🔥 MOSTRA LA DATA ESTRATTA
                                 st.info(f"📅 Data visita precedente: **{dati_visita_precedente.get('data', 'Data non rilevata')}**")
