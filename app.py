@@ -3865,169 +3865,169 @@ def main():
 
                 with col_b1:
                         if st.button("💾 Salva Sessione di Analisi", key="btn_salva_analisi_completa", use_container_width=True):
-                            try:
-                                data_oggi = datetime.now().strftime("%d/%m/%Y %H:%M")
-                                data_cartella_foto = datetime.now().strftime("%d-%m-%Y")
+                        try:
+                            data_oggi = datetime.now().strftime("%d/%m/%Y %H:%M")
+                            data_cartella_foto = datetime.now().strftime("%d-%m-%Y")
 
-                                # 📊 BARRA DI PROGRESSO
-                                progress_bar = st.progress(0)
-                                status_text = st.empty()
+                            # 📊 BARRA DI PROGRESSO
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
 
-                                status_text.text("📊 Salvataggio analisi in corso...")
-                                progress_bar.progress(10)
+                            status_text.text("📊 Salvataggio analisi in corso...")
+                            progress_bar.progress(10)
 
-                                tot_steli = sum(r["steli_anagen"] + r["steli_vellus"] + r["steli_nuovi"] for r in immagini_con_etichette)
-                                tot_anagen = sum(r["steli_anagen"] for r in immagini_con_etichette)
-                                tot_vellus = sum(r["steli_vellus"] for r in immagini_con_etichette)
-                                tot_nuovi = sum(r["steli_nuovi"] for r in immagini_con_etichette)
+                            tot_steli = sum(r["steli_anagen"] + r["steli_vellus"] + r["steli_nuovi"] for r in immagini_con_etichette)
+                            tot_anagen = sum(r["steli_anagen"] for r in immagini_con_etichette)
+                            tot_vellus = sum(r["steli_vellus"] for r in immagini_con_etichette)
+                            tot_nuovi = sum(r["steli_nuovi"] for r in immagini_con_etichette)
 
-                                # Salva in Supabase
-                                parametri = {
-                                    "zona": "Multi-zona",
-                                    "ingrandimento": "50x/200x",
-                                    "luce": "Mista",
-                                    "foto_caricate": len(immagini_con_etichette),
-                                    "steli_totale": tot_steli,
-                                    "steli_anagen": tot_anagen,
-                                    "steli_vellus": tot_vellus,
-                                    "steli_nuovi": tot_nuovi,
-                                    "calibro_medio": media_cal_oggi,
-                                    "densita_f": media_den_oggi,
-                                    "anisotropia": media_ani_oggi,
-                                    "perc_vellus": round((tot_vellus / tot_steli) * 100, 1) if tot_steli > 0 else 0,
-                                    "eritemi": tot_eritemi_oggi,
-                                    "dermatite_seborroica": 0,
-                                    "forfora_secca": 0,
-                                    "osti_intasati": tot_tappi_oggi,
-                                    "prurito": "Sì" if chk_prurito else "No",
-                                    "routine_consigliata": f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
-                                }
+                            # Salva in Supabase
+                            parametri = {
+                                "zona": "Multi-zona",
+                                "ingrandimento": "50x/200x",
+                                "luce": "Mista",
+                                "foto_caricate": len(immagini_con_etichette),
+                                "steli_totale": tot_steli,
+                                "steli_anagen": tot_anagen,
+                                "steli_vellus": tot_vellus,
+                                "steli_nuovi": tot_nuovi,
+                                "calibro_medio": media_cal_oggi,
+                                "densita_f": media_den_oggi,
+                                "anisotropia": media_ani_oggi,
+                                "perc_vellus": round((tot_vellus / tot_steli) * 100, 1) if tot_steli > 0 else 0,
+                                "eritemi": tot_eritemi_oggi,
+                                "dermatite_seborroica": 0,
+                                "forfora_secca": 0,
+                                "osti_intasati": tot_tappi_oggi,
+                                "prurito": "Sì" if chk_prurito else "No",
+                                "routine_consigliata": f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
+                            }
 
-                                status_text.text("☁️ Salvataggio su Supabase...")
-                                progress_bar.progress(20)
+                            status_text.text("☁️ Salvataggio su Supabase...")
+                            progress_bar.progress(20)
 
-                                ok, msg = salva_analisi_supabase(cliente_uuid, data_oggi, parametri)
-                                if ok:
-                                    st.success(msg)
-                                else:
-                                    st.error(msg)
+                            ok, msg = salva_analisi_supabase(cliente_uuid, data_oggi, parametri)
+                            if ok:
+                                st.success(msg)
+                            else:
+                                st.error(msg)
 
-                                status_text.text("📸 Preparazione foto...")
-                                progress_bar.progress(30)
-
-                                # ============================================================
-                                # 🔥 SALVATAGGIO FOTO IN BACKGROUND (THREADING)
-                                # ============================================================
-                                if immagini_con_etichette:
-                                    import threading
-                                    
-                                    def salva_foto_background():
-                                        try:
-                                            # 1. Salva su Supabase Storage
-                                            ok_foto, msg_foto = salva_foto_supabase(
-                                                cliente_uuid, 
-                                                immagini_con_etichette, 
-                                                data_cartella_foto
+                            # ============================================================
+                            # 🔥 SALVATAGGIO FOTO IN BACKGROUND (THREADING)
+                            # ============================================================
+                            if immagini_con_etichette:
+                                import threading
+                                
+                                def salva_foto_background():
+                                    try:
+                                        # 1. Salva su Supabase Storage
+                                        ok_foto, msg_foto = salva_foto_supabase(
+                                            cliente_uuid, 
+                                            immagini_con_etichette, 
+                                            data_cartella_foto
+                                        )
+                                        if ok_foto:
+                                            st.success(msg_foto)
+                                        else:
+                                            st.warning(msg_foto)
+                                        
+                                        # 2. Salva localmente e prepara batch per Google Drive
+                                        cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                                        nome_cartella_foto = f"Foto Check-Up | {data_cartella_foto}"
+                                        cartella_foto_checkup = os.path.join(cartella_cliente_dest, nome_cartella_foto)
+                                        os.makedirs(cartella_foto_checkup, exist_ok=True)
+                                        
+                                        lista_file_batch = []
+                                        for i_f, f_data in enumerate(immagini_con_etichette, 1):
+                                            f_filename = f"Acquisizione_{i_f}_{f_data['zona'].split()[0]}_{f_data['ottica']}.jpg"
+                                            file_path = os.path.join(cartella_foto_checkup, f_filename)
+                                            
+                                            cv2.imwrite(
+                                                file_path,
+                                                cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR),
+                                                [int(cv2.IMWRITE_JPEG_QUALITY), 85]
                                             )
-                                            if ok_foto:
-                                                st.success(msg_foto)
-                                            else:
-                                                st.warning(msg_foto)
                                             
-                                            # 2. Salva localmente e prepara batch per Google Drive
-                                            cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                                            nome_cartella_foto = f"Foto Check-Up | {data_cartella_foto}"
-                                            cartella_foto_checkup = os.path.join(cartella_cliente_dest, nome_cartella_foto)
-                                            os.makedirs(cartella_foto_checkup, exist_ok=True)
-                                            
-                                            lista_file_batch = []
-                                            for i_f, f_data in enumerate(immagini_con_etichette, 1):
-                                                f_filename = f"Acquisizione_{i_f}_{f_data['zona'].split()[0]}_{f_data['ottica']}.jpg"
-                                                file_path = os.path.join(cartella_foto_checkup, f_filename)
-                                                
-                                                cv2.imwrite(
-                                                    file_path,
-                                                    cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR),
-                                                    [int(cv2.IMWRITE_JPEG_QUALITY), 85]
-                                                )
-                                                
-                                                with open(file_path, "rb") as img_file:
-                                                    img_bytes = img_file.read()
-                                                    lista_file_batch.append({
-                                                        "name": f"{nome_cartella_foto}/{f_filename}",
-                                                        "base64": base64.b64encode(img_bytes).decode("utf-8"),
-                                                        "mimeType": "image/jpeg"
-                                                    })
-                                            
-                                            # 3. Invia a Google Drive
-                                            if lista_file_batch:
-                                                webhook_url = st.session_state.get("gdrive_webhook_url", "") or get_config("gdrive_webhook_url")
-                                                if webhook_url:
-                                                    try:
-                                                        payload = {
-                                                            "action": "batch_upload",
-                                                            "clientFolder": str(cliente_selezionato).strip(),
-                                                            "files": lista_file_batch
-                                                        }
-                                                        resp = requests.post(webhook_url.strip(), json=payload, timeout=120)
-                                                        if resp.status_code == 200:
-                                                            st.success(f"📸 {len(lista_file_batch)} foto inviate a Google Drive!")
-                                                        else:
-                                                            st.warning(f"⚠️ Errore invio foto a Google Drive: {resp.status_code}")
-                                                    except Exception as e:
-                                                        st.warning(f"⚠️ Errore invio foto a Google Drive: {e}")
-                                                else:
-                                                    st.warning("⚠️ Webhook Google Drive non configurato")
-                                            
-                                            # 4. Foto panoramica
-                                            if "uploaded_macro_phone" in locals() and uploaded_macro_phone is not None:
+                                            with open(file_path, "rb") as img_file:
+                                                img_bytes = img_file.read()
+                                                lista_file_batch.append({
+                                                    "name": f"{nome_cartella_foto}/{f_filename}",
+                                                    "base64": base64.b64encode(img_bytes).decode("utf-8"),
+                                                    "mimeType": "image/jpeg"
+                                                })
+                                        
+                                        # 3. Invia a Google Drive
+                                        if lista_file_batch:
+                                            webhook_url = st.session_state.get("gdrive_webhook_url", "") or get_config("gdrive_webhook_url")
+                                            if webhook_url:
                                                 try:
-                                                    prefisso_macro = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Panoramica")
-                                                    nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_cartella_foto}.jpg"
-                                                    path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
-                                                    with open(path_macro_dest, "wb") as f_macro:
-                                                        f_macro.write(uploaded_macro_phone.getbuffer())
-                                                    
-                                                    with open(path_macro_dest, "rb") as img_file:
-                                                        img_bytes = img_file.read()
-                                                        ok_drive, msg_drive = invia_file_a_google_drive(
-                                                            img_bytes,
-                                                            nome_file_macro,
-                                                            cliente_selezionato,
-                                                            mime_type="image/jpeg"
-                                                        )
-                                                        if ok_drive:
-                                                            st.success(f"📸 Foto panoramica inviata a Google Drive!")
-                                                        else:
-                                                            st.warning(f"⚠️ {msg_drive}")
+                                                    payload = {
+                                                        "action": "batch_upload",
+                                                        "clientFolder": str(cliente_selezionato).strip(),
+                                                        "files": lista_file_batch
+                                                    }
+                                                    resp = requests.post(webhook_url.strip(), json=payload, timeout=120)
+                                                    if resp.status_code == 200:
+                                                        st.success(f"📸 {len(lista_file_batch)} foto inviate a Google Drive!")
+                                                    else:
+                                                        st.warning(f"⚠️ Errore invio foto a Google Drive: {resp.status_code}")
                                                 except Exception as e:
-                                                    st.warning(f"⚠️ Errore invio foto panoramica: {e}")
-                                            
-                                            st.success(f"✅ Salvataggio foto completato in background!")
-                                        except Exception as e:
-                                            st.error(f"❌ Errore salvataggio foto in background: {e}")
-                                    
-                                    # 🔥 AVVIA IL THREAD (NON BLOCCA L'APP)
-                                    thread = threading.Thread(target=salva_foto_background, daemon=True)
-                                    thread.start()
-                                    
-                                    st.info("📸 Salvataggio foto in corso (background)... Puoi continuare a lavorare!")
-                                    progress_bar.progress(50)
-                                else:
-                                    progress_bar.progress(50)
+                                                    st.warning(f"⚠️ Errore invio foto a Google Drive: {e}")
+                                            else:
+                                                st.warning("⚠️ Webhook Google Drive non configurato")
+                                        
+                                        # 4. Foto panoramica
+                                        if "uploaded_macro_phone" in locals() and uploaded_macro_phone is not None:
+                                            try:
+                                                prefisso_macro = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Panoramica")
+                                                nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_cartella_foto}.jpg"
+                                                path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
+                                                with open(path_macro_dest, "wb") as f_macro:
+                                                    f_macro.write(uploaded_macro_phone.getbuffer())
+                                                
+                                                with open(path_macro_dest, "rb") as img_file:
+                                                    img_bytes = img_file.read()
+                                                    ok_drive, msg_drive = invia_file_a_google_drive(
+                                                        img_bytes,
+                                                        nome_file_macro,
+                                                        cliente_selezionato,
+                                                        mime_type="image/jpeg"
+                                                    )
+                                                    if ok_drive:
+                                                        st.success(f"📸 Foto panoramica inviata a Google Drive!")
+                                                    else:
+                                                        st.warning(f"⚠️ {msg_drive}")
+                                            except Exception as e:
+                                                st.warning(f"⚠️ Errore invio foto panoramica: {e}")
+                                        
+                                        st.success(f"✅ Salvataggio foto completato in background!")
+                                    except Exception as e:
+                                        st.error(f"❌ Errore salvataggio foto in background: {e}")
+                                
+                                # 🔥 AVVIA IL THREAD (NON BLOCCA L'APP)
+                                thread = threading.Thread(target=salva_foto_background, daemon=True)
+                                thread.start()
+                                
+                                st.info("📸 Salvataggio foto in corso (background)... Puoi continuare a lavorare!")
+                            else:
+                                st.info("📭 Nessuna foto da salvare.")
 
-                                progress_bar.progress(90)
-                                progress_bar.progress(100)
-                                status_text.text("✅ Salvataggio completato!")
+                            # ✅ MESSAGGIO FINALE (SENZA RIFERIMENTI A cartella_cliente_dest)
+                            st.success(f"✅ Sessione salvata con successo!")
 
-                                # 🔥 RIMUOVI TUTTI I RIFERIMENTI A cartella_cliente_dest QUI!
-                                # Il messaggio di successo ora viene mostrato dal thread
-                                st.success(f"✅ Sessione salvata! Le foto vengono elaborate in background.")
+                            # Pulisce la barra di progresso
+                            progress_bar.progress(100)
+                            status_text.text("✅ Salvataggio completato!")
+                            import time
+                            time.sleep(1)
+                            progress_bar.empty()
+                            status_text.empty()
 
-                                # Pulisce la barra di progresso dopo 3 secondi
-                                import time
-                                time.sleep(2)
+                        except Exception as e:
+                            st.error(f"Errore durante il salvataggio: {e}")
+                            if 'progress_bar' in locals():
                                 progress_bar.empty()
+                            if 'status_text' in locals():
                                 status_text.empty()
                                 
                                 # Foto panoramica
