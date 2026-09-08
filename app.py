@@ -348,7 +348,7 @@ def estrai_dati_da_pdf_report(pdf_bytes):
                                 # Estrai l'immagine dal widget
                                 pix = page.get_pixmap(clip=w.rect, dpi=300)  # 🔥 AUMENTATO DA 150 A 300
                                 if pix:
-                                    img_bytes = pix.tobytes("jpeg") # 🔥 CAMBIATO DA "png" A "jpeg"
+                                    img_bytes = pix.tobytes("png") 
                                     img_array = np.frombuffer(img_bytes, dtype=np.uint8)
                                     img_cv = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                                     if img_cv is not None:
