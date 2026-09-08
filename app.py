@@ -1585,7 +1585,7 @@ def genera_bozza_protocollo_automatico(prodotti_assegnati):
     ]
     for g in gocce_list:
         fasi.append(
-            f"• Fase (Gocce Lenitive Post-Lavaggio): Dopo lo shampoo, applicare '{g['nome']}' sul cuoio capelluto e lasciare agire, NO risciacquo."
+            f"• Fase finale (Gocce Lenitive Post-Lavaggio): Dopo lo shampoo, applicare '{g['nome']}' sul cuoio capelluto e lasciare agire, NO risciacquo."
         )
 
     # 5. Trattamento Cute Leave-In (SPRAY / GOCCE POST-LAVAGGIO)
