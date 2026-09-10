@@ -2570,7 +2570,7 @@ def auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict):
 
         # FASE 5: CEROTTI
         if chk_caduta or "Effluvio" in quadro or ani_m > 18.0:
-            nomi_prodotti_target.append("CEROTUM POTENTIA")
+            nomi_prodotti_target.append("CEROTUM POTENTIA 28 PEZZI")
 
         # 🔧 RECUPERA I PRODOTTI DA SUPABASE E LI ASSEGNA
         prodotti_assegnati = []
