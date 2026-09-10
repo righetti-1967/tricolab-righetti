@@ -243,7 +243,7 @@ def init_db():
             "trigger_condizione": "caduta_effluvio-forfora",
             "note": "Cerotti transdermici a rilascio prolungato con rusco, semburi, luppolo, carnitina e ginseng.",
             "dosi": "1 cerotto",
-            "tempi_posa": "8-10 ore di rilascio",
+            "tempi_posa": "8-12 ore di rilascio",
             "durata_utilizzo": "28 giorni (1 confezione) | 56 giorni (2 confezioni)",
         },
         {
