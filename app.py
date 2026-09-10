@@ -237,8 +237,8 @@ def init_db():
         {
             "nome": "CEROTUM POTENTIA",
             "categoria": "Cerotto/Garza",
-            "modalita": "Applicare 1 cerotto sul polso a 4 dita dalla mano o alla base del collo tra attaccatura capelli e lobo orecchio.",
-            "frequenza": "1 cerotto ogni 24 ore",
+            "modalita": "Applicare sul polso a 4 dita dalla mano OPPURE alla base del collo tra attaccatura capelli e lobo orecchio.",
+            "frequenza": "1 Cerotto al giorno alternado DESTRA e SINISTRA",
             "orario": "Durante le ore notturne",
             "trigger_condizione": "caduta_effluvio-forfora",
             "note": "Cerotti transdermici a rilascio prolungato con rusco, semburi, luppolo, carnitina e ginseng.",
