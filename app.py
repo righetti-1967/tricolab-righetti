@@ -1379,7 +1379,7 @@ def genera_pdf_cura_domiciliare(
         )
         y_pos += 20
 
-        for idx, prod in enumerate(prodotti_assegnati, 1):
+                for idx, prod in enumerate(prodotti_assegnati, 1):
             if y_pos > 735:
                 page = doc.new_page(width=595, height=842)
                 y_pos = 50
@@ -1412,24 +1412,14 @@ def genera_pdf_cura_domiciliare(
 
             for label, valore in voci:
                 if valore and str(valore).strip() and str(valore).strip() != "None":
-                    # 🔥 WRAPPING DEL TESTO
-                    testo_completo = f"• {label}: {valore.strip()}"
-                    righe = textwrap.wrap(testo_completo, width=95)
-                    
-                    for riga in righe:
-                        # Controlla se c'è spazio nella pagina
-                        if y_pos > 800:
-                            page = doc.new_page(width=595, height=842)
-                            y_pos = 50
-                        
-                        page.insert_text(
-                            (68, y_pos),
-                            riga,
-                            fontsize=8.5,
-                            color=(0.25, 0.25, 0.25),
-                            fontname="helv",
-                        )
-                        y_pos += 11
+                    page.insert_text(
+                        (68, y_pos),
+                        f"• {label}: {valore.strip()}",
+                        fontsize=8.5,
+                        color=(0.25, 0.25, 0.25),
+                        fontname="helv",
+                    )
+                    y_pos += 12
 
             y_pos += 4
             page.draw_line(
