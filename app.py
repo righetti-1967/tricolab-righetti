@@ -1379,7 +1379,7 @@ def genera_pdf_cura_domiciliare(
         )
         y_pos += 20
 
-        for idx, prod in enumerate(prodotti_assegnati, 1):
+                for idx, prod in enumerate(prodotti_assegnati, 1):
             if y_pos > 735:
                 page = doc.new_page(width=595, height=842)
                 y_pos = 50
@@ -1429,7 +1429,7 @@ def genera_pdf_cura_domiciliare(
                             color=(0.25, 0.25, 0.25),
                             fontname="helv",
                         )
-                    y_pos += 12
+                        y_pos += 11
 
             y_pos += 4
             page.draw_line(
