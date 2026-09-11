@@ -3834,43 +3834,118 @@ def main():
 
                         st.markdown(f"##### 🔬 Parametri Rilevati: Area {zona}")
 
+                        # 🔥 PRIMA RIGA: BIOMETRIA PRINCIPALE (MODIFICABILE)
                         m1, m2, m3 = st.columns(3)
-                        valore_densita = f"{risultato['densita_stimata']} cap/cm²" if ottica == "50x" else f"{len(risultato['spessori_um'])} steli (200x)"
-                        m1.metric("Densità", valore_densita)
-                        m2.metric("Calibro Medio", f"{risultato['calibro_medio']} µm")
-                        m3.metric("Anisotropia", f"{risultato['anisotropia']} %")
+                        
+                        valore_densita_default = (
+                            risultato['densita_stimata'] if ottica == "50x"
+                            else len(risultato['spessori_um'])
+                        )
+                        
+                        with m1:
+                            densita_mod = st.number_input(
+                                "Densità (cap/cm²)",
+                                value=int(valore_densita_default),
+                                min_value=0,
+                                max_value=500,
+                                step=1,
+                                key=f"edit_densita_{cliente_selezionato}_{idx}",
+                            )
+                        
+                        with m2:
+                            calibro_mod = st.number_input(
+                                "Calibro Medio (µm)",
+                                value=float(risultato['calibro_medio']),
+                                min_value=0.0,
+                                max_value=200.0,
+                                step=0.1,
+                                key=f"edit_calibro_{cliente_selezionato}_{idx}",
+                            )
+                        
+                        with m3:
+                            anisotropia_mod = st.number_input(
+                                "Anisotropia (%)",
+                                value=float(risultato['anisotropia']),
+                                min_value=0.0,
+                                max_value=100.0,
+                                step=0.1,
+                                key=f"edit_anisotropia_{cliente_selezionato}_{idx}",
+                            )
 
+                        # 🔥 SECONDA RIGA: PALLINI COLORATI (MODIFICABILI)
                         m4, m5, m6 = st.columns(3)
-                        m4.metric("🟡 Tappi Sebacei", risultato["tappi_sebacei"])
-                        m5.metric("🔵 Follicoli Silenti", risultato["follicoli_dormienti"])
-                        m6.metric("🟣 Germogli Anagen", risultato["steli_nuovi"])
+                        
+                        with m4:
+                            tappi_mod = st.number_input(
+                                "🟡 Tappi Sebacei",
+                                value=int(risultato["tappi_sebacei"]),
+                                min_value=0,
+                                max_value=500,
+                                step=1,
+                                key=f"edit_tappi_{cliente_selezionato}_{idx}",
+                            )
+                        
+                        with m5:
+                            follicoli_mod = st.number_input(
+                                "🔵 Follicoli Silenti",
+                                value=int(risultato["follicoli_dormienti"]),
+                                min_value=0,
+                                max_value=500,
+                                step=1,
+                                key=f"edit_follicoli_{cliente_selezionato}_{idx}",
+                            )
+                        
+                        with m6:
+                            germogli_mod = st.number_input(
+                                "🟣 Germogli Anagen",
+                                value=int(risultato["steli_nuovi"]),
+                                min_value=0,
+                                max_value=500,
+                                step=1,
+                                key=f"edit_germogli_{cliente_selezionato}_{idx}",
+                            )
+
+                        # 🔥 AGGIORNA I VALORI DEL RISULTATO CON LE MODIFICHE MANUALI
+                        risultato["densita_stimata"] = densita_mod
+                        risultato["calibro_medio"] = calibro_mod
+                        risultato["anisotropia"] = anisotropia_mod
+                        risultato["tappi_sebacei"] = tappi_mod
+                        risultato["follicoli_dormienti"] = follicoli_mod
+                        risultato["steli_nuovi"] = germogli_mod
 
                         st.markdown("##### 📝 Sintesi Immagine (Soli Punti Chiave)")
-                        nota_operatore_img = st.text_area("Descrizione sintetica immagine:", key=note_key, height=100)
+                        nota_operatore_img = st.text_area(
+                            "Descrizione sintetica immagine:",
+                            key=note_key,
+                            height=100,
+                        )
 
                         st.button(
                             "🔄 Ricalcola Testo AI",
                             key=f"btn_reset_note_{idx}",
                             on_click=reset_testo_callback,
                             args=(note_key, risultato["note_auto"]),
+                            help="Ripristina il testo automatico dell'AI per questa foto",
                             use_container_width=True,
                         )
 
-                    immagini_con_etichette.append({
-                        "immagine": risultato["immagine_annotata"],
-                        "ottica": ottica,
-                        "luce": luce,
-                        "zona": zona,
-                        "note": nota_operatore_img,
-                        "steli_anagen": risultato["steli_anagen"],
-                        "steli_vellus": risultato["steli_vellus"],
-                        "steli_nuovi": risultato["steli_nuovi"],
-                        "eritemi": risultato["eritema_diffuso"],
-                        "tappi_sebacei": risultato["tappi_sebacei"],
-                        "calibro_medio": risultato["calibro_medio"],
-                        "anisotropia": risultato["anisotropia"],
-                        "densita": risultato["densita_stimata"],
-                    })
+                    immagini_con_etichette.append(
+                        {
+                            "immagine": risultato["immagine_annotata"],
+                            "ottica": ottica,
+                            "luce": luce,
+                            "zona": zona,
+                            "note": nota_operatore_img,
+                            "steli_anagen": risultato["steli_anagen"],
+                            "steli_vellus": risultato["steli_vellus"],
+                            "steli_nuovi": risultato["steli_nuovi"],
+                            "eritemi": risultato["eritema_diffuso"],
+                            "tappi_sebacei": risultato["tappi_sebacei"],
+                            "calibro_medio": risultato["calibro_medio"],
+                            "anisotropia": risultato["anisotropia"],
+                            "densita": risultato["densita_stimata"],
+                        }
+                    )
 
             # --- CALCOLO MEDIE ---
             if immagini_con_etichette:
