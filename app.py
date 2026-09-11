@@ -3913,6 +3913,35 @@ def main():
                         risultato["follicoli_dormienti"] = follicoli_mod
                         risultato["steli_nuovi"] = germogli_mod
 
+                        # 🔥 RIGENERA IL TESTO CON I VALORI MODIFICATI
+                        testo_aggiornato = genera_referto_dermocosmetico(
+                            {
+                                "eritema_diffuso": risultato["eritema_diffuso"],
+                                "sebo_ceroso": 0,
+                                "desquamazione_secca": 0,
+                                "tappi_sebacei": risultato["tappi_sebacei"],
+                                "infiammazione_perifollicolare": 0,
+                                "follicoli_dormienti": risultato["follicoli_dormienti"],
+                                "calibro_medio": risultato["calibro_medio"],
+                                "anisotropia": risultato["anisotropia"],
+                                "steli_nuovi": risultato["steli_nuovi"],
+                                "steli_vellus": risultato["steli_vellus"],
+                            },
+                            ottica,
+                            luce,
+                            zona,
+                            sintomi_dict,
+                        )
+
+                        # 🔥 CHIAVE PER IL TRACKING DEI VALORI MODIFICATI
+                        valori_attuali = f"{densita_mod}_{calibro_mod}_{anisotropia_mod}_{tappi_mod}_{follicoli_mod}_{germogli_mod}"
+                        tracker_vals_key = f"tracker_vals_{cliente_selezionato}_{idx}"
+                        
+                        # 🔥 SE I VALORI SONO CAMBIATI, AGGIORNA IL TESTO IN SESSION_STATE
+                        if st.session_state.get(tracker_vals_key) != valori_attuali:
+                            st.session_state[tracker_vals_key] = valori_attuali
+                            st.session_state[note_key] = testo_aggiornato
+
                         st.markdown("##### 📝 Sintesi Immagine (Soli Punti Chiave)")
                         nota_operatore_img = st.text_area(
                             "Descrizione sintetica immagine:",
@@ -3920,12 +3949,16 @@ def main():
                             height=100,
                         )
 
+                        # 🔥 PULSANTE RICALCOLA CON I VALORI MODIFICATI
+                        def reset_con_valori_modificati(chiave_da_aggiornare, testo_nuovo):
+                            st.session_state[chiave_da_aggiornare] = testo_nuovo
+
                         st.button(
                             "🔄 Ricalcola Testo AI",
                             key=f"btn_reset_note_{idx}",
-                            on_click=reset_testo_callback,
-                            args=(note_key, risultato["note_auto"]),
-                            help="Ripristina il testo automatico dell'AI per questa foto",
+                            on_click=reset_con_valori_modificati,
+                            args=(note_key, testo_aggiornato),
+                            help="Rigenera il testo con i valori attualmente inseriti",
                             use_container_width=True,
                         )
 
