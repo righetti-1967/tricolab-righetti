@@ -3579,7 +3579,7 @@ def main():
                             try:
                                 cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                                 data_macro_str = datetime.now().strftime("%d-%m-%Y")
-                                nome_file_macro = f"Foto Panoramica | {data_macro_str}.jpg"
+                                nome_file_macro = f"Foto Panoramica \u2502 {data_macro_str}.jpg"
                                 path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
 
                                 file_bytes = uploaded_macro_phone.getvalue()
@@ -4227,7 +4227,7 @@ def main():
                                     salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto)
                                     
                                     cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                                    nome_cartella_foto = f"Foto Check-Up | {data_cartella_foto}"
+                                    nome_cartella_foto = f"Foto Check-Up \u2502 {data_cartella_foto}"
                                     cartella_foto_checkup = os.path.join(cartella_cliente_dest, nome_cartella_foto)
                                     os.makedirs(cartella_foto_checkup, exist_ok=True)
                                     
@@ -4283,7 +4283,7 @@ def main():
                         if immagini_con_etichette:
                             cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                             prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report")
-                            pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico Righetti.pdf"
+                            pdf_filename = f"{cliente_selezionato} \u2502 {prefisso_report}Report Tricologico Righetti.pdf"
                             pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
                             nota_da_stampare = st.session_state.get(note_glob_key, "")
@@ -4619,7 +4619,7 @@ def main():
                 if prodotti_assegnati:
                     cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                     prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
-                    pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
+                    pdf_filename = f"{cliente_selezionato} \u2502 {prefisso_cura}Rituale di Cura Domiciliare.pdf"
                     pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
                     confronto_dati = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
@@ -4680,7 +4680,7 @@ def main():
                     if st.button("📄 Salva Dashboard PDF", key="btn_pdf_dashboard", use_container_width=True):
                         cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                         prefisso_dash = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Dashboard")
-                        pdf_filename = f"{cliente_selezionato} | {prefisso_dash}Dashboard Grafici.pdf"
+                        pdf_filename = f"{cliente_selezionato} \u2502 {prefisso_dash}Dashboard Grafici.pdf"
                         pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
                         with st.spinner("📄 Creazione Dashboard PDF in corso..."):
