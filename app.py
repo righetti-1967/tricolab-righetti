@@ -509,19 +509,14 @@ def genera_referto_dermocosmetico(dati, lente, luce, zona, parametri_cliente):
         steli_str += f", {dati['steli_vellus']} vellus"
 
     testo = f"Area {zona} ({lente}, {luce.lower()}): "
-    # Valutazione clinica rigorosa: a 200x evidenzia la reattività vascolare e il film idrolipidico
-    if punti_cute:
-        testo += "Cute con " + ", ".join(punti_cute) + ". "
-    else:
-        testo += "Cute con iperemia perifollicolare e alterazione del film idrolipidico con depositi cheratinici. "
-
-    # A 200x azzera i falsi follicoli e segnala i manicotti cheratinici reali
-    if lente == "200x":
-        punti_osti_reali = [p for p in punti_osti if "follicoli" not in p.lower() and "empty" not in p.lower()]
-        punti_osti_reali.append("manicotto cheratinico periostiale (peripilar cast)")
-        testo += "Osti: " + ", ".join(punti_osti_reali) + ". "
-    else:
-        testo += (("Osti: " + ", ".join(punti_osti) + ". ") if punti_osti else "Osti pervi. ")
+    testo += (
+        ("Cute con " + ", ".join(punti_cute) + ". ")
+        if punti_cute
+        else "Cute in equilibrio idrolipidico. "
+    )
+    testo += (
+        ("Osti: " + ", ".join(punti_osti) + ". ") if punti_osti else "Osti ricettivi. "
+    )
     testo += f"Steli: {steli_str}."
     return testo
 
@@ -585,116 +580,311 @@ def genera_sintesi_globale_operatore(
 # ============================================================================
 # MOTORE VISIONE TRICOSCOPICA CON DENSITÀ AD ALTA SENSIBILITÀ (FOTOTRICOGRAMMA)
 # ============================================================================
+def analizza_immagine_tricoscopica_pro(
+    img_rgb,
+    lente="50x",
+    luce="Bianca",
+    zona="Vertice",
+    parametri_cliente=None,
+):
+    if parametri_cliente is None:
+        parametri_cliente = {"sesso": "Uomo"}
+
+    h_img, w_img = img_rgb.shape[:2]
+    img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    hsv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2HSV)
+    h_chan, s_chan, v_chan = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+    annotata = img_rgb.copy()
+
+    # -------------------------------------------------------------
+    # 1. RILEVAMENTO ERITEMA & IPEREMIA (SOTTOSTANTE ALLA CUTE)
+    # -------------------------------------------------------------
+    r, g, b = cv2.split(img_rgb)
+    redness = r.astype(np.int16) - ((g.astype(np.int16) + b.astype(np.int16)) // 2)
+    redness_mask = np.uint8(
+        np.clip(redness * (1.4 if luce == "Polarizzata" else 1.0), 0, 255)
+    )
+    _, thresh_red = cv2.threshold(redness_mask, 44, 255, cv2.THRESH_BINARY)
+    cnts_red, _ = cv2.findContours(
+        thresh_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    eritemi = 0
+    for c_cnt in cnts_red:
+        if cv2.contourArea(c_cnt) > (400 if lente == "50x" else 180):
+            M = cv2.moments(c_cnt)
+            if M["m00"] != 0:
+                cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+                if 30 < cx < w_img - 30 and 30 < cy < h_img - 30:
+                    eritemi += 1
+                    cv2.circle(annotata, (cx, cy), 5, (230, 20, 20), -1)
+                    cv2.circle(annotata, (cx, cy), 7, (255, 255, 255), 1)
+
+    # -------------------------------------------------------------
+    # 2. RILEVAMENTO TAPPI SEBACEI / YELLOW DOTS
+    # -------------------------------------------------------------
+    mask_yellow = (h_chan >= 14) & (h_chan <= 38) & (s_chan >= 50) & (v_chan >= 130)
+    cnts_yellow, _ = cv2.findContours(
+        np.uint8(mask_yellow * 255),
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
+
+    tappi = 0
+    for y_cnt in cnts_yellow:
+        if cv2.contourArea(y_cnt) > (300 if lente == "50x" else 100):
+            M = cv2.moments(y_cnt)
+            if M["m00"] != 0:
+                cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+                if 30 < cx < w_img - 30 and 30 < cy < h_img - 30:
+                    tappi += 1
+                    cv2.circle(annotata, (cx, cy), 6, (245, 210, 0), -1)
+                    cv2.circle(annotata, (cx, cy), 8, (0, 0, 0), 1)
+
+    # -------------------------------------------------------------
+    # 3. SEGMENTAZIONE FUSTI & ANALISI COPERTURA CUTE (FOTOTRICOGRAMMA)
+    # -------------------------------------------------------------
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    mediana_cute = float(np.median(gray))
+
+    # Maschera buio: isola i veri capelli scuri dalla cute chiara
+    soglia_taglio = int(mediana_cute - 22)
+    _, mask_scura = cv2.threshold(
+        gray, max(35, soglia_taglio), 255, cv2.THRESH_BINARY_INV
+    )
+
+    k_size = 19 if lente == "50x" else 27
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (k_size, k_size))
+    blackhat = cv2.morphologyEx(blur, cv2.MORPH_BLACKHAT, kernel)
+    _, thresh_bh = cv2.threshold(
+        blackhat, 14 if lente == "200x" else 18, 255, cv2.THRESH_BINARY
+    )
+
+    maschera_fusti = cv2.bitwise_and(thresh_bh, mask_scura)
+    maschera_fusti = cv2.morphologyEx(
+        maschera_fusti, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8)
+    )
+
+    # Calcolo della percentuale di copertura dei capelli rispetto alla cute
+    pixel_totali = float(h_img * w_img)
+    pixel_fusti = float(cv2.countNonZero(maschera_fusti))
+    percentuale_copertura = (pixel_fusti / pixel_totali) * 100.0  # es. 8% - 35%
+
+    dist_transform = cv2.distanceTransform(maschera_fusti, cv2.DIST_L2, 5)
+    contours, _ = cv2.findContours(
+        maschera_fusti, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+    )
+
+    spessori = []
+    osti_rilevati = []
+    steli_anagen = 0
+    steli_vellus = 0
+    steli_nuovi = 0
+
+    min_area_val = 220 if lente == "50x" else 400
+    scala_um = 9.8 if lente == "50x" else 4.2
+
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area > min_area_val:
+            x, y, w, h = cv2.boundingRect(cnt)
+            aspect_ratio = float(max(w, h)) / max(min(w, h), 1)
+
+            if aspect_ratio > 1.4:
+                mask_cnt = np.zeros(gray.shape, dtype=np.uint8)
+                cv2.drawContours(mask_cnt, [cnt], -1, 255, -1)
+
+                vals = dist_transform[mask_cnt == 255]
+                if len(vals) == 0:
+                    continue
+
+                if lente == "200x":
+                    diametro_px = float(np.percentile(vals, 90)) * 2.0
+                    spessore_um = round(diametro_px * 6.5, 1)
+                else:
+                    diametro_px = float(np.percentile(vals, 85)) * 2.0
+                    spessore_um = round(diametro_px * 9.5, 1)
+
+                if spessore_um < 25.0:
+                    spessore_um = 30.0 if lente == "200x" else 28.0
+                elif spessore_um > 105.0:
+                    spessore_um = 82.0
+
+                if 22.0 <= spessore_um <= 105.0:
+                    [vx, vy, x0, y0] = cv2.fitLine(cnt, cv2.DIST_L2, 0, 0.01, 0.01)
+                    pts = cnt.reshape(-1, 2)
+                    proj = (pts[:, 0] - x0) * vx + (pts[:, 1] - y0) * vy
+                    root_pt = pts[np.argmax(proj)]
+                    rx, ry = int(root_pt[0]), int(root_pt[1])
+
+                    # Filtro anti-bordo
+                    if 35 < rx < w_img - 35 and 35 < ry < h_img - 35:
+                        troppo_vicino = False
+                        raggio_cluster = 35 if lente == "200x" else 22
+                        for ox, oy in osti_rilevati:
+                            if (
+                                np.sqrt((rx - ox) ** 2 + (ry - oy) ** 2)
+                                < raggio_cluster
+                            ):
+                                troppo_vicino = True
+                                break
+
+                        if not troppo_vicino:
+                            osti_rilevati.append((rx, ry))
+                            spessori.append(spessore_um)
+
+                            if spessore_um < 50.0:
+                                steli_vellus += 1
+                            else:
+                                steli_anagen += 1
+                                cv2.circle(annotata, (rx, ry), 5, (40, 200, 80), -1)
+                                cv2.circle(annotata, (rx, ry), 7, (255, 255, 255), 1)
+                    else:
+                        spessori.append(spessore_um)
+
+    # -------------------------------------------------------------
+    # 4. RILEVAMENTO FOLLICOLI SILENTI (EMPTY OSTIA)
+    # -------------------------------------------------------------
+    inv_hair = cv2.bitwise_not(maschera_fusti)
+    mask_dormienti = (
+        (s_chan > 25)
+        & (s_chan < 85)
+        & (v_chan > 160)
+        & (inv_hair == 255)
+        & (thresh_red == 0)
+    )
+    cnts_dorm, _ = cv2.findContours(
+        np.uint8(mask_dormienti * 255),
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
+
+    follicoli_dormienti = 0
+    for c_cnt in cnts_dorm:
+        area = cv2.contourArea(c_cnt)
+        if 60 < area < 350 if lente == "50x" else 150 < area < 550:
+            M = cv2.moments(c_cnt)
+            if M["m00"] != 0:
+                cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+                if 35 < cx < w_img - 35 and 35 < cy < h_img - 35:
+                    if not any(
+                        np.sqrt((cx - ox) ** 2 + (cy - oy) ** 2) < 25
+                        for ox, oy in osti_rilevati
+                    ):
+                        follicoli_dormienti += 1
+                        cv2.circle(annotata, (cx, cy), 5, (0, 215, 255), -1)
+                        cv2.circle(annotata, (cx, cy), 7, (0, 0, 0), 1)
+
+    calibro_m = round(float(np.mean(spessori)), 1) if spessori else 0.0
+    anisotropia = (
+        round((float(np.std(spessori)) / calibro_m) * 100, 1) if calibro_m > 0 else 0.0
+    )
+
+    # -------------------------------------------------------------
+    # 5. CALCOLO DENSITÀ REALE CORRELATA ALLA CUTE SCOPERTA
+    # -------------------------------------------------------------
+    if lente == "50x":
+        fusti_contati = len(osti_rilevati)
+
+        # Calcolo ponderato: combina i fusti rilevati con la superficie reale occupata
+        # Copertura normale sana: ~22-30%. Copertura con diradamento/riga: ~8-15%
+        fattore_scalpo = np.clip(percentuale_copertura / 20.0, 0.55, 1.25)
+        densita_base = (fusti_contati / 0.22) * fattore_scalpo
+
+        densita_val = int(round(densita_base))
+        # Limiti biologici reali (da diradamento severo 65 a capigliatura foltissima 240)
+        densita_val = max(65, min(240, densita_val))
+        densita_testo = f"{densita_val} cap/cm²"
+    else:
+        densita_val = 0
+        num_fusti = len(osti_rilevati)
+        densita_testo = f"{num_fusti} steli (200x)"
+
+    output = {
+        "immagine_annotata": annotata,
+        "eritema_diffuso": eritemi,
+        "infiammazione_perifollicolare": 0,
+        "tappi_sebacei": tappi,
+        "follicoli_dormienti": follicoli_dormienti,
+        "desquamazione_secca": 0,
+        "sebo_ceroso": 0,
+        "steli_anagen": steli_anagen,
+        "steli_vellus": steli_vellus,
+        "steli_nuovi": steli_nuovi,
+        "spessori_um": spessori,
+        "calibro_medio": calibro_m,
+        "anisotropia": anisotropia,
+        "densita_stimata": densita_val,
+        "densita_testo": densita_testo,
+        "note_auto": genera_referto_dermocosmetico(
+            {
+                "eritema_diffuso": eritemi,
+                "sebo_ceroso": 0,
+                "desquamazione_secca": 0,
+                "tappi_sebacei": tappi,
+                "infiammazione_perifollicolare": 0,
+                "follicoli_dormienti": follicoli_dormienti,
+                "calibro_medio": calibro_m,
+                "anisotropia": anisotropia,
+                "steli_nuovi": steli_nuovi,
+                "steli_vellus": steli_vellus,
+            },
+            lente,
+            luce,
+            zona,
+            parametri_cliente,
+        ),
+    }
+    return output
+
 
 # ============================================================================
-# MOTORE GEMINI MULTIMODAL VISION PER TRICOSCOPIA (RIG HETTI SINCE 1967)
+# MOTORE VISION AI IBRIDO (RELAZIONE SINTETICA ESATTAMENTE DI 8-9 RIGHE)
 # ============================================================================
-def analizza_con_gemini_vision(img_rgb, lente="50x", luce="Bianca", zona="Vertice", parametri_cliente=None, api_key=None):
-    """
-    ANALISI TRICOSCOPICA SPECIALISTICA - STANDARD METODO RIGHETTI SINCE 1967.
-    Ispezione visiva ad altissima precisione clinica su immagine microdermoscopica.
-    """
-    if not api_key or not api_key.strip():
-        return None
-    try:
-        import base64
-        import json
-        import requests
+def esegui_perizia_vision_ai(
+    img_bgr,
+    api_key,
+    provider_scelto,
+    modello_da_usare,
+    dati_misurati,
+    sesso,
+    scala,
+    zona,
+    ottica,
+    luce,
+    sintomi_lista,
+):
+    prompt_sistema = f"""
+Sei il Direttore Scientifico e Docente Internazionale di Dermo-Fitocosmetica e Tricoscopia Applicata (Standard S.I.Tri. e Metodo Righetti Since 1967).
+Il tuo compito è redigere la RELAZIONE GLOBALE DI SINTESI per la pagina 2 del Report PDF.
 
-        clean_k = api_key.replace('"', '').replace("'", "").strip()
-        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-        # Ottimizzazione salvacrediti: ridimensiona a max 1024px (abbatte i token dell'80% mantenendo massima nitidezza)
-        h_orig, w_orig = img_bgr.shape[:2]
-        if max(h_orig, w_orig) > 1024:
-            scala = 1024.0 / max(h_orig, w_orig)
-            img_bgr = cv2.resize(img_bgr, (int(w_orig * scala), int(h_orig * scala)), interpolation=cv2.INTER_AREA)
-        _, buffer = cv2.imencode(".jpg", img_bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        img_b64 = base64.b64encode(buffer).decode("utf-8")
+REGOLE TASSATIVE DI FORMATTAZIONE:
+1. Lunghezza totale: ESATTAMENTE 8-9 RIGHE COMPLESSIVE (non superare mai 10 righe).
+2. Formattazione: NON usare asterischi markdown (NO **), solo testo semplice e pulito.
+3. Spaziatura: I punti 1, 2 e 3 devono essere consecutivi andando SOLO a capo (NESSUNA riga vuota tra 1, 2 e 3).
+4. Riga vuota di paragrafo: Inserisci una riga vuota SOLTANTO prima del punto 4.
 
-        prompt_medico = f"""
-Sei il Direttore Scientifico e Medico Tricologo di fama mondiale dello Studio Tricologico Righetti Since 1967 (Standard S.I.Tri.).
-Analizza questa fotografia tricoscopica ad alta risoluzione (Ingrandimento {lente}, Luce {luce}, Zona {zona}).
-Parametri anamnestici: {parametri_cliente if parametri_cliente else 'Standard'}.
+DATI BIOMETRICI ACQUISITI:
+- Paziente: {sesso} | Inquadramento: {scala}
+- Area: {zona} | Ingrandimento: {ottica} | Luce: {luce}
+- Sintomi riferiti: {', '.join(sintomi_lista) if sintomi_lista else 'Nessuno'}
+- Parametri: Calibro {dati_misurati['calibro']} µm, Anisotropia {dati_misurati['anisotropia']}%, Densità {dati_misurati['densita']} cap/cm², Tappi sebacei {dati_misurati['tappi']}, Indice eritematoso {dati_misurati['eritemi']} focolai.
 
-ESAME OBIETTIVO VISIVO DETTAGLIATO:
-1. Microambiente cutaneo: osserva la trasparenza epidermica, la trama vascolare, la presenza di eritema perifollicolare (alone rosato/rosso attorno al colletto pilare) o iperemia diffusa, e il grado di desquamazione cherato-sebacea. Non affermare MAI 'cute in equilibrio' se sono visibili rossori, squame o manicotti!
-2. Osti e ancoraggio: cerca la presenza di peripilar casts (manicotti cheratinici adesi al fusto), ipercheratosi ostiale e collari sebacei occludenti. Rileva solo gli osti vuoti REALI (yellow dots / empty ostia). A 200x il campo è microscopico (0.5 mm²): se non ci sono pori beanti vuoti evidenti, il conteggio dei follicoli silenti DEVE essere 0.
-3. Fusti e calibro: valuta il diametro medio dei fusti terminali (stima biometrica in micrometri), la percentuale di anisotropia (variabilità diametrale) e l'integrità della cuticola. Specifica che a 200x la densità non si misura (campo troppo ristretto).
+SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
+1. Inquadramento & Cute: [2 righe sullo stato del cuoio capelluto, grado di iperemia, idratazione, tensione e sebo]
+2. Osti & Ancoraggio: [2 righe su pervietà ostiale, presenza di ipercheratosi, tappi sebacei e follicoli silenti]
+3. Fusti & Densità: [2 righe su calibro medio, percentuale di anisotropia, miniaturizzazione e densità al cm²]
 
-Restituisci ESCLUSIVAMENTE un JSON valido (senza blocchi markdown, senza testo prima o dopo) con questa struttura:
-{{
-  "calibro_medio": <float, stima biometrica accurata dello stelo in micron, es. 74.5>,
-  "anisotropia": <float, variabilità percentuale del diametro, es. 18.0>,
-  "densita": 0,
-  "tappi_sebacei": <int, numero reale manicotti cheratinici o tappi visibili, es. 1 o 2>,
-  "follicoli_silenti": <int, osti vuoti reali, in foto singola a 200x tipicamente 0 o max 1>,
-  "eritemi": <int, intensità dell'eritema vascolare: 0=assente, 1=lieve, 2=marcato con iperemia perifollicolare>,
-  "descrizione_sintetica": "Area {zona} ({lente}, {luce}): [Descrizione clinica in 2-3 frasi rigorose dei reperti visivi esatti su cute, ostio, manicotto cheratinico e fusto]"
-}}
+4. Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
 """
 
-        # Chiamata al modello gemini-3.6-flash (ufficiale e verificato)
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={clean_k}"
-        payload = {
-            "contents": [{
-                "parts": [
-                    {"text": prompt_medico},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
-                ]
-            }],
-            "generationConfig": {
-                "temperature": 0.1,
-                "responseMimeType": "application/json"
-            }
-        }
-            if "Gemini" in provider_scelto:
-        # Ottimizzazione immagine: 768px per abbattere i token mantenendo massima nitidezza clinica
-        h_o, w_o = img_bgr.shape[:2]
-        if max(h_o, w_o) > 768:
-            sc = 768.0 / max(h_o, w_o)
-            img_gem = cv2.resize(img_bgr, (int(w_o * sc), int(h_o * sc)), interpolation=cv2.INTER_AREA)
-        else:
-            img_gem = img_bgr.copy()
-        _, buffer = cv2.imencode(".jpg", img_gem, [cv2.IMWRITE_JPEG_QUALITY, 80])
-        img_base64 = base64.b64encode(buffer).decode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key.strip()}",
+    }
 
-        clean_k = api_key.replace('"', '').replace("'", "").strip()
-        if not clean_k or clean_k.startswith("gsk_"):
-            clean_k = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
-
-        mod_gemini = "gemini-2.5-flash" if not modello_da_usare or "gemini" not in str(modello_da_usare).lower() else str(modello_da_usare)
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{mod_gemini}:generateContent?key={clean_k}"
-
-        payload = {
-            "contents": [{
-                "parts": [
-                    {"text": prompt_sistema},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": img_base64}}
-                ]
-            }],
-            "generationConfig": {
-                "temperature": 0.2,
-                "maxOutputTokens": 800
-            }
-        }
-        headers_gemini = {"Content-Type": "application/json"}
-        try:
-            response = requests.post(url, headers=headers_gemini, json=payload, timeout=25)
-            if response.status_code == 200:
-                data_json = response.json()
-                contenuto = data_json["candidates"][0]["content"]["parts"][0]["text"]
-                return contenuto.replace("**", "").replace("###", "").strip()
-            elif response.status_code == 503:
-                import time
-                time.sleep(1.5)
-                res_retry = requests.post(url, headers=headers_gemini, json=payload, timeout=25)
-                if res_retry.status_code == 200:
-                    return res_retry.json()["candidates"][0]["content"]["parts"][0]["text"].replace("**", "").replace("###", "").strip()
-            return f"Errore Gemini ({response.status_code}): {response.text}"
-        except Exception as e:
-            return f"Errore di connessione: {str(e)}" 
-
-    elif "Groq" in provider_scelto:
+    if "Groq" in provider_scelto:
         url = "https://api.groq.com/openai/v1/chat/completions"
         payload = {
             "model": modello_da_usare,
@@ -703,14 +893,7 @@ Restituisci ESCLUSIVAMENTE un JSON valido (senza blocchi markdown, senza testo p
             "max_tokens": 500,
         }
     else:
-        # Ottimizzazione immagine: ridimensiona a max 1280px per risposta fulminea e zero errori 503
-        h_o, w_o = img_bgr.shape[:2]
-        scala_opt = min(1.0, 1280.0 / max(h_o, w_o))
-        if scala_opt < 1.0:
-            img_inviare = cv2.resize(img_bgr, (int(w_o * scala_opt), int(h_o * scala_opt)), interpolation=cv2.INTER_AREA)
-        else:
-            img_inviare = img_bgr
-        _, buffer = cv2.imencode(".jpg", img_inviare, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        _, buffer = cv2.imencode(".jpg", img_bgr)
         img_base64 = base64.b64encode(buffer).decode("utf-8")
         url = "https://api.openai.com/v1/chat/completions"
         payload = {
@@ -2952,55 +3135,8 @@ def main():
         with st.expander("🤖 Configurazione AI Avanzata", expanded=False):
             ai_provider = st.selectbox(
                 "Motore AI Perizia:",
-                ["Google Gemini (Consigliato)", "Groq (Istantaneo e Gratuito)", "OpenAI (GPT-4o)"],
+                ["Groq (Istantaneo e Gratuito)", "OpenAI (GPT-4o)"],
             )
-
-            if "Gemini" in ai_provider:
-                ai_key_file = "ai_api_key.txt"
-                CHIAVE_OFFICIAL_GEMINI = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
-                # Se la chiave salvata era quella vecchia di Groq, usa automaticamente quella di Gemini
-                if not saved_ai_key or saved_ai_key.startswith("gsk_"):
-                    default_k = CHIAVE_OFFICIAL_GEMINI
-                else:
-                    default_k = saved_ai_key
-                ai_api_key = st.text_input(
-                    "Google Gemini API Key:",
-                    value=default_k,
-                    type="password",
-                    placeholder="AQ... oppure AIzaSy...",
-                    help="La chiave Google AI Studio viene memorizzata.",
-                )
-
-                col_k1, col_k2 = st.columns([1, 1])
-                with col_k1:
-                    if st.button("💾 Salva Chiave", key="btn_save_gemini_k", use_container_width=True):
-                        ai_key_file = "ai_api_key.txt"
-                        st.session_state["saved_gemini_key"] = ai_api_key.strip()
-                        try:
-                            with open(ai_key_file, "w") as f:
-                                f.write(ai_api_key.strip())
-                        except Exception:
-                            pass
-                        st.success("✅ Chiave Gemini memorizzata!")
-                        st.rerun()
-                with col_k2:
-                    if st.button("🗑️ Rimuovi", key="btn_del_gemini_k", use_container_width=True):
-                        ai_key_file = "ai_api_key.txt"
-                        st.session_state.pop("saved_gemini_key", None)
-                        if os.path.exists(ai_key_file):
-                            try:
-                                os.remove(ai_key_file)
-                            except Exception:
-                                pass
-                        st.success("Chiave rimossa!")
-                        st.rerun()
-
-                ai_modello_scelto = st.selectbox(
-                    "Modello Gemini:",
-                    ["gemini-2.5-flash", "gemini-3.8-flash"],
-                    index=0,
-                    help="gemini-2.5-flash è velocissimo ed elabora sia le foto che i dati."
-                )
 
             if "Groq" in ai_provider:
                 ai_api_key = st.text_input(
@@ -3055,6 +3191,14 @@ def main():
                             ai_modello_scelto = st.selectbox("Modello Groq:", lista_utili, index=idx_def)
                     except Exception:
                         pass
+            else:
+                ai_api_key = st.text_input("OpenAI API Key:", value=saved_ai_key, type="password", placeholder="sk-proj-...")
+                if st.button("💾 Salva Chiave", key="btn_save_oai_k", use_container_width=True):
+                    with open(ai_key_file, "w") as f:
+                        f.write(ai_api_key.strip())
+                    st.success("✅ Chiave memorizzata!")
+                    st.rerun()
+                ai_modello_scelto = "gpt-4o"
 
         st.markdown("---")
 
@@ -3569,33 +3713,6 @@ def main():
                         parametri_cliente=sintomi_dict,
                     )
 
-                    # 🔥 GEMINI VISION: Analisi visiva intelligente con AI Multimodale
-                    gemini_k = st.session_state.get("saved_gemini_key", "")
-                    if not gemini_k and os.path.exists("ai_api_key.txt"):
-                        with open("ai_api_key.txt", "r") as f:
-                            gemini_k = f.read().strip()
-                    if not gemini_k:
-                        gemini_k = os.environ.get("GEMINI_API_KEY", "")
-
-                    if gemini_k:
-                        vision_data = analizza_con_gemini_vision(
-                            img_rgb,
-                            lente=ottica,
-                            luce=luce,
-                            zona=zona,
-                            parametri_cliente=sintomi_dict,
-                            api_key=gemini_k
-                        )
-                        if vision_data:
-                            risultato['calibro_medio'] = float(vision_data.get('calibro_medio', risultato['calibro_medio']))
-                            risultato['anisotropia'] = float(vision_data.get('anisotropia', risultato['anisotropia']))
-                            risultato['densita_stimata'] = int(vision_data.get('densita', risultato.get('densita_stimata', 130)))
-                            risultato['tappi_sebacei'] = int(vision_data.get('tappi_sebacei', risultato['tappi_sebacei']))
-                            risultato['follicoli_dormienti'] = int(vision_data.get('follicoli_silenti', risultato['follicoli_dormienti']))
-                            risultato['eritema_diffuso'] = int(vision_data.get('eritemi', risultato.get('eritema_diffuso', 0)))
-                            if 'descrizione_sintetica' in vision_data and vision_data['descrizione_sintetica'].strip():
-                                risultato['note_auto'] = vision_data['descrizione_sintetica'].strip()
-
                     note_key = f"note_area_{cliente_selezionato}_{idx}"
                     tracker_key = f"tracker_params_{cliente_selezionato}_{idx}"
                     config_attuale = f"{ottica}_{luce}_{zona}_{sesso_cliente}_{scala_selezionata}_{quadro_clinico}_{chk_prurito}_{chk_dolore}_{chk_caduta}_{chk_sebo_iper}_{modalita_confronto}"
@@ -3641,25 +3758,20 @@ def main():
                         # 🔥 PRIMA RIGA: BIOMETRIA PRINCIPALE (MODIFICABILE)
                         m1, m2, m3 = st.columns(3)
                         
+                        valore_densita_default = (
+                            risultato['densita_stimata'] if ottica == "50x"
+                            else len(risultato['spessori_um'])
+                        )
+                        
                         with m1:
-                            if ottica == "200x":
-                                st.text_input(
-                                    "Densità (cap/cm²)",
-                                    value="N/D (Valutare a 50x)",
-                                    disabled=True,
-                                    help="A 200x il campo visivo è sub-millimetrico: la densitometria va calcolata a 50x panoramica.",
-                                    key=f"edit_densita_dis_{cliente_selezionato}_{idx}",
-                                )
-                                densita_mod = 0
-                            else:
-                                densita_mod = st.number_input(
-                                    "Densità (cap/cm²)",
-                                    value=int(risultato.get('densita_stimata', 140)),
-                                    min_value=0,
-                                    max_value=500,
-                                    step=1,
-                                    key=f"edit_densita_{cliente_selezionato}_{idx}",
-                                )
+                            densita_mod = st.number_input(
+                                "Densità (cap/cm²)",
+                                value=int(valore_densita_default),
+                                min_value=0,
+                                max_value=500,
+                                step=1,
+                                key=f"edit_densita_{cliente_selezionato}_{idx}",
+                            )
                         
                         with m2:
                             calibro_mod = st.number_input(
@@ -3717,29 +3829,24 @@ def main():
                         # 🔥 AGGIORNA I VALORI DEL RISULTATO CON LE MODIFICHE MANUALI
                         risultato["densita_stimata"] = densita_mod
                         risultato["calibro_medio"] = calibro_mod
-                        # Sincronizzazione completa di tutti i valori modificati dall'operatore
-                        risultato["calibro_medio"] = calibro_mod
-                        risultato["densita"] = densita_mod
-                        risultato["densita_f"] = densita_mod
                         risultato["anisotropia"] = anisotropia_mod
                         risultato["tappi_sebacei"] = tappi_mod
                         risultato["follicoli_dormienti"] = follicoli_mod
                         risultato["steli_nuovi"] = germogli_mod
 
-                        # 🔥 RIGENERA IL TESTO CON I VALORI ESATTI MODIFICATI
+                        # 🔥 RIGENERA IL TESTO CON I VALORI MODIFICATI
                         testo_aggiornato = genera_referto_dermocosmetico(
                             {
-                                "eritema_diffuso": risultato.get("eritema_diffuso", 0),
+                                "eritema_diffuso": risultato["eritema_diffuso"],
                                 "sebo_ceroso": 0,
                                 "desquamazione_secca": 0,
-                                "tappi_sebacei": tappi_mod,
+                                "tappi_sebacei": risultato["tappi_sebacei"],
                                 "infiammazione_perifollicolare": 0,
-                                "follicoli_dormienti": follicoli_mod,
-                                "calibro_medio": calibro_mod,
-                                "densita": densita_mod,
-                                "anisotropia": anisotropia_mod,
-                                "steli_nuovi": germogli_mod,
-                                "steli_vellus": risultato.get("steli_vellus", 0),
+                                "follicoli_dormienti": risultato["follicoli_dormienti"],
+                                "calibro_medio": risultato["calibro_medio"],
+                                "anisotropia": risultato["anisotropia"],
+                                "steli_nuovi": risultato["steli_nuovi"],
+                                "steli_vellus": risultato["steli_vellus"],
                             },
                             ottica,
                             luce,
@@ -3751,13 +3858,10 @@ def main():
                         valori_attuali = f"{densita_mod}_{calibro_mod}_{anisotropia_mod}_{tappi_mod}_{follicoli_mod}_{germogli_mod}"
                         tracker_vals_key = f"tracker_vals_{cliente_selezionato}_{idx}"
                         
-                        # Sincronizzazione clinica: usa la perizia visiva autentica di Gemini
+                        # 🔥 SE I VALORI SONO CAMBIATI, AGGIORNA IL TESTO IN SESSION_STATE
                         if st.session_state.get(tracker_vals_key) != valori_attuali:
                             st.session_state[tracker_vals_key] = valori_attuali
-                            if 'note_auto' in risultato and risultato['note_auto'] and 'equilibrio idrolipidico' not in risultato['note_auto']:
-                                st.session_state[note_key] = risultato['note_auto']
-                            else:
-                                st.session_state[note_key] = testo_aggiornato
+                            st.session_state[note_key] = testo_aggiornato
 
                         st.markdown("##### 📝 Sintesi Immagine (Soli Punti Chiave)")
                         nota_operatore_img = st.text_area(
