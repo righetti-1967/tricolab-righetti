@@ -962,7 +962,9 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
     if "Gemini" in provider_scelto:
         _, buffer = cv2.imencode(".jpg", img_bgr)
         img_base64 = base64.b64encode(buffer).decode("utf-8")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{modello_da_usare if modello_da_usare else 'gemini-2.5-flash'}:generateContent?key={api_key.strip()}"
+        mod_gemini = "gemini-2.5-flash" if not modello_da_usare or "qwen" in str(modello_da_usare) or "llama" in str(modello_da_usare) else modello_da_usare
+        clean_k = api_key.replace('"', '').replace("'", "").strip()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{mod_gemini}:generateContent?key={clean_k}"
         payload = {
             "contents": [
                 {
