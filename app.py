@@ -3451,12 +3451,6 @@ def main():
                             ai_modello_scelto = st.selectbox("Modello Groq:", lista_utili, index=idx_def)
                     except Exception:
                         pass
-            else:
-                    with open(ai_key_file, "w") as f:
-                        f.write(ai_api_key.strip())
-                    st.success("✅ Chiave memorizzata!")
-                    st.rerun()
-                ai_modello_scelto = "gpt-4o"
 
         st.markdown("---")
 
