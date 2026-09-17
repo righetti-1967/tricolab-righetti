@@ -965,7 +965,14 @@ Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
     }
 
     if "Gemini" in provider_scelto:
-        _, buffer = cv2.imencode(".jpg", img_bgr)
+        # Ottimizzazione immagine: ridimensiona a max 1280px per risposta fulminea e zero errori 503
+        h_o, w_o = img_bgr.shape[:2]
+        scala_opt = min(1.0, 1280.0 / max(h_o, w_o))
+        if scala_opt < 1.0:
+            img_inviare = cv2.resize(img_bgr, (int(w_o * scala_opt), int(h_o * scala_opt)), interpolation=cv2.INTER_AREA)
+        else:
+            img_inviare = img_bgr
+        _, buffer = cv2.imencode(".jpg", img_inviare, [cv2.IMWRITE_JPEG_QUALITY, 85])
         img_base64 = base64.b64encode(buffer).decode("utf-8")
         mod_gemini = str(modello_da_usare) if (modello_da_usare and "gemini" in str(modello_da_usare).lower()) else "gemini-2.5-flash"
         clean_k = api_key.replace('"', '').replace("'", "").strip()
@@ -1024,7 +1031,14 @@ Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
             "max_tokens": 500,
         }
     else:
-        _, buffer = cv2.imencode(".jpg", img_bgr)
+        # Ottimizzazione immagine: ridimensiona a max 1280px per risposta fulminea e zero errori 503
+        h_o, w_o = img_bgr.shape[:2]
+        scala_opt = min(1.0, 1280.0 / max(h_o, w_o))
+        if scala_opt < 1.0:
+            img_inviare = cv2.resize(img_bgr, (int(w_o * scala_opt), int(h_o * scala_opt)), interpolation=cv2.INTER_AREA)
+        else:
+            img_inviare = img_bgr
+        _, buffer = cv2.imencode(".jpg", img_inviare, [cv2.IMWRITE_JPEG_QUALITY, 85])
         img_base64 = base64.b64encode(buffer).decode("utf-8")
         url = "https://api.openai.com/v1/chat/completions"
         payload = {
