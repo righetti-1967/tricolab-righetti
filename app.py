@@ -1032,63 +1032,52 @@ Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
         "Authorization": f"Bearer {api_key.strip()}",
     }
 
-    if "Gemini" in provider_scelto:
-        # Ottimizzazione immagine: ridimensiona a max 1280px per risposta fulminea e zero errori 503
+        if "Gemini" in provider_scelto:
+        # Ottimizzazione immagine: 768px garantisce massima nitidezza clinica riducendo i token all'osso
         h_o, w_o = img_bgr.shape[:2]
-        scala_opt = min(1.0, 1280.0 / max(h_o, w_o))
-        if scala_opt < 1.0:
-            img_inviare = cv2.resize(img_bgr, (int(w_o * scala_opt), int(h_o * scala_opt)), interpolation=cv2.INTER_AREA)
+        if max(h_o, w_o) > 768:
+            sc = 768.0 / max(h_o, w_o)
+            img_gem = cv2.resize(img_bgr, (int(w_o * sc), int(h_o * sc)), interpolation=cv2.INTER_AREA)
         else:
-            img_inviare = img_bgr
-        _, buffer = cv2.imencode(".jpg", img_inviare, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            img_gem = img_bgr.copy()
+        _, buffer = cv2.imencode(".jpg", img_gem, [cv2.IMWRITE_JPEG_QUALITY, 80])
         img_base64 = base64.b64encode(buffer).decode("utf-8")
-        mod_gemini = str(modello_da_usare) if (modello_da_usare and "gemini" in str(modello_da_usare).lower()) else "gemini-2.5-flash"
+
         clean_k = api_key.replace('"', '').replace("'", "").strip()
         if not clean_k or clean_k.startswith("gsk_"):
             clean_k = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
+
+        mod_gemini = "gemini-2.5-flash" if not modello_da_usare or "gemini" not in str(modello_da_usare).lower() else str(modello_da_usare)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{mod_gemini}:generateContent?key={clean_k}"
+
         payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt_sistema},
-                        {
-                            "inline_data": {
-                                "mime_type": "image/jpeg",
-                                "data": img_base64
-                            }
-                        }
-                    ]
-                }
-            ],
+            "contents": [{
+                "parts": [
+                    {"text": prompt_sistema},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": img_base64}}
+                ]
+            }],
             "generationConfig": {
                 "temperature": 0.2,
-                "maxOutputTokens": 2500
+                "maxOutputTokens": 800
             }
         }
-        # Intestazione corretta per Google (senza Bearer!)
-        headers_gemini = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": clean_k
-        }
-        modelli_tentativi = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-flash-latest"]
-        ultimo_err = ""
-        for mod_attivo in modelli_tentativi:
-            url_attivo = f"https://generativelanguage.googleapis.com/v1beta/models/{mod_attivo}:generateContent?key={clean_k}"
-            try:
-                response = requests.post(url_attivo, headers=headers_gemini, json=payload, timeout=30)
-                if response.status_code == 200:
-                    data_json = response.json()
-                    contenuto = data_json["candidates"][0]["content"]["parts"][0]["text"]
-                    return contenuto.replace("**", "").replace("###", "").strip()
-                elif response.status_code == 429:
-                    ultimo_err = f"Modello {mod_attivo} occupato (429), tento il successivo..."
-                    continue
-                else:
-                    ultimo_err = f"Errore Gemini ({response.status_code}): {response.text}"
-            except Exception as e:
-                ultimo_err = f"Errore connessione: {str(e)}"
-        return f"Attenzione: tutti i modelli Gemini sono momentaneamente occupati ({ultimo_err}). Riprova tra qualche istante." 
+        headers_gemini = {"Content-Type": "application/json"}
+        try:
+            response = requests.post(url, headers=headers_gemini, json=payload, timeout=25)
+            if response.status_code == 200:
+                data_json = response.json()
+                contenuto = data_json["candidates"][0]["content"]["parts"][0]["text"]
+                return contenuto.replace("**", "").replace("###", "").strip()
+            elif response.status_code == 503:
+                import time
+                time.sleep(1.5)
+                res_retry = requests.post(url, headers=headers_gemini, json=payload, timeout=25)
+                if res_retry.status_code == 200:
+                    return res_retry.json()["candidates"][0]["content"]["parts"][0]["text"].replace("**", "").replace("###", "").strip()
+            return f"Errore Gemini ({response.status_code}): {response.text}"
+        except Exception as e:
+            return f"Errore di connessione: {str(e)}" 
 
     elif "Groq" in provider_scelto:
         url = "https://api.groq.com/openai/v1/chat/completions"
