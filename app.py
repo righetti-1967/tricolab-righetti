@@ -623,7 +623,7 @@ REGOLE PER LA DESCRIZIONE SINTETICA:
 4. Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
 """
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key.strip()}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key.strip()}"
         payload = {
             "contents": [{
                 "parts": [
@@ -962,7 +962,7 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
     if "Gemini" in provider_scelto:
         _, buffer = cv2.imencode(".jpg", img_bgr)
         img_base64 = base64.b64encode(buffer).decode("utf-8")
-        mod_gemini = str(modello_da_usare) if (modello_da_usare and "gemini" in str(modello_da_usare).lower()) else "gemini-2.5-flash"
+        mod_gemini = str(modello_da_usare) if (modello_da_usare and "gemini" in str(modello_da_usare).lower()) else "gemini-3.6-flash"
         clean_k = api_key.replace('"', '').replace("'", "").strip()
         if not clean_k or clean_k.startswith("gsk_"):
             clean_k = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
@@ -3298,9 +3298,9 @@ def main():
 
                 ai_modello_scelto = st.selectbox(
                     "Modello Gemini:",
-                    ["gemini-2.5-flash", "gemini-3.6-flash", "gemini-2.5-pro"],
+                    ["gemini-3.6-flash", "gemini-3.8-flash"],
                     index=0,
-                    help="gemini-2.5-flash è velocissimo ed elabora sia le foto che i dati."
+                    help="gemini-3.6-flash è velocissimo ed elabora sia le foto che i dati."
                 )
 
             if "Groq" in ai_provider:
