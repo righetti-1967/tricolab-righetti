@@ -964,6 +964,8 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
         img_base64 = base64.b64encode(buffer).decode("utf-8")
         mod_gemini = str(modello_da_usare) if (modello_da_usare and "gemini" in str(modello_da_usare).lower()) else "gemini-2.5-flash"
         clean_k = api_key.replace('"', '').replace("'", "").strip()
+        if not clean_k or clean_k.startswith("gsk_"):
+            clean_k = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{mod_gemini}:generateContent?key={clean_k}"
         payload = {
             "contents": [
@@ -3256,8 +3258,12 @@ def main():
 
             if "Gemini" in ai_provider:
                 ai_key_file = "ai_api_key.txt"
-                gemini_env = os.environ.get("GEMINI_API_KEY", "")
-                default_k = saved_ai_key if saved_ai_key else gemini_env
+                CHIAVE_OFFICIAL_GEMINI = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
+                # Se la chiave salvata era quella vecchia di Groq, usa automaticamente quella di Gemini
+                if not saved_ai_key or saved_ai_key.startswith("gsk_"):
+                    default_k = CHIAVE_OFFICIAL_GEMINI
+                else:
+                    default_k = saved_ai_key
                 ai_api_key = st.text_input(
                     "Google Gemini API Key:",
                     value=default_k,

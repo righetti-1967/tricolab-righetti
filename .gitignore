@@ -1,5 +1,6 @@
+*.backup*
+*copia*
 ai_api_key.txt
-*.backup
 *.db
 *.zip
 .DS_Store
