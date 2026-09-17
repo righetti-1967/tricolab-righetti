@@ -959,7 +959,7 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
         "Authorization": f"Bearer {api_key.strip()}",
     }
 
-        if "Gemini" in provider_scelto:
+    if "Gemini" in provider_scelto:
         _, buffer = cv2.imencode(".jpg", img_bgr)
         img_base64 = base64.b64encode(buffer).decode("utf-8")
         mod_gemini = "gemini-2.5-flash" if not modello_da_usare or "qwen" in str(modello_da_usare) or "llama" in str(modello_da_usare) else modello_da_usare
