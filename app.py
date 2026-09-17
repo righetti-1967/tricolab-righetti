@@ -937,25 +937,20 @@ def esegui_perizia_vision_ai(
     sintomi_lista,
 ):
     prompt_sistema = f"""
-Sei il Direttore Scientifico e Docente Internazionale di Dermo-Fitocosmetica e Tricoscopia Applicata (Standard S.I.Tri. e Metodo Righetti Since 1967).
-Il tuo compito è redigere la RELAZIONE GLOBALE DI SINTESI per la pagina 2 del Report PDF.
+Sei il Direttore Scientifico e Tricologo Specialista dello Studio Tricologico Righetti Since 1967.
+Il tuo compito è redigere la RELAZIONE GLOBALE DI SINTESI TRICOSCOPICA per il Referto Clinico Ufficiale (Pagina 2 del PDF).
 
-REGOLE TASSATIVE DI FORMATTAZIONE:
-1. Lunghezza totale: ESATTAMENTE 8-9 RIGHE COMPLESSIVE (non superare mai 10 righe).
-2. Formattazione: NON usare asterischi markdown (NO **), solo testo semplice e pulito.
-3. Spaziatura: I punti 1, 2 e 3 devono essere consecutivi andando SOLO a capo (NESSUNA riga vuota tra 1, 2 e 3).
-4. Riga vuota di paragrafo: Inserisci una riga vuota SOLTANTO prima del punto 4.
+ISPEZIONE VISIVA REALE DELL'IMMAGINE ALLEGATA (MANDATORIA):
+Guarda con la massima attenzione l'immagine della microcamera ({ottica}, {luce}, {zona}) e correla con i parametri rilevati:
+- Cuoio capelluto: rileva attivamente il grado di iperemia (rossore/eritema perifollicolare o diffuso), lo stato idrolipidico e l'eventuale presenza di desquamazione o sebo. Se vedi rossore o cheratina, descrivilo con precisione, NON scrivere "cute in perfetto equilibrio"!
+- Osti follicolari: rileva i manicotti cheratinici (peripilar casts), l'ipercheratosi ostiale e la presenza di tappi sebacei occludenti. Rileva la reale pervietà ostiale. Se l'ottica è 200x, l'area è microscopica (0.5 mm²): rileva solo gli osti effettivamente visibili senza sovrastime.
+- Steli e Calibro: analizza i fusti terminali (calibro medio {dati_misurati['calibro']} µm), il grado di anisotropia ({dati_misurati['anisotropia']}%) e i segni di miniaturizzazione. A 200x specifica che la valutazione biometrica è incentrata sulla struttura del fusto e sul microambiente ostiale.
+- Coerenza clinica: mantieni assoluta coerenza con l'inquadramento del paziente ({sesso}, {scala}).
 
-DATI BIOMETRICI ACQUISITI:
-- Paziente: {sesso} | Inquadramento: {scala}
-- Area: {zona} | Ingrandimento: {ottica} | Luce: {luce}
-- Sintomi riferiti: {', '.join(sintomi_lista) if sintomi_lista else 'Nessuno'}
-- Parametri: Calibro {dati_misurati['calibro']} µm, Anisotropia {dati_misurati['anisotropia']}%, Densità {dati_misurati['densita']} cap/cm², Tappi sebacei {dati_misurati['tappi']}, Indice eritematoso {dati_misurati['eritemi']} focolai.
-
-SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
-1. Inquadramento & Cute: [2 righe sullo stato del cuoio capelluto, grado di iperemia, idratazione, tensione e sebo]
-2. Osti & Ancoraggio: [2 righe su pervietà ostiale, presenza di ipercheratosi, tappi sebacei e follicoli silenti]
-3. Fusti & Densità: [2 righe su calibro medio, percentuale di anisotropia, miniaturizzazione e densità al cm²]
+STRUTTURA OBBLIGATORIA DEL REFERTO (Testo continuo e pulito, NO asterischi markdown **):
+1. Inquadramento & Cute: Descrizione rigorosa dello scalpo in area {zona}, specificando il grado di reattività vascolare/eritema, lo stato idrolipidico e la tensione cutanea.
+2. Osti & Ancoraggio: Valutazione della pervietà degli osti follicolari, presenza di manicotti cheratinici, accumuli sebacei e stabilità di ancoraggio.
+3. Fusti & Densità: Dettaglio biometrico su calibro medio ({dati_misurati['calibro']} µm), percentuale di anisotropia ({dati_misurati['anisotropia']}%) e qualità dei fusti{' (densitometria globale da correlare a campo 50x)' if ottica == '200x' else f' con densità stimata di {dati_misurati["densita"]} cap/cm²'}.
 
 4. Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
 """
@@ -989,7 +984,7 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
             ],
             "generationConfig": {
                 "temperature": 0.2,
-                "maxOutputTokens": 600
+                "maxOutputTokens": 2500
             }
         }
         # Intestazione corretta per Google (senza Bearer!)
