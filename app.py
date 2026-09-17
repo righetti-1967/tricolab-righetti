@@ -3174,7 +3174,7 @@ def main():
             )
 
             if "Gemini" in ai_provider:
-                # Prende la chiave memorizzata nel file o dall'ambiente GEMINI_API_KEY
+                ai_key_file = "ai_api_key.txt"
                 gemini_env = os.environ.get("GEMINI_API_KEY", "")
                 default_k = saved_ai_key if saved_ai_key else gemini_env
                 ai_api_key = st.text_input(
@@ -3182,20 +3182,30 @@ def main():
                     value=default_k,
                     type="password",
                     placeholder="AQ... oppure AIzaSy...",
-                    help="La chiave Google AI Studio viene memorizzata sul Mac.",
+                    help="La chiave Google AI Studio viene memorizzata.",
                 )
 
                 col_k1, col_k2 = st.columns([1, 1])
                 with col_k1:
                     if st.button("💾 Salva Chiave", key="btn_save_gemini_k", use_container_width=True):
-                        with open(ai_key_file, "w") as f:
-                            f.write(ai_api_key.strip())
+                        ai_key_file = "ai_api_key.txt"
+                        st.session_state["saved_gemini_key"] = ai_api_key.strip()
+                        try:
+                            with open(ai_key_file, "w") as f:
+                                f.write(ai_api_key.strip())
+                        except Exception:
+                            pass
                         st.success("✅ Chiave Gemini memorizzata!")
                         st.rerun()
                 with col_k2:
                     if st.button("🗑️ Rimuovi", key="btn_del_gemini_k", use_container_width=True):
+                        ai_key_file = "ai_api_key.txt"
+                        st.session_state.pop("saved_gemini_key", None)
                         if os.path.exists(ai_key_file):
-                            os.remove(ai_key_file)
+                            try:
+                                os.remove(ai_key_file)
+                            except Exception:
+                                pass
                         st.success("Chiave rimossa!")
                         st.rerun()
 
