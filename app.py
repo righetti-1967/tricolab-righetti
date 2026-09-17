@@ -623,7 +623,7 @@ REGOLE PER LA DESCRIZIONE SINTETICA:
 4. Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
 """
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key.strip()}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key.strip()}"
         payload = {
             "contents": [{
                 "parts": [
@@ -942,7 +942,13 @@ Il tuo compito è redigere la RELAZIONE GLOBALE DI SINTESI TRICOSCOPICA per il R
 
 ISPEZIONE VISIVA REALE DELL'IMMAGINE ALLEGATA (MANDATORIA):
 Guarda con la massima attenzione l'immagine della microcamera ({ottica}, {luce}, {zona}) e correla con i parametri rilevati:
-- Cuoio capelluto: rileva attivamente il grado di iperemia (rossore/eritema perifollicolare o diffuso), lo stato idrolipidico e l'eventuale presenza di desquamazione o sebo. Se vedi rossore o cheratina, descrivilo con precisione, NON scrivere "cute in perfetto equilibrio"!
+- PRIORITÀ ASSOLUTA ALLA FOTOGRAFIA (MANDATORIA):
+  Guarda con occhio clinico severo l'immagine microscopica.
+  SE NOTI:
+  * Alone rosso, iperemia o reticolo vascolare dilatato -> DEVI diagnosticare ERITEMA/IPEREMIA PERIFOLLICOLARE.
+  * Colletto bianco, manicotto cheratinico (peripilar cast) o accumulo sebaceo attorno allo stelo -> DEVI diagnosticare IPERCHERATOSI OSTIALE / MANICOTTO CHERATINICO.
+  * Variabilità visibile di spessore tra fusti -> DEVI evidenziare DISOMOGENEITÀ / ANISOTROPIA.
+  È TASSATIVAMENTE VIETATO scrivere "cute in perfetto equilibrio" o "privo di diradamento" se la foto mostra anche un solo segno infiammatorio o di ipercheratosi ostiale!
 - Osti follicolari: rileva i manicotti cheratinici (peripilar casts), l'ipercheratosi ostiale e la presenza di tappi sebacei occludenti. Rileva la reale pervietà ostiale. Se l'ottica è 200x, l'area è microscopica (0.5 mm²): rileva solo gli osti effettivamente visibili senza sovrastime.
 - Steli e Calibro: analizza i fusti terminali (calibro medio {dati_misurati['calibro']} µm), il grado di anisotropia ({dati_misurati['anisotropia']}%) e i segni di miniaturizzazione. A 200x specifica che la valutazione biometrica è incentrata sulla struttura del fusto e sul microambiente ostiale.
 - Coerenza clinica: mantieni assoluta coerenza con l'inquadramento del paziente ({sesso}, {scala}).
@@ -963,7 +969,7 @@ STRUTTURA OBBLIGATORIA DEL REFERTO (Testo continuo e pulito, NO asterischi markd
     if "Gemini" in provider_scelto:
         _, buffer = cv2.imencode(".jpg", img_bgr)
         img_base64 = base64.b64encode(buffer).decode("utf-8")
-        mod_gemini = str(modello_da_usare) if (modello_da_usare and "gemini" in str(modello_da_usare).lower()) else "gemini-3.6-flash"
+        mod_gemini = str(modello_da_usare) if (modello_da_usare and "gemini" in str(modello_da_usare).lower()) else "gemini-2.5-flash"
         clean_k = api_key.replace('"', '').replace("'", "").strip()
         if not clean_k or clean_k.startswith("gsk_"):
             clean_k = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
@@ -992,16 +998,24 @@ STRUTTURA OBBLIGATORIA DEL REFERTO (Testo continuo e pulito, NO asterischi markd
             "Content-Type": "application/json",
             "x-goog-api-key": clean_k
         }
-        try:
-            response = requests.post(url, headers=headers_gemini, json=payload, timeout=30)
-            if response.status_code == 200:
-                data_json = response.json()
-                contenuto = data_json["candidates"][0]["content"]["parts"][0]["text"]
-                return contenuto.replace("**", "").replace("###", "").strip()
-            else:
-                return f"Errore Gemini ({response.status_code}): {response.text}"
-        except Exception as e:
-            return f"Errore di connessione Gemini: {str(e)}" 
+        modelli_tentativi = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-flash-latest"]
+        ultimo_err = ""
+        for mod_attivo in modelli_tentativi:
+            url_attivo = f"https://generativelanguage.googleapis.com/v1beta/models/{mod_attivo}:generateContent?key={clean_k}"
+            try:
+                response = requests.post(url_attivo, headers=headers_gemini, json=payload, timeout=30)
+                if response.status_code == 200:
+                    data_json = response.json()
+                    contenuto = data_json["candidates"][0]["content"]["parts"][0]["text"]
+                    return contenuto.replace("**", "").replace("###", "").strip()
+                elif response.status_code == 429:
+                    ultimo_err = f"Modello {mod_attivo} occupato (429), tento il successivo..."
+                    continue
+                else:
+                    ultimo_err = f"Errore Gemini ({response.status_code}): {response.text}"
+            except Exception as e:
+                ultimo_err = f"Errore connessione: {str(e)}"
+        return f"Attenzione: tutti i modelli Gemini sono momentaneamente occupati ({ultimo_err}). Riprova tra qualche istante." 
 
     elif "Groq" in provider_scelto:
         url = "https://api.groq.com/openai/v1/chat/completions"
@@ -3299,9 +3313,9 @@ def main():
 
                 ai_modello_scelto = st.selectbox(
                     "Modello Gemini:",
-                    ["gemini-3.6-flash", "gemini-3.8-flash"],
+                    ["gemini-2.5-flash", "gemini-3.8-flash"],
                     index=0,
-                    help="gemini-3.6-flash è velocissimo ed elabora sia le foto che i dati."
+                    help="gemini-2.5-flash è velocissimo ed elabora sia le foto che i dati."
                 )
 
             if "Groq" in ai_provider:
