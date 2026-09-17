@@ -580,71 +580,6 @@ def genera_sintesi_globale_operatore(
 # ============================================================================
 # MOTORE VISIONE TRICOSCOPICA CON DENSITÀ AD ALTA SENSIBILITÀ (FOTOTRICOGRAMMA)
 # ============================================================================
-
-# ============================================================================
-# MOTORE GEMINI MULTIMODAL VISION PER TRICOSCOPIA (RIG HETTI SINCE 1967)
-# ============================================================================
-def analizza_con_gemini_vision(img_rgb, lente="50x", luce="Bianca", zona="Vertice", parametri_cliente=None, api_key=None):
-    """
-    Analizza direttamente la fotografia della microcamera con Google Gemini Vision.
-    Restituisce parametri quantitativi realistici + sintesi clinica dermatocosmetica.
-    """
-    if not api_key or not api_key.strip():
-        return None
-    try:
-        import base64
-        import json
-        import requests
-
-        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-        _, buffer = cv2.imencode(".jpg", img_bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        img_b64 = base64.b64encode(buffer).decode("utf-8")
-
-        prompt = f"""
-Sei un medico tricologo esperto di tricoscopia avanzata per lo Studio Tricologico Righetti Since 1967.
-Analizza con rigore clinico questa immagine tricoscopica ({lente}, luce {luce}, zona {zona}).
-Parametri anamnestici: {parametri_cliente if parametri_cliente else 'Standard'}.
-
-Restituisci ESCLUSIVAMENTE un JSON valido (senza markdown o altro testo) con questa struttura esatta:
-{{
-  "calibro_medio": <float, es. 72.5>,
-  "anisotropia": <float, es. 22.0>,
-  "densita": <int, stima per cm2, es. 145 a 50x, o valore coerente a 200x>,
-  "tappi_sebacei": <int, numero reale tappi o manicotti cheratinici nel fotogramma>,
-  "follicoli_silenti": <int, osti vuoti reali, a 200x max 2>,
-  "eritemi": <int, grado o focolai di iperemia/rossore cutaneo, es. 1 o 2>,
-  "descrizione_sintetica": "<testo clinico nei 4 punti standard>"
-}}
-
-REGOLE PER LA DESCRIZIONE SINTETICA:
-1. Inquadramento & Cute: descrivi lo stato reale del microambiente cutaneo, grado di iperemia/eritema e idrolipidico.
-2. Osti & Ancoraggio: descrivi pervietà ostiale, presenza di ipercheratosi/manicotti o tappi sebacei ed eventuali osti vuoti.
-3. Fusti & Densità: cita calibro, anisotropia e densità stimata.
-4. Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
-"""
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key.strip()}"
-        payload = {
-            "contents": [{
-                "parts": [
-                    {"text": prompt},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
-                ]
-            }],
-            "generationConfig": {
-                "temperature": 0.1,
-                "responseMimeType": "application/json"
-            }
-        }
-        res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=25)
-        if res.status_code == 200:
-            txt = res.json()["candidates"][0]["content"]["parts"][0]["text"]
-            txt = txt.replace("```json", "").replace("```", "").strip()
-            return json.loads(txt)
-    except Exception as e:
-        print(f"Errore Gemini Vision: {e}")
-    return None
-
 def analizza_immagine_tricoscopica_pro(
     img_rgb,
     lente="50x",
@@ -3865,33 +3800,6 @@ def main():
                         zona=zona,
                         parametri_cliente=sintomi_dict,
                     )
-
-                    # 🔥 GEMINI VISION: Analisi visiva intelligente con AI Multimodale
-                    gemini_k = st.session_state.get("saved_gemini_key", "")
-                    if not gemini_k and os.path.exists("ai_api_key.txt"):
-                        with open("ai_api_key.txt", "r") as f:
-                            gemini_k = f.read().strip()
-                    if not gemini_k:
-                        gemini_k = os.environ.get("GEMINI_API_KEY", "")
-
-                    if gemini_k:
-                        vision_data = analizza_con_gemini_vision(
-                            img_rgb,
-                            lente=ottica,
-                            luce=luce,
-                            zona=zona,
-                            parametri_cliente=sintomi_dict,
-                            api_key=gemini_k
-                        )
-                        if vision_data:
-                            risultato['calibro_medio'] = float(vision_data.get('calibro_medio', risultato['calibro_medio']))
-                            risultato['anisotropia'] = float(vision_data.get('anisotropia', risultato['anisotropia']))
-                            risultato['densita_stimata'] = int(vision_data.get('densita', risultato.get('densita_stimata', 130)))
-                            risultato['tappi_sebacei'] = int(vision_data.get('tappi_sebacei', risultato['tappi_sebacei']))
-                            risultato['follicoli_dormienti'] = int(vision_data.get('follicoli_silenti', risultato['follicoli_dormienti']))
-                            risultato['eritema_diffuso'] = int(vision_data.get('eritemi', risultato.get('eritema_diffuso', 0)))
-                            if 'descrizione_sintetica' in vision_data and vision_data['descrizione_sintetica'].strip():
-                                risultato['note_auto'] = vision_data['descrizione_sintetica'].strip()
 
                     note_key = f"note_area_{cliente_selezionato}_{idx}"
                     tracker_key = f"tracker_params_{cliente_selezionato}_{idx}"
