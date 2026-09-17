@@ -856,8 +856,14 @@ def analizza_immagine_tricoscopica_pro(
         round((float(np.std(spessori)) / calibro_m) * 100, 1) if calibro_m > 0 else 0.0
     )
 
+    # Se la lente è 200x, la densità non ha senso scientifico (campo troppo ristretto)
+    if lente == "200x":
+        densita_val = 0 # Indicatore per N/D
+        # Rimuoviamo i marker invasivi casuali
+        annotata = img_rgb.copy()
+    
     # -------------------------------------------------------------
-    # 5. CALCOLO DENSITÀ REALE CORRELATA ALLA CUTE SCOPERTA
+    # 5. CALCOLO DENSITÀ REALE CORRELATA ALLA CUTE SCOPERTA (SOLO 50x)
     # -------------------------------------------------------------
     if lente == "50x":
         fusti_contati = len(osti_rilevati)
@@ -3950,20 +3956,25 @@ def main():
                         # 🔥 PRIMA RIGA: BIOMETRIA PRINCIPALE (MODIFICABILE)
                         m1, m2, m3 = st.columns(3)
                         
-                        valore_densita_default = (
-                            risultato['densita_stimata'] if ottica == "50x"
-                            else len(risultato['spessori_um'])
-                        )
-                        
                         with m1:
-                            densita_mod = st.number_input(
-                                "Densità (cap/cm²)",
-                                value=int(valore_densita_default),
-                                min_value=0,
-                                max_value=500,
-                                step=1,
-                                key=f"edit_densita_{cliente_selezionato}_{idx}",
-                            )
+                            if ottica == "200x":
+                                st.text_input(
+                                    "Densità (cap/cm²)",
+                                    value="N/D (Valutare a 50x)",
+                                    disabled=True,
+                                    help="A 200x il campo visivo è sub-millimetrico: la densitometria va calcolata a 50x panoramica.",
+                                    key=f"edit_densita_dis_{cliente_selezionato}_{idx}",
+                                )
+                                densita_mod = 0
+                            else:
+                                densita_mod = st.number_input(
+                                    "Densità (cap/cm²)",
+                                    value=int(risultato.get('densita_stimata', 140)),
+                                    min_value=0,
+                                    max_value=500,
+                                    step=1,
+                                    key=f"edit_densita_{cliente_selezionato}_{idx}",
+                                )
                         
                         with m2:
                             calibro_mod = st.number_input(
