@@ -3452,8 +3452,6 @@ def main():
                     except Exception:
                         pass
             else:
-                ai_api_key = st.text_input("OpenAI API Key:", value=saved_ai_key, type="password", placeholder="sk-proj-...")
-                if st.button("💾 Salva Chiave", key="btn_save_oai_k", use_container_width=True):
                     with open(ai_key_file, "w") as f:
                         f.write(ai_api_key.strip())
                     st.success("✅ Chiave memorizzata!")
