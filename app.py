@@ -826,7 +826,7 @@ def analizza_immagine_tricoscopica_pro(
     )
 
     follicoli_dormienti = 0
-    max_dorm_consentiti = 3 if lente == "200x" else 12
+    max_dorm_consentiti = 0 if lente == "200x" else 10
     for c_cnt in cnts_dorm:
         area = cv2.contourArea(c_cnt)
         min_a = 70 if lente == "50x" else 220
