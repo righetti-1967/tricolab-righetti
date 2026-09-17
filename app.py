@@ -959,7 +959,7 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
         "Authorization": f"Bearer {api_key.strip()}",
     }
 
-    if "Gemini" in provider_scelto:
+        if "Gemini" in provider_scelto:
         _, buffer = cv2.imencode(".jpg", img_bgr)
         img_base64 = base64.b64encode(buffer).decode("utf-8")
         mod_gemini = "gemini-2.5-flash" if not modello_da_usare or "qwen" in str(modello_da_usare) or "llama" in str(modello_da_usare) else modello_da_usare
@@ -984,9 +984,13 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
                 "maxOutputTokens": 600
             }
         }
-        headers = {"Content-Type": "application/json"}
+        # Intestazione corretta per Google (senza Bearer!)
+        headers_gemini = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": clean_k
+        }
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            response = requests.post(url, headers=headers_gemini, json=payload, timeout=30)
             if response.status_code == 200:
                 data_json = response.json()
                 contenuto = data_json["candidates"][0]["content"]["parts"][0]["text"]
@@ -994,7 +998,7 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
             else:
                 return f"Errore Gemini ({response.status_code}): {response.text}"
         except Exception as e:
-            return f"Errore di connessione Gemini: {str(e)}"
+            return f"Errore di connessione Gemini: {str(e)}" 
 
     elif "Groq" in provider_scelto:
         url = "https://api.groq.com/openai/v1/chat/completions"
