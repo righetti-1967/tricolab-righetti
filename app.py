@@ -586,11 +586,69 @@ def genera_sintesi_globale_operatore(
 # ============================================================================
 def analizza_con_gemini_vision(img_rgb, lente="50x", luce="Bianca", zona="Vertice", parametri_cliente=None, api_key=None):
     """
-    Analizza direttamente la fotografia della microcamera con Google Gemini Vision.
-    Restituisce parametri quantitativi realistici + sintesi clinica dermatocosmetica.
+    ANALISI TRICOSCOPICA SPECIALISTICA - STANDARD METODO RIGHETTI SINCE 1967.
+    Ispezione visiva ad altissima precisione clinica su immagine microdermoscopica.
     """
     if not api_key or not api_key.strip():
         return None
+    try:
+        import base64
+        import json
+        import requests
+
+        clean_k = api_key.replace('"', '').replace("'", "").strip()
+        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        _, buffer = cv2.imencode(".jpg", img_bgr, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        img_b64 = base64.b64encode(buffer).decode("utf-8")
+
+        prompt_medico = f"""
+Sei il Direttore Scientifico e Medico Tricologo di fama mondiale dello Studio Tricologico Righetti Since 1967 (Standard S.I.Tri.).
+Analizza questa fotografia tricoscopica ad alta risoluzione (Ingrandimento {lente}, Luce {luce}, Zona {zona}).
+Parametri anamnestici: {parametri_cliente if parametri_cliente else 'Standard'}.
+
+ESAME OBIETTIVO VISIVO DETTAGLIATO:
+1. Microambiente cutaneo: osserva la trasparenza epidermica, la trama vascolare, la presenza di eritema perifollicolare (alone rosato/rosso attorno al colletto pilare) o iperemia diffusa, e il grado di desquamazione cherato-sebacea. Non affermare MAI 'cute in equilibrio' se sono visibili rossori, squame o manicotti!
+2. Osti e ancoraggio: cerca la presenza di peripilar casts (manicotti cheratinici adesi al fusto), ipercheratosi ostiale e collari sebacei occludenti. Rileva solo gli osti vuoti REALI (yellow dots / empty ostia). A 200x il campo è microscopico (0.5 mm²): se non ci sono pori beanti vuoti evidenti, il conteggio dei follicoli silenti DEVE essere 0.
+3. Fusti e calibro: valuta il diametro medio dei fusti terminali (stima biometrica in micrometri), la percentuale di anisotropia (variabilità diametrale) e l'integrità della cuticola. Specifica che a 200x la densità non si misura (campo troppo ristretto).
+
+Restituisci ESCLUSIVAMENTE un JSON valido (senza blocchi markdown, senza testo prima o dopo) con questa struttura:
+{{
+  "calibro_medio": <float, stima biometrica accurata dello stelo in micron, es. 74.5>,
+  "anisotropia": <float, variabilità percentuale del diametro, es. 18.0>,
+  "densita": 0,
+  "tappi_sebacei": <int, numero reale manicotti cheratinici o tappi visibili, es. 1 o 2>,
+  "follicoli_silenti": <int, osti vuoti reali, in foto singola a 200x tipicamente 0 o max 1>,
+  "eritemi": <int, intensità dell'eritema vascolare: 0=assente, 1=lieve, 2=marcato con iperemia perifollicolare>,
+  "descrizione_sintetica": "Area {zona} ({lente}, {luce}): [Descrizione clinica in 2-3 frasi rigorose dei reperti visivi esatti su cute, ostio, manicotto cheratinico e fusto]"
+}}
+"""
+
+        # Chiamata al modello gemini-3.6-flash (ufficiale e verificato)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={clean_k}"
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt_medico},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
+                ]
+            }],
+            "generationConfig": {
+                "temperature": 0.1,
+                "responseMimeType": "application/json"
+            }
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": clean_k
+        }
+        res = requests.post(url, json=payload, headers=headers, timeout=25)
+        if res.status_code == 200:
+            txt = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            txt = txt.replace("```json", "").replace("```", "").strip()
+            return json.loads(txt)
+    except Exception as e:
+        print(f"Errore Gemini Vision: {e}")
+    return None
     try:
         import base64
         import json
@@ -826,7 +884,7 @@ def analizza_immagine_tricoscopica_pro(
     )
 
     follicoli_dormienti = 0
-    max_dorm_consentiti = 0 if lente == "200x" else 10
+    max_dorm_consentiti = 0 if lente == "200x" else 8
     for c_cnt in cnts_dorm:
         area = cv2.contourArea(c_cnt)
         min_a = 70 if lente == "50x" else 220
@@ -4087,10 +4145,13 @@ def main():
                         valori_attuali = f"{densita_mod}_{calibro_mod}_{anisotropia_mod}_{tappi_mod}_{follicoli_mod}_{germogli_mod}"
                         tracker_vals_key = f"tracker_vals_{cliente_selezionato}_{idx}"
                         
-                        # 🔥 SE I VALORI SONO CAMBIATI, AGGIORNA IL TESTO IN SESSION_STATE
+                        # Sincronizzazione clinica: usa la perizia visiva autentica di Gemini
                         if st.session_state.get(tracker_vals_key) != valori_attuali:
                             st.session_state[tracker_vals_key] = valori_attuali
-                            st.session_state[note_key] = testo_aggiornato
+                            if 'note_auto' in risultato and risultato['note_auto'] and 'equilibrio idrolipidico' not in risultato['note_auto']:
+                                st.session_state[note_key] = risultato['note_auto']
+                            else:
+                                st.session_state[note_key] = testo_aggiornato
 
                         st.markdown("##### 📝 Sintesi Immagine (Soli Punti Chiave)")
                         nota_operatore_img = st.text_area(
