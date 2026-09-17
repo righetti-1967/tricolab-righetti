@@ -938,27 +938,25 @@ def esegui_perizia_vision_ai(
 ):
     prompt_sistema = f"""
 Sei il Direttore Scientifico e Tricologo Specialista dello Studio Tricologico Righetti Since 1967.
-Il tuo compito è redigere la RELAZIONE GLOBALE DI SINTESI TRICOSCOPICA per il Referto Clinico Ufficiale (Pagina 2 del PDF).
+Redigi la RELAZIONE GLOBALE DI SINTESI per il campo Text4 a pagina 2 del Report PDF.
 
-ISPEZIONE VISIVA REALE DELL'IMMAGINE ALLEGATA (MANDATORIA):
-Guarda con la massima attenzione l'immagine della microcamera ({ottica}, {luce}, {zona}) e correla con i parametri rilevati:
-- PRIORITÀ ASSOLUTA ALLA FOTOGRAFIA (MANDATORIA):
-  Guarda con occhio clinico severo l'immagine microscopica.
-  SE NOTI:
-  * Alone rosso, iperemia o reticolo vascolare dilatato -> DEVI diagnosticare ERITEMA/IPEREMIA PERIFOLLICOLARE.
-  * Colletto bianco, manicotto cheratinico (peripilar cast) o accumulo sebaceo attorno allo stelo -> DEVI diagnosticare IPERCHERATOSI OSTIALE / MANICOTTO CHERATINICO.
-  * Variabilità visibile di spessore tra fusti -> DEVI evidenziare DISOMOGENEITÀ / ANISOTROPIA.
-  È TASSATIVAMENTE VIETATO scrivere "cute in perfetto equilibrio" o "privo di diradamento" se la foto mostra anche un solo segno infiammatorio o di ipercheratosi ostiale!
-- Osti follicolari: rileva i manicotti cheratinici (peripilar casts), l'ipercheratosi ostiale e la presenza di tappi sebacei occludenti. Rileva la reale pervietà ostiale. Se l'ottica è 200x, l'area è microscopica (0.5 mm²): rileva solo gli osti effettivamente visibili senza sovrastime.
-- Steli e Calibro: analizza i fusti terminali (calibro medio {dati_misurati['calibro']} µm), il grado di anisotropia ({dati_misurati['anisotropia']}%) e i segni di miniaturizzazione. A 200x specifica che la valutazione biometrica è incentrata sulla struttura del fusto e sul microambiente ostiale.
-- Coerenza clinica: mantieni assoluta coerenza con l'inquadramento del paziente ({sesso}, {scala}).
+VINCOLO TASSATIVO DI SPAZIO NEL PDF (MASSIMO 7-8 RIGHE COMPLESSIVE):
+Il riquadro nel PDF è compatto: testi più lunghi strabordano. 
+- NON inserire titoli, intestazioni (NO "RELAZIONE GLOBALE...") o convenevoli. Inizia DIRETTAMENTE con il punto 1.
+- Sii chirurgico, denso e sintetico: esattamente 1-2 frasi per ciascun punto.
+- NON usare formattazione markdown (NO asterischi **).
 
-STRUTTURA OBBLIGATORIA DEL REFERTO (Testo continuo e pulito, NO asterischi markdown **):
-1. Inquadramento & Cute: Descrizione rigorosa dello scalpo in area {zona}, specificando il grado di reattività vascolare/eritema, lo stato idrolipidico e la tensione cutanea.
-2. Osti & Ancoraggio: Valutazione della pervietà degli osti follicolari, presenza di manicotti cheratinici, accumuli sebacei e stabilità di ancoraggio.
-3. Fusti & Densità: Dettaglio biometrico su calibro medio ({dati_misurati['calibro']} µm), percentuale di anisotropia ({dati_misurati['anisotropia']}%) e qualità dei fusti{' (densitometria globale da correlare a campo 50x)' if ottica == '200x' else f' con densità stimata di {dati_misurati["densita"]} cap/cm²'}.
+ISPEZIONE VISIVA DELL'IMMAGINE ALLEGATA ({ottica}, {luce}, {zona}):
+- Cute: descrivi sinteticamente il grado di iperemia/eritema (se visibile rossore/alone perifollicolare o squilibrio sebo-cheratinico).
+- Osti: segnala se presenti manicotti cheratinici (peripilar casts), ipercheratosi ostiale o tappi sebacei.
+- Fusti: cita calibro ({dati_misurati['calibro']} µm), anisotropia ({dati_misurati['anisotropia']}%) e qualità dello stelo.
 
-4. Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
+STRUTTURA OBBLIGATORIA (MASSIMO 7-8 RIGHE TOTALI):
+1. Inquadramento & Cute: [Massimo 2 righe su cute, grado di eritema/iperemia perifollicolare e film idrolipidico]
+2. Osti & Ancoraggio: [Massimo 2 righe su pervietà ostiale, manicotti cheratinici e stabilità]
+3. Fusti & Densità: [Massimo 2 righe su calibro medio {dati_misurati['calibro']} µm, anisotropia {dati_misurati['anisotropia']}% e fusti]
+
+Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
 """
 
     headers = {
