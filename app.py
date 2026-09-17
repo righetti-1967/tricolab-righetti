@@ -884,7 +884,42 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
         "Authorization": f"Bearer {api_key.strip()}",
     }
 
-    if "Groq" in provider_scelto:
+    if "Gemini" in provider_scelto:
+        _, buffer = cv2.imencode(".jpg", img_bgr)
+        img_base64 = base64.b64encode(buffer).decode("utf-8")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{modello_da_usare if modello_da_usare else 'gemini-2.5-flash'}:generateContent?key={api_key.strip()}"
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt_sistema},
+                        {
+                            "inline_data": {
+                                "mime_type": "image/jpeg",
+                                "data": img_base64
+                            }
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 600
+            }
+        }
+        headers = {"Content-Type": "application/json"}
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                data_json = response.json()
+                contenuto = data_json["candidates"][0]["content"]["parts"][0]["text"]
+                return contenuto.replace("**", "").replace("###", "").strip()
+            else:
+                return f"Errore Gemini ({response.status_code}): {response.text}"
+        except Exception as e:
+            return f"Errore di connessione Gemini: {str(e)}"
+
+    elif "Groq" in provider_scelto:
         url = "https://api.groq.com/openai/v1/chat/completions"
         payload = {
             "model": modello_da_usare,
@@ -3135,8 +3170,41 @@ def main():
         with st.expander("🤖 Configurazione AI Avanzata", expanded=False):
             ai_provider = st.selectbox(
                 "Motore AI Perizia:",
-                ["Groq (Istantaneo e Gratuito)", "OpenAI (GPT-4o)"],
+                ["Google Gemini (Consigliato)", "Groq (Istantaneo e Gratuito)", "OpenAI (GPT-4o)"],
             )
+
+            if "Gemini" in ai_provider:
+                # Prende la chiave memorizzata nel file o dall'ambiente GEMINI_API_KEY
+                gemini_env = os.environ.get("GEMINI_API_KEY", "")
+                default_k = saved_ai_key if saved_ai_key else gemini_env
+                ai_api_key = st.text_input(
+                    "Google Gemini API Key:",
+                    value=default_k,
+                    type="password",
+                    placeholder="AQ... oppure AIzaSy...",
+                    help="La chiave Google AI Studio viene memorizzata sul Mac.",
+                )
+
+                col_k1, col_k2 = st.columns([1, 1])
+                with col_k1:
+                    if st.button("💾 Salva Chiave", key="btn_save_gemini_k", use_container_width=True):
+                        with open(ai_key_file, "w") as f:
+                            f.write(ai_api_key.strip())
+                        st.success("✅ Chiave Gemini memorizzata!")
+                        st.rerun()
+                with col_k2:
+                    if st.button("🗑️ Rimuovi", key="btn_del_gemini_k", use_container_width=True):
+                        if os.path.exists(ai_key_file):
+                            os.remove(ai_key_file)
+                        st.success("Chiave rimossa!")
+                        st.rerun()
+
+                ai_modello_scelto = st.selectbox(
+                    "Modello Gemini:",
+                    ["gemini-2.5-flash", "gemini-3.6-flash", "gemini-2.5-pro"],
+                    index=0,
+                    help="gemini-2.5-flash è velocissimo ed elabora sia le foto che i dati."
+                )
 
             if "Groq" in ai_provider:
                 ai_api_key = st.text_input(
