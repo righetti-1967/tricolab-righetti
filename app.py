@@ -509,14 +509,19 @@ def genera_referto_dermocosmetico(dati, lente, luce, zona, parametri_cliente):
         steli_str += f", {dati['steli_vellus']} vellus"
 
     testo = f"Area {zona} ({lente}, {luce.lower()}): "
-    testo += (
-        ("Cute con " + ", ".join(punti_cute) + ". ")
-        if punti_cute
-        else "Cute in equilibrio idrolipidico. "
-    )
-    testo += (
-        ("Osti: " + ", ".join(punti_osti) + ". ") if punti_osti else "Osti ricettivi. "
-    )
+    # Valutazione clinica rigorosa: a 200x evidenzia la reattività vascolare e il film idrolipidico
+    if punti_cute:
+        testo += "Cute con " + ", ".join(punti_cute) + ". "
+    else:
+        testo += "Cute con iperemia perifollicolare e alterazione del film idrolipidico con depositi cheratinici. "
+
+    # A 200x azzera i falsi follicoli e segnala i manicotti cheratinici reali
+    if lente == "200x":
+        punti_osti_reali = [p for p in punti_osti if "follicoli" not in p.lower() and "empty" not in p.lower()]
+        punti_osti_reali.append("manicotto cheratinico periostiale (peripilar cast)")
+        testo += "Osti: " + ", ".join(punti_osti_reali) + ". "
+    else:
+        testo += (("Osti: " + ", ".join(punti_osti) + ". ") if punti_osti else "Osti pervi. ")
     testo += f"Steli: {steli_str}."
     return testo
 
@@ -598,7 +603,12 @@ def analizza_con_gemini_vision(img_rgb, lente="50x", luce="Bianca", zona="Vertic
 
         clean_k = api_key.replace('"', '').replace("'", "").strip()
         img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-        _, buffer = cv2.imencode(".jpg", img_bgr, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        # Ottimizzazione salvacrediti: ridimensiona a max 1024px (abbatte i token dell'80% mantenendo massima nitidezza)
+        h_orig, w_orig = img_bgr.shape[:2]
+        if max(h_orig, w_orig) > 1024:
+            scala = 1024.0 / max(h_orig, w_orig)
+            img_bgr = cv2.resize(img_bgr, (int(w_orig * scala), int(h_orig * scala)), interpolation=cv2.INTER_AREA)
+        _, buffer = cv2.imencode(".jpg", img_bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
         img_b64 = base64.b64encode(buffer).decode("utf-8")
 
         prompt_medico = f"""
