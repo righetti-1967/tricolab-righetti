@@ -18,7 +18,6 @@ import fitz  # PyMuPDF
 import warnings
 from supabase import create_client, Client
 import threading
-import zipfile
 
 # IMPOSTAZIONI
 os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "false"
@@ -58,7 +57,7 @@ def init_db():
         {
             "nome": "R-GOCCCE",
             "categoria": "Topico Cosmetico",
-            "modalita": "DOPO lo Shampoo applicare le gocce sul cuoio capelluto e massaggiare, NO risciacquo",
+            "modalita": "Dopo lo Shampoo applicare le gocce sul cuoio capelluto e massaggiare, NO risciacquo",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "Forfora-prurito-dermatite",
@@ -70,7 +69,7 @@ def init_db():
         {
             "nome": "R-1 | OLI ESSENZIALI",
             "categoria": "Topico Cosmetico",
-            "modalita": "PRIMA dello Shampoo applicare tutto il prodotto sul cuoio capelluto e massaggiare.",
+            "modalita": "Prima dello Shampoo applicare tutto il prodotto sul cuoio capelluto e massaggiare.",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "Dermatiti-dolore-Prurito",
@@ -82,7 +81,7 @@ def init_db():
         {
             "nome": "R-2 | OLI ESSENZIALI",
             "categoria": "Topico Cosmetico",
-            "modalita": "DOPO dello Shampoo applicare tutto il prodotto sul cuoio capelluto e massaggiare, NO risciacquo",
+            "modalita": "Dopo dello Shampoo applicare tutto il prodotto sul cuoio capelluto e massaggiare, NO risciacquo",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "Dermatiti-dolore-Prurito",
@@ -99,14 +98,14 @@ def init_db():
             "orario": "",
             "trigger_condizione": "Dermatiti-dolore-Prurito",
             "note": "Shampoo agli Oli Essenziali.",
-            "dosi": "7-10 ml | 1 Nocciola circa",
+            "dosi": "7-10 ml",
             "tempi_posa": "5 minuti",
             "durata_utilizzo": "",
         },
         {
             "nome": "LIQUET CUTIS 100ML",
             "categoria": "Topico Cosmetico",
-            "modalita": "PRIMA dello shampoo applicare sul cuoio capelluto, massaggiare delicatamente, quindi risciacquare.",
+            "modalita": "Applicare sul cuoio capelluto prima dello shampoo, massaggiare delicatamente, quindi risciacquare.",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "tappi_sebo",
@@ -118,7 +117,7 @@ def init_db():
         {
             "nome": "LUTUM CUTIS 250ML",
             "categoria": "Topico Cosmetico",
-            "modalita": "DOPO lo shampoo distribuire sul cuoio capelluto con il pennellino, lasciare in posa e risciacquare solo con acqua.",
+            "modalita": "Distribuire sul cuoio capelluto dopo lo shampoo, lasciare in posa e risciacquare abbondantemente.",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "eritema_tappi",
@@ -135,7 +134,7 @@ def init_db():
             "orario": "",
             "trigger_condizione": "sebo_grasso",
             "note": "Detergente sebo-riequilibrante con estratti di salvia, bardana, rosmarino, arancio amaro e menta piperita.",
-            "dosi": "5-7 ml | 1 Nocciola",
+            "dosi": "5-7 ml | 1 Noce",
             "tempi_posa": "5 minuti",
             "durata_utilizzo": "Uso continuativo",
         },
@@ -147,7 +146,7 @@ def init_db():
             "orario": "",
             "trigger_condizione": "forfora_prurito",
             "note": "Detergente purificante antiforfora e desquamazioni con ortica, mentolo, lavanda e limone.",
-            "dosi": "5-7 ml | 1 Nocciola",
+            "dosi": "5-7 ml | 1 Noce",
             "tempi_posa": "5 minuti",
             "durata_utilizzo": "Uso continuativo",
         },
@@ -159,7 +158,7 @@ def init_db():
             "orario": "",
             "trigger_condizione": "caduta_deboli",
             "note": "Detergente fortificante e densificante anticaduta con Kopexil, zenzero, timo, coriandolo e bacche di goji.",
-            "dosi": "5-7 ml | 1 Nocciola",
+            "dosi": "5-7 ml | 1 Noce",
             "tempi_posa": "5 minuti",
             "durata_utilizzo": "Uso continuativo",
         },
@@ -171,7 +170,7 @@ def init_db():
             "orario": "",
             "trigger_condizione": "stimolante_radice",
             "note": "Detergente energizzante e stimolante con estratto di ginseng, peperoncino, rosmarino e menta piperita.",
-            "dosi": "5-7 ml | 1 Nocciola",
+            "dosi": "5-7 ml | 1 Noce",
             "tempi_posa": "5 minuti",
             "durata_utilizzo": "Uso continuativo",
         },
@@ -183,14 +182,14 @@ def init_db():
             "orario": "",
             "trigger_condizione": "idratante_fusto",
             "note": "Detergente idratante e ristrutturante immediato con acido ialuronico, ceramidi, luppolo e bacche di goji.",
-            "dosi": "5-7 ml | 1 Nocciola",
+            "dosi": "5-7 ml | 1 Noce",
             "tempi_posa": "5 minuti",
             "durata_utilizzo": "Uso continuativo",
         },
         {
             "nome": "SPRAY FORTIS 100ML",
             "categoria": "Spray",
-            "modalita": "DOPO lo shampoo vaporizzare uniformemente sul cuoio capelluto a capelli umidi o asciutti, NO risciacquo.",
+            "modalita": "Vaporizzare uniformemente sul cuoio capelluto a capelli umidi o asciutti, NO risciacquo.",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "densificante_stelo",
@@ -202,7 +201,7 @@ def init_db():
         {
             "nome": "SPRAY PURGATIO 100ML",
             "categoria": "Spray",
-            "modalita": "DOPO lo shampoo vaporizzare uniformemente sul cuoio capelluto a capelli umidi o asciutti, NO risciacquo.",
+            "modalita": "Vaporizzare uniformemente sul cuoio capelluto a capelli umidi o asciutti, NO risciacquo.",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "sebo_forfora",
@@ -214,7 +213,7 @@ def init_db():
         {
             "nome": "GOCCE POTENTIA 100ML",
             "categoria": "Gocce",
-            "modalita": "DOPO lo shampoo distribuire goccia a goccia sulle aree diradate tamponando fino a completo assorbimento.",
+            "modalita": "Distribuire goccia a goccia sulle aree diradate massaggiando con cura fino a completo assorbimento.",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "urto_miniaturizzazione",
@@ -226,7 +225,7 @@ def init_db():
         {
             "nome": "UNGUENTUM CELLULARIS 300ML",
             "categoria": "Unguentum",
-            "modalita": " DOPO lo shampoo applicare su tutto il cuoio capelluto con il pennellino, lasciare agire e risciacquare.",
+            "modalita": "Applicare su tutto il cuoio ccapelluto dopo la detersione, lasciare agire e risciacquare.",
             "frequenza": "Descrizione nel Protocollo",
             "orario": "",
             "trigger_condizione": "fusto_sfibrato-cute arrossata-forfora",
@@ -238,13 +237,13 @@ def init_db():
         {
             "nome": "CEROTUM POTENTIA",
             "categoria": "Cerotto/Garza",
-            "modalita": "Applicare sul polso a 4 dita dalla mano OPPURE alla base del collo tra attaccatura capelli e lobo orecchio.",
-            "frequenza": "1 Cerotto al giorno alternado DESTRA e SINISTRA",
+            "modalita": "Applicare 1 cerotto sul polso a 4 dita dalla mano o alla base del collo tra attaccatura capelli e lobo orecchio.",
+            "frequenza": "1 cerotto ogni 24 ore",
             "orario": "Durante le ore notturne",
             "trigger_condizione": "caduta_effluvio-forfora",
             "note": "Cerotti transdermici a rilascio prolungato con rusco, semburi, luppolo, carnitina e ginseng.",
             "dosi": "1 cerotto",
-            "tempi_posa": "8-12 ore di rilascio",
+            "tempi_posa": "8-10 ore di rilascio",
             "durata_utilizzo": "28 giorni (1 confezione) | 56 giorni (2 confezioni)",
         },
         {
@@ -761,30 +760,20 @@ def analizza_immagine_tricoscopica_pro(
     )
 
     follicoli_dormienti = 0
-    max_dorm_consentiti = 3 if lente == "200x" else 12
     for c_cnt in cnts_dorm:
         area = cv2.contourArea(c_cnt)
-        min_a = 70 if lente == "50x" else 220
-        max_a = 400 if lente == "50x" else 750
-        if min_a < area < max_a:
-            perim = cv2.arcLength(c_cnt, True)
-            if perim > 0:
-                circolarita = 4 * np.pi * (area / (perim * perim))
-                # Filtro di forma: un ostio è rotondo (circolarità > 0.45), le scaglie di sebo/cheratina no!
-                if circolarita > 0.42:
-                    M = cv2.moments(c_cnt)
-                    if M["m00"] != 0:
-                        cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
-                        if 40 < cx < w_img - 40 and 40 < cy < h_img - 40:
-                            dist_min = 45 if lente == "200x" else 25
-                            if not any(
-                                np.sqrt((cx - ox) ** 2 + (cy - oy) ** 2) < dist_min
-                                for ox, oy in osti_rilevati
-                            ):
-                                if follicoli_dormienti < max_dorm_consentiti:
-                                    follicoli_dormienti += 1
-                                    cv2.circle(annotata, (cx, cy), 5, (0, 215, 255), -1)
-                                    cv2.circle(annotata, (cx, cy), 7, (0, 0, 0), 1)
+        if 60 < area < 350 if lente == "50x" else 150 < area < 550:
+            M = cv2.moments(c_cnt)
+            if M["m00"] != 0:
+                cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+                if 35 < cx < w_img - 35 and 35 < cy < h_img - 35:
+                    if not any(
+                        np.sqrt((cx - ox) ** 2 + (cy - oy) ** 2) < 25
+                        for ox, oy in osti_rilevati
+                    ):
+                        follicoli_dormienti += 1
+                        cv2.circle(annotata, (cx, cy), 5, (0, 215, 255), -1)
+                        cv2.circle(annotata, (cx, cy), 7, (0, 0, 0), 1)
 
     calibro_m = round(float(np.mean(spessori)), 1) if spessori else 0.0
     anisotropia = (
@@ -894,42 +883,7 @@ SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
         "Authorization": f"Bearer {api_key.strip()}",
     }
 
-    if "Gemini" in provider_scelto:
-        _, buffer = cv2.imencode(".jpg", img_bgr)
-        img_base64 = base64.b64encode(buffer).decode("utf-8")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{modello_da_usare if modello_da_usare else 'gemini-2.5-flash'}:generateContent?key={api_key.strip()}"
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt_sistema},
-                        {
-                            "inline_data": {
-                                "mime_type": "image/jpeg",
-                                "data": img_base64
-                            }
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.2,
-                "maxOutputTokens": 600
-            }
-        }
-        headers = {"Content-Type": "application/json"}
-        try:
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
-            if response.status_code == 200:
-                data_json = response.json()
-                contenuto = data_json["candidates"][0]["content"]["parts"][0]["text"]
-                return contenuto.replace("**", "").replace("###", "").strip()
-            else:
-                return f"Errore Gemini ({response.status_code}): {response.text}"
-        except Exception as e:
-            return f"Errore di connessione Gemini: {str(e)}"
-
-    elif "Groq" in provider_scelto:
+    if "Groq" in provider_scelto:
         url = "https://api.groq.com/openai/v1/chat/completions"
         payload = {
             "model": modello_da_usare,
@@ -2616,7 +2570,7 @@ def auto_assegna_trattamento_righetti(cliente_uuid, sintomi_dict):
 
         # FASE 5: CEROTTI
         if chk_caduta or "Effluvio" in quadro or ani_m > 18.0:
-            nomi_prodotti_target.append("CEROTUM POTENTIA 28 PEZZI")
+            nomi_prodotti_target.append("CEROTUM POTENTIA")
 
         # 🔧 RECUPERA I PRODOTTI DA SUPABASE E LI ASSEGNA
         prodotti_assegnati = []
@@ -2931,6 +2885,45 @@ def salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto
         return False, f"❌ Errore caricamento foto: {str(e)}"
 
 # ============================================================================
+# INVIO FILE A GOOGLE DRIVE
+# ============================================================================
+def invia_file_a_google_drive(
+    file_bytes, nome_file, nome_cliente, mime_type="application/pdf"
+):
+    """Invia file a Google Drive tramite webhook"""
+    
+    # 1. Legge il webhook da Supabase
+    webhook_url = st.session_state.get("gdrive_webhook_url", "") or get_config("gdrive_webhook_url")
+    
+    if not webhook_url:
+        return False, "Webhook Google Drive non configurato. Inserisci l'URL nella sidebar."
+    
+    try:
+        b64_file = base64.b64encode(file_bytes).decode("utf-8")
+        payload = {
+            "clientFolder": str(nome_cliente).strip(),
+            "fileName": str(nome_file).strip(),
+            "fileBase64": b64_file,
+            "mimeType": mime_type,
+        }
+        
+        resp = requests.post(webhook_url.strip(), json=payload, timeout=30)
+        
+        if resp.status_code == 200:
+            try:
+                res_json = resp.json()
+                if res_json.get("status") == "success":
+                    return True, f"✅ File salvato su Google Drive: {res_json.get('finalFileName', nome_file)}"
+                else:
+                    return False, f"❌ Errore: {res_json.get('message', 'Errore sconosciuto')}"
+            except:
+                return True, "✅ File inviato a Google Drive"
+        else:
+            return False, f"❌ Errore HTTP {resp.status_code}"
+    except Exception as e:
+        return False, f"❌ Errore invio: {str(e)}"
+
+# ============================================================================
 # ORDINATORE FASI PROTOCOLLO (CON SUPPORTO 1, 1A, 1B, 2, 2A, 2B...)
 # ============================================================================
 def ordina_fasi(testo_protocollo):
@@ -3042,6 +3035,7 @@ def main():
 
                 # --- RECUPERO CONFIGURAZIONI DA SUPABASE ---
         link_salvato = get_config("google_sheet_url")
+        webhook_saved = get_config("gdrive_webhook_url")
         saved_ai_key = get_config("groq_api_key")  # o "openai_api_key"
 
         # --- 1. EXPANDER COLLEGAMENTO GOOGLE ---
@@ -3052,7 +3046,23 @@ def main():
                 placeholder="https://docs.google.com/spreadsheets/d/...",
                 key="input_google_sheet_url",
             )
-            
+
+            link_webhook_input = st.text_input(
+                "2. Webhook Google Drive:",
+                value=webhook_saved,
+                placeholder="https://script.google.com/macros/s/.../exec",
+                key="input_gdrive_webhook",
+            )
+
+            if (
+                link_webhook_input.strip()
+                and link_webhook_input != webhook_saved
+            ):
+                if set_config("gdrive_webhook_url", link_webhook_input.strip()):
+                    st.session_state["gdrive_webhook_url"] = link_webhook_input.strip()
+                    st.success("Webhook salvato su Supabase!")
+                    st.rerun()
+
             col_s1, col_s2 = st.columns(2)
             with col_s1:
                 if st.button(
@@ -3180,51 +3190,8 @@ def main():
         with st.expander("🤖 Configurazione AI Avanzata", expanded=False):
             ai_provider = st.selectbox(
                 "Motore AI Perizia:",
-                ["Google Gemini (Consigliato)", "Groq (Istantaneo e Gratuito)", "OpenAI (GPT-4o)"],
+                ["Groq (Istantaneo e Gratuito)", "OpenAI (GPT-4o)"],
             )
-
-            if "Gemini" in ai_provider:
-                ai_key_file = "ai_api_key.txt"
-                gemini_env = os.environ.get("GEMINI_API_KEY", "")
-                default_k = saved_ai_key if saved_ai_key else gemini_env
-                ai_api_key = st.text_input(
-                    "Google Gemini API Key:",
-                    value=default_k,
-                    type="password",
-                    placeholder="AQ... oppure AIzaSy...",
-                    help="La chiave Google AI Studio viene memorizzata.",
-                )
-
-                col_k1, col_k2 = st.columns([1, 1])
-                with col_k1:
-                    if st.button("💾 Salva Chiave", key="btn_save_gemini_k", use_container_width=True):
-                        ai_key_file = "ai_api_key.txt"
-                        st.session_state["saved_gemini_key"] = ai_api_key.strip()
-                        try:
-                            with open(ai_key_file, "w") as f:
-                                f.write(ai_api_key.strip())
-                        except Exception:
-                            pass
-                        st.success("✅ Chiave Gemini memorizzata!")
-                        st.rerun()
-                with col_k2:
-                    if st.button("🗑️ Rimuovi", key="btn_del_gemini_k", use_container_width=True):
-                        ai_key_file = "ai_api_key.txt"
-                        st.session_state.pop("saved_gemini_key", None)
-                        if os.path.exists(ai_key_file):
-                            try:
-                                os.remove(ai_key_file)
-                            except Exception:
-                                pass
-                        st.success("Chiave rimossa!")
-                        st.rerun()
-
-                ai_modello_scelto = st.selectbox(
-                    "Modello Gemini:",
-                    ["gemini-2.5-flash", "gemini-3.6-flash", "gemini-2.5-pro"],
-                    index=0,
-                    help="gemini-2.5-flash è velocissimo ed elabora sia le foto che i dati."
-                )
 
             if "Groq" in ai_provider:
                 ai_api_key = st.text_input(
@@ -3664,39 +3631,63 @@ def main():
                         st.write("")
                         st.write("")
                         if st.button("💾 Archivia Foto Panoramica", key=f"btn_save_solo_macro_{cliente_selezionato}", use_container_width=True):
-                            try:
                                 cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                                 data_macro_str = datetime.now().strftime("%d-%m-%Y")
-                                nome_file_macro = f"Foto Panoramica \u2502 {data_macro_str}.jpg"
+                                prefisso_macro = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Panoramica")
+                                nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_macro_str}.jpg"
                                 path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
 
-                                file_bytes = uploaded_macro_phone.getvalue()
+                                # 🔥 MOSTRA MESSAGGIO INIZIALE
+                                msg_placeholder = st.info("📸 Salvataggio foto panoramica in corso...")
+                                
+                                # 🔥 ESEGUI IL SALVATAGGIO IN BACKGROUND
+                                import threading
+                                import time
+                                
+                                # Variabile per il risultato
+                                risultato = {"success": False, "msg": "", "path": "", "filename": ""}
+                                
+                                def salva_panoramica_background():
+                                    try:
+                                        # Salva localmente
+                                        with open(path_macro_dest, "wb") as f_macro:
+                                            f_macro.write(uploaded_macro_phone.getbuffer())
 
-                                with open(path_macro_dest, "wb") as f_macro:
-                                    f_macro.write(file_bytes)
-
-                                # Memorizza per il download immediato
-                                st.session_state[f"download_panoramica_{cliente_selezionato}"] = {
-                                    "nome": nome_file_macro,
-                                    "bytes": file_bytes
-                                }
-
-                                st.success(f"✅ Foto archiviata in: **PERCORSI CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**")
-                            except Exception as e:
-                                st.error(f"⚠️ Errore salvataggio foto: {e}")
-
-                        # Mostra il pulsante di download se la foto è stata salvata
-                        key_pan = f"download_panoramica_{cliente_selezionato}"
-                        if key_pan in st.session_state:
-                            dati_pan = st.session_state[key_pan]
-                            st.download_button(
-                                label=f"📥 Scarica {dati_pan['nome']}",
-                                data=dati_pan["bytes"],
-                                file_name=dati_pan["nome"],
-                                mime="image/jpeg",
-                                use_container_width=True,
-                                key=f"btn_dl_pan_{cliente_selezionato}"
-                            )
+                                        # Leggi il file appena salvato e invia a Google Drive
+                                        with open(path_macro_dest, "rb") as img_file:
+                                            img_bytes = img_file.read()
+                                            
+                                            ok_drive, msg_drive = invia_file_a_google_drive(
+                                                img_bytes,
+                                                nome_file_macro,
+                                                cliente_selezionato,
+                                                mime_type="image/jpeg"
+                                            )
+                                            if ok_drive:
+                                                risultato["msg"] = f"📸 Foto panoramica inviata a Google Drive! {msg_drive}"
+                                            else:
+                                                risultato["msg"] = f"⚠️ {msg_drive}"
+                                        
+                                        risultato["success"] = True
+                                        risultato["path"] = path_macro_dest
+                                        risultato["filename"] = nome_file_macro
+                                        risultato["msg"] += f" ✅ Foto archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{nome_file_macro}**"
+                                    except Exception as e:
+                                        risultato["msg"] = f"⚠️ Errore invio foto panoramica a Google Drive: {e}"
+                                
+                                # 🔥 AVVIA IL THREAD
+                                thread = threading.Thread(target=salva_panoramica_background, daemon=True)
+                                thread.start()
+                                
+                                # 🔥 ASPETTA CHE IL THREAD FINISCA (CON UN MAX DI 30 SECONDI)
+                                with st.spinner("📸 Salvataggio foto panoramica in corso..."):
+                                    thread.join(timeout=30)
+                                
+                                # 🔥 MOSTRA IL RISULTATO
+                                if risultato["success"]:
+                                    st.success(risultato["msg"])
+                                else:
+                                    st.warning(risultato["msg"])
 
             # --- CARICAMENTO FOTO DAL CLOUD CON SELEZIONE DATA ---
             # 🔥 OPZIONE PER MOSTRARE/NASCONDERE LE FOTO ARCHIVIATE
@@ -3843,156 +3834,43 @@ def main():
 
                         st.markdown(f"##### 🔬 Parametri Rilevati: Area {zona}")
 
-                        # 🔥 PRIMA RIGA: BIOMETRIA PRINCIPALE (MODIFICABILE)
                         m1, m2, m3 = st.columns(3)
-                        
-                        valore_densita_default = (
-                            risultato['densita_stimata'] if ottica == "50x"
-                            else len(risultato['spessori_um'])
-                        )
-                        
-                        with m1:
-                            densita_mod = st.number_input(
-                                "Densità (cap/cm²)",
-                                value=int(valore_densita_default),
-                                min_value=0,
-                                max_value=500,
-                                step=1,
-                                key=f"edit_densita_{cliente_selezionato}_{idx}",
-                            )
-                        
-                        with m2:
-                            calibro_mod = st.number_input(
-                                "Calibro Medio (µm)",
-                                value=float(risultato['calibro_medio']),
-                                min_value=0.0,
-                                max_value=200.0,
-                                step=0.1,
-                                key=f"edit_calibro_{cliente_selezionato}_{idx}",
-                            )
-                        
-                        with m3:
-                            anisotropia_mod = st.number_input(
-                                "Anisotropia (%)",
-                                value=float(risultato['anisotropia']),
-                                min_value=0.0,
-                                max_value=100.0,
-                                step=0.1,
-                                key=f"edit_anisotropia_{cliente_selezionato}_{idx}",
-                            )
+                        valore_densita = f"{risultato['densita_stimata']} cap/cm²" if ottica == "50x" else f"{len(risultato['spessori_um'])} steli (200x)"
+                        m1.metric("Densità", valore_densita)
+                        m2.metric("Calibro Medio", f"{risultato['calibro_medio']} µm")
+                        m3.metric("Anisotropia", f"{risultato['anisotropia']} %")
 
-                        # 🔥 SECONDA RIGA: PALLINI COLORATI (MODIFICABILI)
                         m4, m5, m6 = st.columns(3)
-                        
-                        with m4:
-                            tappi_mod = st.number_input(
-                                "🟡 Tappi Sebacei",
-                                value=int(risultato["tappi_sebacei"]),
-                                min_value=0,
-                                max_value=500,
-                                step=1,
-                                key=f"edit_tappi_{cliente_selezionato}_{idx}",
-                            )
-                        
-                        with m5:
-                            follicoli_mod = st.number_input(
-                                "🔵 Follicoli Silenti",
-                                value=int(risultato["follicoli_dormienti"]),
-                                min_value=0,
-                                max_value=500,
-                                step=1,
-                                key=f"edit_follicoli_{cliente_selezionato}_{idx}",
-                            )
-                        
-                        with m6:
-                            germogli_mod = st.number_input(
-                                "🟣 Germogli Anagen",
-                                value=int(risultato["steli_nuovi"]),
-                                min_value=0,
-                                max_value=500,
-                                step=1,
-                                key=f"edit_germogli_{cliente_selezionato}_{idx}",
-                            )
-
-                        # 🔥 AGGIORNA I VALORI DEL RISULTATO CON LE MODIFICHE MANUALI
-                        risultato["densita_stimata"] = densita_mod
-                        risultato["calibro_medio"] = calibro_mod
-                        # Sincronizzazione completa di tutti i valori modificati dall'operatore
-                        risultato["calibro_medio"] = calibro_mod
-                        risultato["densita"] = densita_mod
-                        risultato["densita_f"] = densita_mod
-                        risultato["anisotropia"] = anisotropia_mod
-                        risultato["tappi_sebacei"] = tappi_mod
-                        risultato["follicoli_dormienti"] = follicoli_mod
-                        risultato["steli_nuovi"] = germogli_mod
-
-                        # 🔥 RIGENERA IL TESTO CON I VALORI ESATTI MODIFICATI
-                        testo_aggiornato = genera_referto_dermocosmetico(
-                            {
-                                "eritema_diffuso": risultato.get("eritema_diffuso", 0),
-                                "sebo_ceroso": 0,
-                                "desquamazione_secca": 0,
-                                "tappi_sebacei": tappi_mod,
-                                "infiammazione_perifollicolare": 0,
-                                "follicoli_dormienti": follicoli_mod,
-                                "calibro_medio": calibro_mod,
-                                "densita": densita_mod,
-                                "anisotropia": anisotropia_mod,
-                                "steli_nuovi": germogli_mod,
-                                "steli_vellus": risultato.get("steli_vellus", 0),
-                            },
-                            ottica,
-                            luce,
-                            zona,
-                            sintomi_dict,
-                        )
-
-                        # 🔥 CHIAVE PER IL TRACKING DEI VALORI MODIFICATI
-                        valori_attuali = f"{densita_mod}_{calibro_mod}_{anisotropia_mod}_{tappi_mod}_{follicoli_mod}_{germogli_mod}"
-                        tracker_vals_key = f"tracker_vals_{cliente_selezionato}_{idx}"
-                        
-                        # 🔥 SE I VALORI SONO CAMBIATI, AGGIORNA IL TESTO IN SESSION_STATE
-                        if st.session_state.get(tracker_vals_key) != valori_attuali:
-                            st.session_state[tracker_vals_key] = valori_attuali
-                            st.session_state[note_key] = testo_aggiornato
+                        m4.metric("🟡 Tappi Sebacei", risultato["tappi_sebacei"])
+                        m5.metric("🔵 Follicoli Silenti", risultato["follicoli_dormienti"])
+                        m6.metric("🟣 Germogli Anagen", risultato["steli_nuovi"])
 
                         st.markdown("##### 📝 Sintesi Immagine (Soli Punti Chiave)")
-                        nota_operatore_img = st.text_area(
-                            "Descrizione sintetica immagine:",
-                            key=note_key,
-                            height=100,
-                        )
-
-                        # 🔥 PULSANTE RICALCOLA CON I VALORI MODIFICATI
-                        def reset_con_valori_modificati(chiave_da_aggiornare, testo_nuovo):
-                            st.session_state[chiave_da_aggiornare] = testo_nuovo
+                        nota_operatore_img = st.text_area("Descrizione sintetica immagine:", key=note_key, height=100)
 
                         st.button(
                             "🔄 Ricalcola Testo AI",
                             key=f"btn_reset_note_{idx}",
-                            on_click=reset_con_valori_modificati,
-                            args=(note_key, testo_aggiornato),
-                            help="Rigenera il testo con i valori attualmente inseriti",
+                            on_click=reset_testo_callback,
+                            args=(note_key, risultato["note_auto"]),
                             use_container_width=True,
                         )
 
-                    immagini_con_etichette.append(
-                        {
-                            "immagine": risultato["immagine_annotata"],
-                            "ottica": ottica,
-                            "luce": luce,
-                            "zona": zona,
-                            "note": nota_operatore_img,
-                            "steli_anagen": risultato["steli_anagen"],
-                            "steli_vellus": risultato["steli_vellus"],
-                            "steli_nuovi": risultato["steli_nuovi"],
-                            "eritemi": risultato["eritema_diffuso"],
-                            "tappi_sebacei": risultato["tappi_sebacei"],
-                            "calibro_medio": risultato["calibro_medio"],
-                            "anisotropia": risultato["anisotropia"],
-                            "densita": risultato["densita_stimata"],
-                        }
-                    )
+                    immagini_con_etichette.append({
+                        "immagine": risultato["immagine_annotata"],
+                        "ottica": ottica,
+                        "luce": luce,
+                        "zona": zona,
+                        "note": nota_operatore_img,
+                        "steli_anagen": risultato["steli_anagen"],
+                        "steli_vellus": risultato["steli_vellus"],
+                        "steli_nuovi": risultato["steli_nuovi"],
+                        "eritemi": risultato["eritema_diffuso"],
+                        "tappi_sebacei": risultato["tappi_sebacei"],
+                        "calibro_medio": risultato["calibro_medio"],
+                        "anisotropia": risultato["anisotropia"],
+                        "densita": risultato["densita_stimata"],
+                    })
 
             # --- CALCOLO MEDIE ---
             if immagini_con_etichette:
@@ -4281,11 +4159,19 @@ def main():
                             data_oggi = datetime.now().strftime("%d/%m/%Y %H:%M")
                             data_cartella_foto = datetime.now().strftime("%d-%m-%Y")
 
+                            # 📊 BARRA DI PROGRESSO
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+
+                            status_text.text("📊 Salvataggio analisi in corso...")
+                            progress_bar.progress(10)
+
                             tot_steli = sum(r["steli_anagen"] + r["steli_vellus"] + r["steli_nuovi"] for r in immagini_con_etichette)
                             tot_anagen = sum(r["steli_anagen"] for r in immagini_con_etichette)
                             tot_vellus = sum(r["steli_vellus"] for r in immagini_con_etichette)
                             tot_nuovi = sum(r["steli_nuovi"] for r in immagini_con_etichette)
 
+                            # Salva in Supabase
                             parametri = {
                                 "zona": "Multi-zona",
                                 "ingrandimento": "50x/200x",
@@ -4307,76 +4193,156 @@ def main():
                                 "routine_consigliata": f"Scala: {scala_selezionata} | Quadro: {quadro_clinico}",
                             }
 
-                            with st.spinner("💾 Salvataggio e creazione cartella foto..."):
-                                # 1. Salva analisi su Supabase
-                                ok, msg = salva_analisi_supabase(cliente_uuid, data_oggi, parametri)
-                                if ok:
-                                    st.success(msg)
-                                else:
-                                    st.error(msg)
+                            status_text.text("☁️ Salvataggio su Supabase...")
+                            progress_bar.progress(20)
 
-                                # 2. Salva foto su Supabase e in locale
-                                if immagini_con_etichette:
-                                    salva_foto_supabase(cliente_uuid, immagini_con_etichette, data_cartella_foto)
-                                    
-                                    cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                                    nome_cartella_foto = f"Foto Check-Up \u2502 {data_cartella_foto}"
-                                    cartella_foto_checkup = os.path.join(cartella_cliente_dest, nome_cartella_foto)
-                                    os.makedirs(cartella_foto_checkup, exist_ok=True)
-                                    
-                                    # Buffer in memoria per creare il file ZIP
-                                    zip_buffer = io.BytesIO()
-                                    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                            ok, msg = salva_analisi_supabase(cliente_uuid, data_oggi, parametri)
+                            if ok:
+                                st.success(msg)
+                            else:
+                                st.error(msg)
+
+                            # ============================================================
+                            # 🔥 SALVATAGGIO FOTO IN BACKGROUND (CON ATTESA ATTIVA)
+                            # ============================================================
+                            if immagini_con_etichette:
+                                status_text.text("📸 Salvataggio foto in corso...")
+                                progress_bar.progress(30)
+                                
+                                # 🔥 ESEGUI IL SALVATAGGIO FOTO IN BACKGROUND
+                                import threading
+                                import time
+                                
+                                # Variabile per il risultato
+                                risultato_foto = {"success": False, "msg": ""}
+                                
+                                def salva_foto_background():
+                                    try:
+                                        # 1. Salva su Supabase Storage
+                                        ok_foto, msg_foto = salva_foto_supabase(
+                                            cliente_uuid, 
+                                            immagini_con_etichette, 
+                                            data_cartella_foto
+                                        )
+                                        if ok_foto:
+                                            risultato_foto["msg"] = msg_foto
+                                        else:
+                                            risultato_foto["msg"] = f"⚠️ {msg_foto}"
+                                        
+                                        # 2. Salva localmente e prepara batch per Google Drive
+                                        cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                                        nome_cartella_foto = f"Foto Check-Up | {data_cartella_foto}"
+                                        cartella_foto_checkup = os.path.join(cartella_cliente_dest, nome_cartella_foto)
+                                        os.makedirs(cartella_foto_checkup, exist_ok=True)
+                                        
+                                        lista_file_batch = []
                                         for i_f, f_data in enumerate(immagini_con_etichette, 1):
                                             f_filename = f"Acquisizione_{i_f}_{f_data['zona'].split()[0]}_{f_data['ottica']}.jpg"
                                             file_path = os.path.join(cartella_foto_checkup, f_filename)
                                             
-                                            # Salva su disco
-                                            img_bgr = cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR)
-                                            cv2.imwrite(file_path, img_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+                                            cv2.imwrite(
+                                                file_path,
+                                                cv2.cvtColor(f_data["immagine"], cv2.COLOR_RGB2BGR),
+                                                [int(cv2.IMWRITE_JPEG_QUALITY), 85]
+                                            )
                                             
-                                            # Aggiungi allo ZIP
-                                            zip_file.write(file_path, arcname=f"{nome_cartella_foto}/{f_filename}")
-
-                                        # Aggiunge anche la foto panoramica se presente
+                                            with open(file_path, "rb") as img_file:
+                                                img_bytes = img_file.read()
+                                                lista_file_batch.append({
+                                                    "name": f"{nome_cartella_foto}/{f_filename}",
+                                                    "base64": base64.b64encode(img_bytes).decode("utf-8"),
+                                                    "mimeType": "image/jpeg"
+                                                })
+                                        
+                                        # 3. Invia a Google Drive
+                                        if lista_file_batch:
+                                            webhook_url = st.session_state.get("gdrive_webhook_url", "") or get_config("gdrive_webhook_url")
+                                            if webhook_url:
+                                                try:
+                                                    payload = {
+                                                        "action": "batch_upload",
+                                                        "clientFolder": str(cliente_selezionato).strip(),
+                                                        "files": lista_file_batch
+                                                    }
+                                                    resp = requests.post(webhook_url.strip(), json=payload, timeout=120)
+                                                    if resp.status_code == 200:
+                                                        risultato_foto["msg"] += f" 📸 {len(lista_file_batch)} foto inviate a Google Drive!"
+                                                    else:
+                                                        risultato_foto["msg"] += f" ⚠️ Errore invio foto a Google Drive: {resp.status_code}"
+                                                except Exception as e:
+                                                    risultato_foto["msg"] += f" ⚠️ Errore invio foto a Google Drive: {e}"
+                                            else:
+                                                risultato_foto["msg"] += " ⚠️ Webhook Google Drive non configurato"
+                                        
+                                        # 4. Foto panoramica
                                         if "uploaded_macro_phone" in locals() and uploaded_macro_phone is not None:
-                                            prefisso_macro = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Panoramica")
-                                            nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_cartella_foto}.jpg"
-                                            path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
-                                            with open(path_macro_dest, "wb") as f_macro:
-                                                f_macro.write(uploaded_macro_phone.getbuffer())
-                                            zip_file.write(path_macro_dest, arcname=f"{nome_cartella_foto}/{nome_file_macro}")
+                                            try:
+                                                prefisso_macro = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Panoramica")
+                                                nome_file_macro = f"{prefisso_macro}Foto Panoramica | {data_cartella_foto}.jpg"
+                                                path_macro_dest = os.path.join(cartella_cliente_dest, nome_file_macro)
+                                                with open(path_macro_dest, "wb") as f_macro:
+                                                    f_macro.write(uploaded_macro_phone.getbuffer())
+                                                
+                                                with open(path_macro_dest, "rb") as img_file:
+                                                    img_bytes = img_file.read()
+                                                    ok_drive, msg_drive = invia_file_a_google_drive(
+                                                        img_bytes,
+                                                        nome_file_macro,
+                                                        cliente_selezionato,
+                                                        mime_type="image/jpeg"
+                                                    )
+                                                    if ok_drive:
+                                                        risultato_foto["msg"] += f" 📸 Foto panoramica inviata a Google Drive!"
+                                                    else:
+                                                        risultato_foto["msg"] += f" ⚠️ {msg_drive}"
+                                            except Exception as e:
+                                                risultato_foto["msg"] += f" ⚠️ Errore invio foto panoramica: {e}"
+                                        
+                                        risultato_foto["success"] = True
+                                    except Exception as e:
+                                        risultato_foto["msg"] = f"❌ Errore salvataggio foto: {e}"
+                                
+                                # 🔥 AVVIA IL THREAD
+                                thread = threading.Thread(target=salva_foto_background, daemon=True)
+                                thread.start()
+                                
+                                # 🔥 ASPETTA CHE IL THREAD FINISCA (CON UN MAX DI 120 SECONDI)
+                                with st.spinner("📸 Salvataggio foto in corso..."):
+                                    thread.join(timeout=120)
+                                
+                                # 🔥 MOSTRA IL RISULTATO
+                                progress_bar.progress(90)
+                                if risultato_foto["success"]:
+                                    st.success(risultato_foto["msg"])
+                                else:
+                                    st.warning(risultato_foto["msg"])
+                            else:
+                                st.info("📭 Nessuna foto da salvare.")
 
-                                    zip_buffer.seek(0)
-                                    
-                                    # Memorizza lo ZIP nella sessione per il download
-                                    st.session_state[f"zip_archivio_{cliente_selezionato}"] = {
-                                        "nome_file": f"{nome_cartella_foto}.zip",
-                                        "bytes": zip_buffer.getvalue()
-                                    }
+                            # ✅ MESSAGGIO FINALE
+                            progress_bar.progress(100)
+                            status_text.text("✅ Salvataggio completato!")
+                            st.success(f"✅ Sessione salvata con successo!")
 
-                                st.success("✅ Sessione salvata e cartella foto pronta!")
+                            # Pulisce la barra di progresso
+                            import time
+                            time.sleep(1)
+                            progress_bar.empty()
+                            status_text.empty()
+
                         except Exception as e:
                             st.error(f"Errore durante il salvataggio: {e}")
-
-                    # 🔥 MOSTRA IL PULSANTE DI DOWNLOAD DELLA CARTELLA SE ESISTE
-                    zip_key = f"zip_archivio_{cliente_selezionato}"
-                    if zip_key in st.session_state:
-                        dati_zip = st.session_state[zip_key]
-                        st.download_button(
-                            label=f"📥 Scarica {dati_zip['nome_file']}",
-                            data=dati_zip["bytes"],
-                            file_name=dati_zip["nome_file"],
-                            mime="application/zip",
-                            use_container_width=True
-                        )
+                            if 'progress_bar' in locals():
+                                progress_bar.empty()
+                            if 'status_text' in locals():
+                                status_text.empty()
 
                 with col_b2:
                     if st.button("📄 Genera Report TricoCamera PDF", key="btn_gen_pdf_pro", use_container_width=True):
                         if immagini_con_etichette:
                             cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
                             prefisso_report = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Report")
-                            pdf_filename = f"{cliente_selezionato} \u2502 {prefisso_report}Report Tricologico Righetti.pdf"
+                            pdf_filename = f"{cliente_selezionato} | {prefisso_report}Report Tricologico Righetti.pdf"
                             pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
                             nota_da_stampare = st.session_state.get(note_glob_key, "")
@@ -4391,33 +4357,76 @@ def main():
                             if not os.path.exists(template_path):
                                 st.error(f"⚠️ Il file modello '{template_path}' non è presente nella cartella del programma!")
                             else:
-                                with st.spinner("📄 Creazione Report PDF in corso..."):
-                                    success = genera_pdf_righetti_completo(
-                                        nome_cliente=cliente_selezionato,
-                                        eta=eta_cliente,
-                                        cellulare=cell_cliente,
-                                        email=email_cliente,
-                                        nota_operatore=nota_da_stampare,
-                                        checkup_num=checkup_num,
-                                        num_immagini=len(immagini_con_etichette),
-                                        immagini_con_etichette=immagini_con_etichette,
-                                        path_salvataggio=pdf_path,
-                                        template_path=template_path,
-                                    )
-
-                                if success and os.path.exists(pdf_path):
-                                    st.success(f"✅ Report archiviato in: **PERCORSI CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
-                                    with open(pdf_path, "rb") as pdf_file:
-                                        st.download_button(
-                                            "📥 Scarica Report PDF",
-                                            pdf_file,
-                                            pdf_filename,
-                                            "application/pdf",
-                                            use_container_width=True,
-                                            key=f"btn_dl_rep_{cliente_selezionato}"
+                                # 🔥 MOSTRA MESSAGGIO INIZIALE
+                                msg_placeholder = st.info("📄 Generazione Report in corso...")
+                                
+                                # 🔥 ESEGUI LA GENERAZIONE IN BACKGROUND
+                                import threading
+                                import time
+                                
+                                # Variabile per il risultato
+                                risultato = {"success": False, "msg": "", "path": None}
+                                
+                                def genera_report_background():
+                                    try:
+                                        success = genera_pdf_righetti_completo(
+                                            nome_cliente=cliente_selezionato,
+                                            eta=eta_cliente,
+                                            cellulare=cell_cliente,
+                                            email=email_cliente,
+                                            nota_operatore=nota_da_stampare,
+                                            checkup_num=checkup_num,
+                                            num_immagini=len(immagini_con_etichette),
+                                            immagini_con_etichette=immagini_con_etichette,
+                                            path_salvataggio=pdf_path,
+                                            template_path=template_path,
                                         )
+                                        if success and os.path.exists(pdf_path):
+                                            # 🔥 INVIA A GOOGLE DRIVE
+                                            with open(pdf_path, "rb") as pdf_file:
+                                                pdf_bytes_data = pdf_file.read()
+                                                ok_drive, msg_drive = invia_file_a_google_drive(
+                                                    pdf_bytes_data,
+                                                    pdf_filename,
+                                                    cliente_selezionato,
+                                                    mime_type="application/pdf"
+                                                )
+                                                if ok_drive:
+                                                    risultato["msg"] = msg_drive
+                                                else:
+                                                    risultato["msg"] = f"⚠️ {msg_drive}"
+                                            
+                                            risultato["success"] = True
+                                            risultato["path"] = pdf_path
+                                            risultato["filename"] = pdf_filename
+                                            risultato["msg"] = f"✅ Report PDF archiviato in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**"
+                                        else:
+                                            risultato["msg"] = "❌ Errore durante la generazione del Report"
+                                    except Exception as e:
+                                        risultato["msg"] = f"❌ Errore durante la creazione del PDF: {e}"
+                                
+                                # 🔥 AVVIA IL THREAD
+                                thread = threading.Thread(target=genera_report_background, daemon=True)
+                                thread.start()
+                                
+                                # 🔥 ASPETTA CHE IL THREAD FINISCA (CON UN MAX DI 60 SECONDI)
+                                with st.spinner("📄 Generazione Report in corso..."):
+                                    thread.join(timeout=60)
+                                
+                                # 🔥 MOSTRA IL RISULTATO
+                                if risultato["success"]:
+                                    st.success(risultato["msg"])
+                                    if risultato["path"] and os.path.exists(risultato["path"]):
+                                        with open(risultato["path"], "rb") as pdf_file:
+                                            st.download_button(
+                                                "📥 Scarica Report PDF",
+                                                pdf_file,
+                                                risultato["filename"],
+                                                "application/pdf",
+                                                use_container_width=True
+                                            )
                                 else:
-                                    st.error("❌ Errore durante la generazione del Report")
+                                    st.error(risultato["msg"])
                         else:
                             st.warning("⚠️ Carica almeno un'immagine prima di generare il report.")
 
@@ -4709,41 +4718,82 @@ def main():
             # --- GENERA SCHEDA CURA ---
             st.markdown("---")
             if st.button("📄 Genera Scheda Cura PDF", key="btn_scheda_cura", use_container_width=True):
-                if prodotti_assegnati:
-                    cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                    prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
-                    pdf_filename = f"{cliente_selezionato} \u2502 {prefisso_cura}Rituale di Cura Domiciliare.pdf"
-                    pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
+                    if prodotti_assegnati:
+                        cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                        prefisso_cura = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Rituale")
+                        pdf_filename = f"{cliente_selezionato} | {prefisso_cura}Rituale di Cura Domiciliare.pdf"
+                        pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                    confronto_dati = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
-                    proto_da_stampare = st.session_state.get(proto_key, testo_protocollo_inserito)
+                        confronto_dati = st.session_state.get(f"dati_confronto_pdf_{cliente_selezionato}", None)
+                        proto_da_stampare = st.session_state.get(proto_key, testo_protocollo_inserito)
 
-                    with st.spinner("📄 Creazione Scheda Cura PDF in corso..."):
-                        try:
-                            success = genera_pdf_cura_domiciliare(
-                                cliente_selezionato,
-                                prodotti_assegnati,
-                                pdf_path,
-                                dati_confronto=confronto_dati,
-                                protocollo_testo=proto_da_stampare,
-                            )
-                            if success and os.path.exists(pdf_path):
-                                st.success(f"✅ Scheda Cura archiviata in: **PERCORSI CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
-                                with open(pdf_path, "rb") as pdf_file:
+                        # 🔥 MOSTRA MESSAGGIO INIZIALE
+                        msg_placeholder = st.info("📄 Generazione Scheda Cura in corso...")
+                        
+                        # 🔥 ESEGUI LA GENERAZIONE IN BACKGROUND
+                        import threading
+                        import time
+                        
+                        # Variabile per il risultato
+                        risultato = {"success": False, "msg": "", "path": None, "filename": ""}
+                        
+                        def genera_scheda_background():
+                            try:
+                                success = genera_pdf_cura_domiciliare(
+                                    cliente_selezionato,
+                                    prodotti_assegnati,
+                                    pdf_path,
+                                    dati_confronto=confronto_dati,
+                                    protocollo_testo=proto_da_stampare,
+                                )
+                                if success and os.path.exists(pdf_path):
+                                    # 🔥 INVIA A GOOGLE DRIVE
+                                    with open(pdf_path, "rb") as pdf_file:
+                                        pdf_bytes_data = pdf_file.read()
+                                        ok_drive, msg_drive = invia_file_a_google_drive(
+                                            pdf_bytes_data,
+                                            pdf_filename,
+                                            cliente_selezionato,
+                                            mime_type="application/pdf"
+                                        )
+                                        if ok_drive:
+                                            risultato["msg"] = msg_drive
+                                        else:
+                                            risultato["msg"] = f"⚠️ {msg_drive}"
+                                    
+                                    risultato["success"] = True
+                                    risultato["path"] = pdf_path
+                                    risultato["filename"] = pdf_filename
+                                    risultato["msg"] = f"✅ Scheda Cura archiviata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**"
+                                else:
+                                    risultato["msg"] = "❌ Errore durante la generazione della Scheda Cura"
+                            except Exception as e:
+                                risultato["msg"] = f"❌ Errore durante la creazione della Scheda Cura: {e}"
+                        
+                        # 🔥 AVVIA IL THREAD
+                        thread = threading.Thread(target=genera_scheda_background, daemon=True)
+                        thread.start()
+                        
+                        # 🔥 ASPETTA CHE IL THREAD FINISCA (CON UN MAX DI 60 SECONDI)
+                        with st.spinner("📄 Generazione Scheda Cura in corso..."):
+                            thread.join(timeout=60)
+                        
+                        # 🔥 MOSTRA IL RISULTATO
+                        if risultato["success"]:
+                            st.success(risultato["msg"])
+                            if risultato["path"] and os.path.exists(risultato["path"]):
+                                with open(risultato["path"], "rb") as pdf_file:
                                     st.download_button(
                                         "📥 Scarica Scheda Cura PDF",
                                         pdf_file,
-                                        pdf_filename,
+                                        risultato["filename"],
                                         "application/pdf",
-                                        use_container_width=True,
-                                        key=f"btn_dl_cura_{cliente_selezionato}"
+                                        use_container_width=True
                                     )
-                            else:
-                                st.error("❌ Errore durante la creazione della Scheda Cura")
-                        except Exception as e:
-                            st.error(f"❌ Errore durante la creazione della Scheda Cura: {e}")
-                else:
-                    st.warning("⚠️ Assegna almeno un prodotto al cliente.")
+                        else:
+                            st.error(risultato["msg"])
+                    else:
+                        st.warning("⚠️ Assegna almeno un prodotto al cliente.")
                         
     # =========================================================================
     # TAB 3: DASHBOARD GRAFICI
@@ -4771,34 +4821,77 @@ def main():
         
                 with col_d_head2:
                     if st.button("📄 Salva Dashboard PDF", key="btn_pdf_dashboard", use_container_width=True):
-                        cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
-                        prefisso_dash = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Dashboard")
-                        pdf_filename = f"{cliente_selezionato} \u2502 {prefisso_dash}Dashboard Grafici.pdf"
-                        pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
+                            cartella_cliente_dest = trova_o_crea_cartella_cliente(cliente_selezionato)
+                            prefisso_dash = calcola_prefisso_da_file_esistenti(cartella_cliente_dest, "Dashboard")
+                            pdf_filename = f"{cliente_selezionato} | {prefisso_dash}Dashboard Grafici.pdf"
+                            pdf_path = os.path.join(cartella_cliente_dest, pdf_filename)
 
-                        with st.spinner("📄 Creazione Dashboard PDF in corso..."):
-                            try:
-                                success = genera_pdf_dashboard_grafici(
-                                    cliente_selezionato,
-                                    df_trend,
-                                    ultima_visita,
-                                    pdf_path
-                                )
-                                if success and os.path.exists(pdf_path):
-                                    st.success(f"✅ Dashboard salvata in: **PERCORSI CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**")
-                                    with open(pdf_path, "rb") as pdf_file:
+                            # 🔥 MOSTRA MESSAGGIO INIZIALE
+                            msg_placeholder = st.info("📄 Generazione Dashboard in corso...")
+                            
+                            # 🔥 ESEGUI LA GENERAZIONE IN BACKGROUND
+                            import threading
+                            import time
+                            
+                            # Variabile per il risultato
+                            risultato = {"success": False, "msg": "", "path": None, "filename": ""}
+                            
+                            def genera_dashboard_background():
+                                try:
+                                    success = genera_pdf_dashboard_grafici(
+                                        cliente_selezionato,
+                                        df_trend,
+                                        ultima_visita,
+                                        pdf_path
+                                    )
+                                    
+                                    if success and os.path.exists(pdf_path):
+                                        # 🔥 INVIA A GOOGLE DRIVE
+                                        with open(pdf_path, "rb") as pdf_file:
+                                            pdf_bytes = pdf_file.read()
+                                            ok_drive, msg_drive = invia_file_a_google_drive(
+                                                pdf_bytes,
+                                                pdf_filename,
+                                                cliente_selezionato,
+                                                mime_type="application/pdf"
+                                            )
+                                            if ok_drive:
+                                                risultato["msg"] = msg_drive
+                                            else:
+                                                risultato["msg"] = f"⚠️ {msg_drive}"
+                                        
+                                        risultato["success"] = True
+                                        risultato["path"] = pdf_path
+                                        risultato["filename"] = pdf_filename
+                                        risultato["msg"] = f"✅ Dashboard salvata in: **PERCORSO CLIENTI/{os.path.basename(cartella_cliente_dest)}/{pdf_filename}**"
+                                    else:
+                                        risultato["msg"] = "❌ Errore durante la generazione della Dashboard"
+                                except Exception as e:
+                                    risultato["msg"] = f"❌ Errore durante la creazione della Dashboard: {e}"
+                            
+                            # 🔥 AVVIA IL THREAD
+                            thread = threading.Thread(target=genera_dashboard_background, daemon=True)
+                            thread.start()
+                            
+                            # 🔥 ASPETTA CHE IL THREAD FINISCA (CON UN MAX DI 60 SECONDI)
+                            with st.spinner("📄 Generazione Dashboard in corso..."):
+                                thread.join(timeout=60)
+                            
+                            # 🔥 MOSTRA IL RISULTATO
+                            if risultato["success"]:
+                                st.success(risultato["msg"])
+                                if risultato["path"] and os.path.exists(risultato["path"]):
+                                    with open(risultato["path"], "rb") as pdf_file:
                                         st.download_button(
                                             "📥 Scarica Dashboard PDF",
                                             pdf_file,
-                                            pdf_filename,
+                                            risultato["filename"],
                                             "application/pdf",
-                                            use_container_width=True,
-                                            key=f"btn_dl_dash_{cliente_selezionato}"
+                                            use_container_width=True
                                         )
-                                else:
-                                    st.error("❌ Errore durante la creazione della Dashboard")
-                            except Exception as e:
-                                st.error(f"❌ Errore durante la creazione della Dashboard: {e}")
+                            else:
+                                st.error(risultato["msg"])
+
                 # Metriche
                 c_m1, c_m2, c_m3, c_m4 = st.columns(4)
                 c_m1.metric("Densità Attuale", f"{ultima_visita['densita_f']} cap/cm²")
