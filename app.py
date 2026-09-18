@@ -855,76 +855,100 @@ def esegui_perizia_vision_ai(
     luce,
     sintomi_lista,
 ):
-    prompt_sistema = f"""
-Sei il Direttore Scientifico e Docente Internazionale di Dermo-Fitocosmetica e Tricoscopia Applicata (Standard S.I.Tri. e Metodo Righetti Since 1967).
-Il tuo compito è redigere la RELAZIONE GLOBALE DI SINTESI per la pagina 2 del Report PDF.
+    """
+    Analisi tricologica con Gemini Vision (unico motore AI).
 
-REGOLE TASSATIVE DI FORMATTAZIONE:
-1. Lunghezza totale: ESATTAMENTE 8-9 RIGHE COMPLESSIVE (non superare mai 10 righe).
-2. Formattazione: NON usare asterischi markdown (NO **), solo testo semplice e pulito.
-3. Spaziatura: I punti 1, 2 e 3 devono essere consecutivi andando SOLO a capo (NESSUNA riga vuota tra 1, 2 e 3).
-4. Riga vuota di paragrafo: Inserisci una riga vuota SOLTANTO prima del punto 4.
+    Mantiene la stessa firma della vecchia versione (Groq/OpenAI) per
+    compatibilita' con le chiamate esistenti, ma internamente usa
+    esclusivamente Gemini.
 
-DATI BIOMETRICI ACQUISITI:
-- Paziente: {sesso} | Inquadramento: {scala}
-- Area: {zona} | Ingrandimento: {ottica} | Luce: {luce}
-- Sintomi riferiti: {', '.join(sintomi_lista) if sintomi_lista else 'Nessuno'}
-- Parametri: Calibro {dati_misurati['calibro']} µm, Anisotropia {dati_misurati['anisotropia']}%, Densità {dati_misurati['densita']} cap/cm², Tappi sebacei {dati_misurati['tappi']}, Indice eritematoso {dati_misurati['eritemi']} focolai.
+    Restituisce una stringa di 8-9 righe (sintesi narrativa) per il
+    Report PDF, come faceva la versione precedente.
+    """
+    import sys
+    import os
+    from src.tricologia_ai import analizza_immagine_gemini, sintesi_narrativa_da_json
 
-SCHEMA DI RISPOSTA OBBLIGATORIO (Rispetta esattamente questo ritmo di righe):
-1. Inquadramento & Cute: [2 righe sullo stato del cuoio capelluto, grado di iperemia, idratazione, tensione e sebo]
-2. Osti & Ancoraggio: [2 righe su pervietà ostiale, presenza di ipercheratosi, tappi sebacei e follicoli silenti]
-3. Fusti & Densità: [2 righe su calibro medio, percentuale di anisotropia, miniaturizzazione e densità al cm²]
+    # 1. Recupera la API key Gemini dai secrets (ignora i parametri vecchi)
+    gemini_api_key = ""
+    try:
+        import streamlit as st
+        gemini_api_key = st.secrets.get("GEMINI_API_KEY", "")
+    except Exception:
+        gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
 
-4. Protocollo Soluzione: Vedere PDF allegato "Rituale di Cura Domiciliare".
-"""
+    if not gemini_api_key:
+        return "Errore: GEMINI_API_KEY non configurata in .streamlit/secrets.toml"
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key.strip()}",
+    # 2. Converti l'immagine BGR (numpy) in bytes JPEG
+    try:
+        _, buffer = cv2.imencode(".jpg", img_bgr)
+        image_bytes = buffer.tobytes()
+    except Exception as e:
+        return f"Errore conversione immagine: {e}"
+
+    # 3. Estrai etnia ed eta dai parametri (default se non forniti)
+    etnia = "Caucasica"
+    eta = 40
+
+    # 4. Determina la zona anatomica dalla stringa 'zona' (adatta al modulo Gemini)
+    zona_map = {
+        "Vertice": "Vertice",
+        "Frontale": "Frontale",
+        "Parietale": "Parietale",
+        "Temporale": "Temporale",
+        "Occipitale": "Occipitale",
+        "Multi-zona": "Vertice",  # default ragionevole
+    }
+    zona_gemini = zona_map.get(zona, "Vertice")
+
+    # 5. Determina lente (ottica) e luce
+    lente_gemini = "50x"
+    if "200" in str(ottica):
+        lente_gemini = "200x"
+    luce_gemini = "Polarizzata" if "Polarizzata" in luce else "Bianca"
+
+    # 6. Prepara i dati OpenCV opzionali (vengono passati a Gemini come contesto)
+    dati_opencv = {
+        "calibro_medio": dati_misurati.get("calibro"),
+        "anisotropia": dati_misurati.get("anisotropia"),
+        "densita_stimata": dati_misurati.get("densita"),
+        "tappi_sebacei": dati_misurati.get("tappi"),
+        "eritema_diffuso": dati_misurati.get("eritemi"),
     }
 
-    if "Groq" in provider_scelto:
-        url = "https://api.groq.com/openai/v1/chat/completions"
-        payload = {
-            "model": modello_da_usare,
-            "messages": [{"role": "user", "content": prompt_sistema}],
-            "temperature": 0.2,
-            "max_tokens": 500,
-        }
-    else:
-        _, buffer = cv2.imencode(".jpg", img_bgr)
-        img_base64 = base64.b64encode(buffer).decode("utf-8")
-        url = "https://api.openai.com/v1/chat/completions"
-        payload = {
-            "model": "gpt-4o",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt_sistema},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{img_base64}"
-                            },
-                        },
-                    ],
-                }
-            ],
-            "temperature": 0.2,
-            "max_tokens": 500,
-        }
-
+    # 7. Chiama Gemini
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
-        if response.status_code == 200:
-            contenuto = response.json()["choices"][0]["message"]["content"]
-            return contenuto.replace("**", "").replace("###", "").strip()
-        else:
-            return f"Errore API ({response.status_code}): {response.text}"
+        analisi_json = analizza_immagine_gemini(
+            image_bytes=image_bytes,
+            api_key=gemini_api_key,
+            lente=lente_gemini,
+            luce=luce_gemini,
+            zona=zona_gemini,
+            sesso=sesso,
+            etnia=etnia,
+            eta=eta,
+            dati_opencv=dati_opencv,
+        )
     except Exception as e:
-        return f"Errore di connessione: {str(e)}"
+        return f"Errore Gemini: {e}"
+
+    # 8. Salva il JSON completo in session_state per usi futuri
+    try:
+        import streamlit as st
+        chiave_json = f"analisi_gemini_json_{zona_gemini}_{lente_gemini}"
+        st.session_state[chiave_json] = analisi_json
+    except Exception:
+        pass
+
+    # 9. Se c'e' un errore, restituisci il messaggio
+    if "errore" in analisi_json:
+        return f"Errore analisi Gemini: {analisi_json.get('errore')} - {analisi_json.get('dettagli', '')}"
+
+    # 10. Restituisci la sintesi narrativa (stringa di 8-9 righe)
+    return sintesi_narrativa_da_json(analisi_json)
+
+
 
 
 # ============================================================================
@@ -2997,7 +3021,6 @@ def main():
 
                 # --- RECUPERO CONFIGURAZIONI DA SUPABASE ---
         link_salvato = get_config("google_sheet_url")
-        saved_ai_key = get_config("groq_api_key")  # o "openai_api_key"
 
         # --- 1. EXPANDER COLLEGAMENTO GOOGLE ---
         with st.expander("🔄 Collegamento Google Sheets", expanded=False):
@@ -3129,78 +3152,26 @@ def main():
 
         st.markdown("---")
 
-        # --- 4. CONFIGURAZIONE AI ---
-        saved_ai_key = get_config("groq_api_key")
+        # --- 4. CONFIGURAZIONE AI (Gemini) ---
+        with st.expander("🤖 Configurazione AI (Gemini)", expanded=False):
+            try:
+                gemini_ok = "GEMINI_API_KEY" in st.secrets and bool(st.secrets["GEMINI_API_KEY"])
+            except Exception:
+                gemini_ok = False
 
-        with st.expander("🤖 Configurazione AI Avanzata", expanded=False):
-            ai_provider = st.selectbox(
-                "Motore AI Perizia:",
-                ["Groq (Istantaneo e Gratuito)", "OpenAI (GPT-4o)"],
-            )
-
-            if "Groq" in ai_provider:
-                ai_api_key = st.text_input(
-                    "Groq API Key:",
-                    value=saved_ai_key,
-                    type="password",
-                    placeholder="gsk_...",
-                    help="La chiave verrà memorizzata nel computer.",
-                )
-                col_k1, col_k2 = st.columns([1, 1])
-                with col_k1:
-                    if st.button(
-                        "💾 Salva Chiave",
-                        key="btn_save_ai_k",
-                        use_container_width=True,
-                    ):
-                        if set_config("groq_api_key", ai_api_key.strip()):
-                            st.success("✅ Chiave memorizzata su Supabase!")
-                            st.rerun()
-                        else:
-                            st.error("❌ Errore salvataggio chiave")
-                        
-                with col_k2:
-                    if st.button("🗑️ Rimuovi", key="btn_del_ai_k", use_container_width=True):
-                        if os.path.exists(ai_key_file):
-                            os.remove(ai_key_file)
-                        st.success("Chiave rimossa!")
-                        st.rerun()
-
-                ai_modello_scelto = "qwen/qwen3.8-27b"
-                if ai_api_key.strip():
-                    try:
-                        r_models = requests.get(
-                            "https://api.groq.com/openai/v1/models",
-                            headers={"Authorization": f"Bearer {ai_api_key.strip()}"},
-                            timeout=4,
-                        )
-                        if r_models.status_code == 200:
-                            lista_m = [m["id"] for m in r_models.json().get("data", [])]
-                            lista_utili = [
-                                m for m in lista_m
-                                if ("qwen" in m or "llama-3.3" in m or "llama-3.1" in m or "mixtral" in m)
-                                and "whisper" not in m and "guard" not in m
-                            ]
-                            if not lista_utili:
-                                lista_utili = lista_m
-                            idx_def = 0
-                            for target_m in ["qwen/qwen3.8-27b", "llama-3.3-70b-versatile"]:
-                                if target_m in lista_utili:
-                                    idx_def = lista_utili.index(target_m)
-                                    break
-                            ai_modello_scelto = st.selectbox("Modello Groq:", lista_utili, index=idx_def)
-                    except Exception:
-                        pass
+            if gemini_ok:
+                st.success("✅ Gemini AI configurato correttamente.")
+                st.caption("Motore AI attivo: Google Gemini 3.5 Flash con fallback automatico a 2.5 Flash.")
+                st.caption("La chiave API e' memorizzata in modo sicuro in .streamlit/secrets.toml")
             else:
-                ai_api_key = st.text_input("OpenAI API Key:", value=saved_ai_key, type="password", placeholder="sk-proj-...")
-                if st.button("💾 Salva Chiave", key="btn_save_oai_k", use_container_width=True):
-                    with open(ai_key_file, "w") as f:
-                        f.write(ai_api_key.strip())
-                    st.success("✅ Chiave memorizzata!")
-                    st.rerun()
-                ai_modello_scelto = "gpt-4o"
+                st.error("❌ GEMINI_API_KEY mancante in .streamlit/secrets.toml")
+                st.caption("Contatta l'amministratore per configurare la chiave Gemini.")
 
-        st.markdown("---")
+        # Variabili di compatibilita' per le funzioni esistenti
+        ai_api_key = "gemini"  # la chiave vera viene presa da st.secrets dentro esegui_perizia_vision_ai
+        ai_provider = "Gemini"
+        ai_modello_scelto = "gemini-3.5-flash"
+
 
         # --- 5. SCALA ALOPECIA ---
         st.header("📐 Grado / Scala Alopecia")
