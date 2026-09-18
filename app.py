@@ -618,8 +618,8 @@ def analizza_immagine_tricoscopica_pro(
                 cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
                 if 30 < cx < w_img - 30 and 30 < cy < h_img - 30:
                     eritemi += 1
-                    cv2.circle(annotata, (cx, cy), 5, (230, 20, 20), -1)
-                    cv2.circle(annotata, (cx, cy), 7, (255, 255, 255), 1)
+                    # cv2.circle(annotata, (cx, cy), 5, (230, 20, 20), -1)
+                    # cv2.circle(annotata, (cx, cy), 7, (255, 255, 255), 1)
 
     # -------------------------------------------------------------
     # 2. RILEVAMENTO TAPPI SEBACEI / YELLOW DOTS
@@ -639,8 +639,8 @@ def analizza_immagine_tricoscopica_pro(
                 cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
                 if 30 < cx < w_img - 30 and 30 < cy < h_img - 30:
                     tappi += 1
-                    cv2.circle(annotata, (cx, cy), 6, (245, 210, 0), -1)
-                    cv2.circle(annotata, (cx, cy), 8, (0, 0, 0), 1)
+                    # cv2.circle(annotata, (cx, cy), 6, (245, 210, 0), -1)
+                    # cv2.circle(annotata, (cx, cy), 8, (0, 0, 0), 1)
 
     # -------------------------------------------------------------
     # 3. SEGMENTAZIONE FUSTI & ANALISI COPERTURA CUTE (FOTOTRICOGRAMMA)
@@ -738,8 +738,8 @@ def analizza_immagine_tricoscopica_pro(
                                 steli_vellus += 1
                             else:
                                 steli_anagen += 1
-                                cv2.circle(annotata, (rx, ry), 5, (40, 200, 80), -1)
-                                cv2.circle(annotata, (rx, ry), 7, (255, 255, 255), 1)
+                                # cv2.circle(annotata, (rx, ry), 5, (40, 200, 80), -1)
+                                # cv2.circle(annotata, (rx, ry), 7, (255, 255, 255), 1)
                     else:
                         spessori.append(spessore_um)
 
@@ -773,8 +773,8 @@ def analizza_immagine_tricoscopica_pro(
                         for ox, oy in osti_rilevati
                     ):
                         follicoli_dormienti += 1
-                        cv2.circle(annotata, (cx, cy), 5, (0, 215, 255), -1)
-                        cv2.circle(annotata, (cx, cy), 7, (0, 0, 0), 1)
+                        # cv2.circle(annotata, (cx, cy), 5, (0, 215, 255), -1)
+                        # cv2.circle(annotata, (cx, cy), 7, (0, 0, 0), 1)
 
     calibro_m = round(float(np.mean(spessori)), 1) if spessori else 0.0
     anisotropia = (
@@ -803,6 +803,7 @@ def analizza_immagine_tricoscopica_pro(
 
     output = {
         "immagine_annotata": annotata,
+        "immagine_pulita": img_rgb.copy(),
         "eritema_diffuso": eritemi,
         "infiammazione_perifollicolare": 0,
         "tappi_sebacei": tappi,
@@ -3697,16 +3698,8 @@ def main():
                     col_img, col_dettagli = st.columns([1.2, 1])
 
                     with col_img:
-                        st.image(risultato["immagine_annotata"], caption=f"Mappatura {zona} - {ottica} ({luce})", use_container_width=True)
-                        st.markdown("""
-                        <div style="background-color: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #e9ecef; font-size: 13px;">
-                            <b>Legenda Marker:</b><br>
-                            🟡 <b>Giallo:</b> Tappi sebacei / Ipercheratosi &nbsp;|&nbsp; 
-                            🔴 <b>Rosso:</b> Iperemia / Alone perifollicolare<br>
-                            🟣 <b>Viola:</b> Germogli anagen ricrescita<br>
-                            🟢 <b>Verde:</b> Ostio sano con stelo
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.image(risultato["immagine_pulita"], caption=f"Mappatura {zona} - {ottica} ({luce})", use_container_width=True)
+
 
                     with col_dettagli:
                         st.markdown("""
@@ -3856,7 +3849,7 @@ def main():
 
                     immagini_con_etichette.append(
                         {
-                            "immagine": risultato["immagine_annotata"],
+                            "immagine": risultato["immagine_pulita"],
                             "ottica": ottica,
                             "luce": luce,
                             "zona": zona,

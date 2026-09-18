@@ -285,7 +285,7 @@ def analizza_immagine_gemini(
         import time
 
         # Lista modelli: primo = principale, secondo = fallback
-        MODELLI_FALLBACK = [modello, "gemini-2.5-flash"]
+        MODELLI_FALLBACK = [modello, "gemini-3.6-flash"]
         MAX_TENTATIVI = 4
         ATTESE = [0, 3, 8, 15]  # secondi tra i tentativi
         errore_finale = None
