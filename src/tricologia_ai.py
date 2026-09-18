@@ -5,11 +5,13 @@ Standard: approccio dermo-fitocosmetico Righetti Since 1967
 
 import json
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from google import genai
 from google.genai import types
 
 
-MODELLO_DEFAULT = "gemini-3.5-flash"
+MODELLO_DEFAULT = "gemini-3.5-flash-lite"
+MODELLI_FALLBACK = ["gemini-3.5-flash", "gemini-2.5-flash"]
 
 
 PROMPT_SISTEMA = '''
@@ -100,11 +102,8 @@ ZONA OCCIPITALE (SOLO PER DONNE):
 - maggiore o uguale a 230 capelli/cm2: densita ALTA
 
 ATTENZIONE ZONA OCCIPITALE NELL UOMO:
-La zona occipitale nell uomo e la zona DONATRICE, NON soggetta a
-miniaturizzazione androgenetica. Se il sesso e Uomo e la zona e occipitale:
-- NON fornire un valore di densita (restituisci null)
-- Aggiungi in note_qualita: "Zona occipitale non valutata per densita:
-  zona donatrice, non soggetta a miniaturizzazione androgenetica nell uomo."
+Se il sesso e Uomo e la zona e occipitale: NON fornire un valore di densita
+(restituisci null) e aggiungi nota in note_qualita.
 
 === ETNIA AFRICANA (casi rari) ===
 - Frontale: 133-187 capelli/cm2
@@ -117,46 +116,30 @@ miniaturizzazione androgenetica. Se il sesso e Uomo e la zona e occipitale:
 - Temporale: 130-180 capelli/cm2
 - Occipitale: 149-213 capelli/cm2
 
-=== ETNIA NON SPECIFICATA (casi rari) ===
-- Usa un range generico 120-220 capelli/cm2 per tutte le zone.
-- Segnala in note_qualita che manca il dato etnico.
+=== ETNIA NON SPECIFICATA ===
+- Usa range generico 120-220 capelli/cm2.
 
 REGOLE PER LA DENSITA:
 1. Se la immagine e a 200x: restituisci SEMPRE null per densita_follicolare_per_cm2.
 2. Se la immagine e a 50x:
    - Scegli il range in base a etnia + zona + sesso.
    - Fornisci un NUMERO PRECISO (esempio 165) come stima della densita.
-   - Aggiungi densita_giudizio con valore:
-     "molto_bassa" | "bassa" | "normale" | "alta"
-   - Nel caso della zona occipitale maschile, restituisci null e nota_qualita.
-3. I range vanno SEMPRE contestualizzati da eta e sesso:
-   un uomo di 50 anni con 130 capelli/cm2 al vertice puo essere nella
-   norma per eta, mentre una donna di 25 anni con 130 capelli/cm2
-   al vertice e probabilmente in densita bassa.
+   - Aggiungi densita_giudizio: "molto_bassa" | "bassa" | "normale" | "alta"
+
 OSSERVAZIONI DIFFERENZIALI (pattern osservabili, NON diagnosi):
 - Pattern osservato: AGA, TE, AA, FFA, normale, misto, non determinabile.
-  Queste sigle servono per classificazione descrittiva del pattern osservato.
 - Severita: lieve, moderata, avanzata, non valutabile.
 - Segni chiave osservati.
-- Osservazioni differenziali in chiave cosmetica/olistica.
 
 RACCOMANDAZIONI (approccio Righetti Since 1967):
-Le raccomandazioni devono essere dermo-fitocosmetiche e olistiche, ad esempio:
+Le raccomandazioni devono essere dermo-fitocosmetiche e olistiche:
 - Protocolli topici fitocosmetici (lozioni, sieri, maschere)
 - Integrazione nutraceutica (vitamine, minerali, aminoacidi solforati, antiossidanti)
 - Probiotici e riequilibrio del microbiota cutaneo
 - Gestione dello stress e del sonno
 - Indicazioni alimentari di supporto
 - Follow-up tricoscopico cosmetico
-- Riferimento al medico curante SOLO per conferma clinica, non per prescrizioni
-
-RIFERIMENTI TECNICI:
-- Anisotricchia maggiore del 20 percento in zona androgeno-dipendente:
-  segno osservabile di pattern AGA.
-- Yellow dots: tipici di pattern AA, presenti anche in AGA avanzata e TE cronico.
-- Tabbi sebacei prominenti: associati a squilibri del microbiota e seborrea.
-- Miniaturizzazione e riduzione densita: segni cardinali di pattern AGA.
-- Eritema perifollicolare e desquamazione: possibile squilibrio del microbiota.
+- Riferimento al medico curante SOLO per conferma clinica
 
 Restituisci SOLO il JSON conforme allo schema fornito.
 '''
@@ -240,10 +223,7 @@ def analizza_immagine_gemini(
     """Analizza una immagine tricoscopica con Gemini Vision."""
     try:
         prompt_sistema_compilato = PROMPT_SISTEMA.format(
-            sesso=sesso,
-            etnia=etnia,
-            eta=eta,
-            zona=zona,
+            sesso=sesso, etnia=etnia, eta=eta, zona=zona,
         )
 
         contesto_extra = ""
@@ -252,9 +232,6 @@ def analizza_immagine_gemini(
                 "\n\nDATI GIA CALCOLATI DA OPENCV:\n"
                 f"- Eritema diffuso: {dati_opencv.get('eritema_diffuso', 'N/D')}\n"
                 f"- Tappi sebacei: {dati_opencv.get('tappi_sebacei', 'N/D')}\n"
-                f"- Follicoli dormienti: {dati_opencv.get('follicoli_dormienti', 'N/D')}\n"
-                f"- Steli anagen: {dati_opencv.get('steli_anagen', 'N/D')}\n"
-                f"- Steli vellus: {dati_opencv.get('steli_vellus', 'N/D')}\n"
                 f"- Calibro medio: {dati_opencv.get('calibro_medio', 'N/D')} um\n"
                 f"- Anisotropia: {dati_opencv.get('anisotropia', 'N/D')} percento\n"
             )
@@ -269,10 +246,7 @@ def analizza_immagine_gemini(
             f"- Etnia: {etnia}\n"
             f"- Eta: {eta} anni\n"
             f"{contesto_extra}\n\n"
-            "Compila TUTTI i campi dello schema JSON.\n"
-            "Per la densita (solo se 50x): usa il range etnia+zona e fornisci un numero preciso.\n"
-            "Le raccomandazioni devono essere in stile Righetti Since 1967: "
-            "dermo-fitocosmetiche, olistiche, senza farmaci ne prescrizioni mediche."
+            "Compila TUTTI i campi dello schema JSON."
         )
 
         client = genai.Client(api_key=api_key)
@@ -281,23 +255,16 @@ def analizza_immagine_gemini(
             prompt_utente,
         ]
 
-        # === CHIAMATA A GEMINI CON RETRY E FALLBACK AUTOMATICO ===
         import time
-
-        # Lista modelli: primo = principale, secondo = fallback
-        MODELLI_FALLBACK = [modello, "gemini-3.6-flash"]
-        MAX_TENTATIVI = 4
-        ATTESE = [0, 3, 8, 15]  # secondi tra i tentativi
+        modelli_da_provare = [modello] + MODELLI_FALLBACK
+        MAX_TENTATIVI = 3
+        ATTESE = [0, 2, 5]
         errore_finale = None
 
-        for idx_modello, modello_corrente in enumerate(MODELLI_FALLBACK):
-            if idx_modello > 0:
-                print(f"[fallback] passo al modello secondario: {modello_corrente}")
-
+        for idx_modello, modello_corrente in enumerate(modelli_da_provare):
             for tentativo in range(MAX_TENTATIVI):
                 try:
                     if ATTESE[tentativo] > 0:
-                        print(f"[retry {tentativo}/{MAX_TENTATIVI-1}] modello={modello_corrente}, attendo {ATTESE[tentativo]}s...")
                         time.sleep(ATTESE[tentativo])
 
                     response = client.models.generate_content(
@@ -308,46 +275,65 @@ def analizza_immagine_gemini(
                             response_mime_type="application/json",
                             response_schema=SCHEMA_JSON,
                             temperature=0.2,
+                            thinking_config=types.ThinkingConfig(thinking_level="minimal"),
                         ),
                     )
-
-                    # Successo: esci e restituisci
                     return json.loads(response.text)
 
                 except Exception as e:
                     msg = str(e)
-                    # Riconosci errori temporanei che vale la pena ritentare
                     temporaneo = any([
-                        "503" in msg,
-                        "UNAVAILABLE" in msg,
-                        "429" in msg,
-                        "RESOURCE_EXHAUSTED" in msg,
-                        "timeout" in msg.lower(),
-                        "connection" in msg.lower(),
-                        "overloaded" in msg.lower(),
+                        "503" in msg, "UNAVAILABLE" in msg, "429" in msg,
+                        "RESOURCE_EXHAUSTED" in msg, "timeout" in msg.lower(),
+                        "connection" in msg.lower(), "overloaded" in msg.lower(),
                         "high demand" in msg.lower(),
                     ])
-
                     if temporaneo and tentativo < MAX_TENTATIVI - 1:
                         errore_finale = e
-                        print(f"[retry] errore temporaneo ({modello_corrente}): {msg[:120]}...")
                         continue
-                    elif temporaneo and idx_modello == 0:
-                        # Esauriti i tentativi sul primo modello: passa al fallback
+                    elif temporaneo and idx_modello < len(modelli_da_provare) - 1:
                         errore_finale = e
-                        print(f"[fallback] {modello_corrente} non disponibile, provo il modello secondario...")
-                        break  # esci dal loop interno, vai al modello successivo
+                        break
                     else:
-                        # Errore non temporaneo o ultimo modello: rilancia
                         raise
 
-        # Se arriviamo qui, tutti i modelli e i tentativi sono falliti
-        raise errore_finale if errore_finale else Exception("Tutti i modelli e i tentativi falliti")
+        raise errore_finale if errore_finale else Exception("Tutti i modelli falliti")
 
     except json.JSONDecodeError as e:
         return {"errore": "JSON non valido", "dettagli": str(e)}
     except Exception as e:
         return {"errore": "Errore chiamata Gemini", "dettagli": str(e), "tipo": type(e).__name__}
+
+
+def analizza_immagini_parallelo(lista_immagini, api_key: str, max_workers: int = 5, **kwargs_comuni) -> list:
+    """Analizza una lista di immagini in parallelo con Gemini."""
+    risultati = {}
+
+    def _analizza_una(img_data):
+        img_id = img_data.get("id_univoco", str(id(img_data)))
+        try:
+            risultato = analizza_immagine_gemini(
+                image_bytes=img_data["image_bytes"],
+                api_key=api_key,
+                lente=img_data.get("lente", kwargs_comuni.get("lente", "50x")),
+                luce=img_data.get("luce", kwargs_comuni.get("luce", "Bianca")),
+                zona=img_data.get("zona", kwargs_comuni.get("zona", "Vertice")),
+                sesso=img_data.get("sesso", kwargs_comuni.get("sesso", "Uomo")),
+                etnia=img_data.get("etnia", kwargs_comuni.get("etnia", "Caucasica")),
+                eta=img_data.get("eta", kwargs_comuni.get("eta", 40)),
+                dati_opencv=img_data.get("dati_opencv"),
+            )
+            return img_id, risultato, True
+        except Exception as e:
+            return img_id, {"errore": f"Eccezione: {type(e).__name__}: {e}"}, False
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_analizza_una, img): img for img in lista_immagini}
+        for future in as_completed(futures):
+            img_id, risultato, successo = future.result()
+            risultati[img_id] = {"id_univoco": img_id, "risultato": risultato, "successo": successo}
+
+    return [risultati[img.get("id_univoco", str(id(img)))] for img in lista_immagini]
 
 
 def sintesi_narrativa_da_json(analisi: dict) -> str:
@@ -366,20 +352,17 @@ def sintesi_narrativa_da_json(analisi: dict) -> str:
         f"luce {metadati.get('tipo_luce', 'N/D')}, "
         f"zona {metadati.get('zona_anatomica', 'N/D')}."
     )
-
     if a50:
         erit = "presente" if a50.get("eritema_perifollicolare") else "assente"
         desq = "presente" if a50.get("desquamazione") else "assente"
         righe.append(f"Cute: eritema {erit}, desquamazione {desq}.")
 
-    # Tappi sebacei: cercali in a50 o a200 (vanno valutati a entrambi gli ingrandimenti)
     tappi_q = None
     if a50 and a50.get('tabbi_sebacei_quantita'):
         tappi_q = a50.get('tabbi_sebacei_quantita')
     if a200 and a200.get('tabbi_sebacei_quantita'):
         tappi_q = a200.get('tabbi_sebacei_quantita')
 
-    # Follicoli silenti: solo a 200x
     silenti_q = a200.get('follicoli_silenti_quantita') if a200 else None
 
     if tappi_q or silenti_q:
