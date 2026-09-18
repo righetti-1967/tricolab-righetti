@@ -6,5 +6,5 @@ plotly
 pymupdf
 matplotlib
 requests
-google-generativeai
+google-genai>=2.0.0
 pillow
