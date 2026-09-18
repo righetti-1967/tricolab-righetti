@@ -6,3 +6,12 @@ ai_api_key.txt
 .DS_Store
 GESTIONALE/
 RIGHETTI_MANAGER/
+.streamlit/secrets.toml
+test_output.json
+*.jpg
+*.jpeg
+*.png
+*.bak*
+*.pdf
+__pycache__/
+*.pyc
